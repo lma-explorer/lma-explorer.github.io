@@ -4,9 +4,9 @@
 # Syntax: <path pattern>  @github-handle  [@github-handle...]
 # Docs:   https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-security/customizing-your-repository/about-code-owners
 #
-# Handles below are PLACEHOLDERS until Phase 1 exit (see DECISIONS_LOG.md,
-# Decision 5). Replace TBD-PRIMARY and TBD-COMAINTAINER with real GitHub
-# usernames before opening the repo to external contributions.
+# Handles below are PLACEHOLDERS until Phase 1 exit. Replace TBD-PRIMARY
+# and TBD-COMAINTAINER with real GitHub usernames before opening the repo
+# to external contributions.
 
 # Default owner for everything in the repo
 *                              @TBD-PRIMARY  @TBD-COMAINTAINER
@@ -22,7 +22,6 @@ LICENSE                        @TBD-PRIMARY
 LICENSE-DATA.md                @TBD-PRIMARY
 GOVERNANCE.md                  @TBD-PRIMARY
 CITATION.cff                   @TBD-PRIMARY
-DECISIONS_LOG.md               @TBD-PRIMARY
 
 # Workflow files — these control scheduled refresh and deployment; treat
 # as high-risk.

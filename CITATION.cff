@@ -9,24 +9,20 @@ authors:
   - family-names: Sall
     given-names: Isal
     affiliation: Independent
-    # Note: affiliation intentionally listed as "Independent" for this
-    # personally-maintained platform, even though the maintainer is
-    # concurrently a postdoctoral researcher at the University of Arizona.
-    # See GOVERNANCE.md (institutional posture) for rationale.
+    # Note: affiliation listed as "Independent" for this
+    # personally-maintained platform. See GOVERNANCE.md
+    # (institutional posture) for rationale.
   - family-names: TBD-COMAINTAINER-LAST
     given-names: TBD-COMAINTAINER-FIRST
     affiliation: Independent
-    # Placeholder for co-author / methodology reviewer. Likely candidate
-    # based on prior publication record: Russell Tronstad (UA Cooperative
-    # Extension). Not hardcoded pending explicit confirmation from the
-    # co-author themselves.
+    # Placeholder for co-author / methodology reviewer. Not hardcoded
+    # pending explicit confirmation from the co-author themselves.
 abstract: >-
   An interactive, continuously updated companion platform to
-  a forthcoming Arizona Cooperative Extension article,
-  "Market Alternatives and Price Slide Considerations for
-  Selling Feeder Cattle" (Sall & Tronstad, in preparation),
-  which updates the 1994 Arizona Ranchers' Management Guide
-  chapter "Comparison of Livestock Marketing Alternatives"
+  a forthcoming Extension article, "Market Alternatives and
+  Price Slide Considerations for Selling Feeder Cattle"
+  (Sall & Tronstad, in preparation), which updates a 1994
+  Extension guide chapter on livestock marketing alternatives
   (Tronstad, 1994). Ingests public-domain USDA-AMS, BLS, and
   USDA NASS data on a scheduled refresh and publishes
   producer-facing figures, methodology, and versioned data

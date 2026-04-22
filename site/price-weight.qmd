@@ -146,7 +146,7 @@ fig.show()
 
 ## What's next on this page
 
-- [ ] Real Clovis archive replaces the synthetic stand-in (Phase 1 item #8 in `PHASE1_PLAN.md`).
+- [ ] Real Clovis archive replaces the synthetic stand-in (Phase 1).
 - [ ] Year-range slider + sex filter + inflation toggle (Phase 2).
 - [ ] Live AMS pipeline attaching current-season comparisons (Phase 2).
 - [ ] Downloadable session summary for producers to take to a banker (Phase 3).

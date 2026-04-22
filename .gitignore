@@ -45,3 +45,8 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Internal working docs — kept locally, not tracked in the public repo.
+# Pulled out 2026-04-22 pending explicit approvals to publish.
+DECISIONS_LOG.md
+PHASE1_PLAN.md

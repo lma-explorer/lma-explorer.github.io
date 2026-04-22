@@ -10,8 +10,6 @@ lma-explorer.github.io/
 ├── GOVERNANCE.md                         ← automation-over-features commitment
 ├── CODEOWNERS                            ← review routing (placeholders for now)
 ├── CITATION.cff                          ← machine-readable citation
-├── DECISIONS_LOG.md                      ← Phase 0 decisions + rationale
-├── PHASE1_PLAN.md                        ← Phase 1 design (BLS CPI + price-weight)
 ├── .gitignore
 │
 ├── .github/
@@ -85,10 +83,7 @@ Files ready to commit in the first push:
 - `GOVERNANCE.md`
 - `CODEOWNERS`
 - `CITATION.cff`
-- `DECISIONS_LOG.md`
 - `.gitignore`
 - `.github/ISSUE_TEMPLATE/bug_report.yml`
 - `.github/ISSUE_TEMPLATE/data_source_drift.yml`
 - `.github/ISSUE_TEMPLATE/feature_request.yml`
-
-`PHASE1_PLAN.md` is the next file (coming in this session).
