@@ -43,8 +43,9 @@ jobs:
           cache-dependency-path: pipelines/requirements.txt
 
       - name: Install Python dependencies
-        # site pages read parquet at render time via Python code cells.
-        run: pip install -r pipelines/requirements.txt plotly
+        # site pages read parquet at render time via Python code cells;
+        # jupyter + plotly live in the requirements file alongside pipeline deps.
+        run: pip install -r pipelines/requirements.txt
 
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
