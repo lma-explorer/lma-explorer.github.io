@@ -1,0 +1,36 @@
+/* Livestock Marketing Alternatives Explorer — site-wide overrides.
+ * Keep this file short. If it grows past ~100 lines the styling has
+ * probably gotten ahead of the content and should be revisited. */
+
+/* Generous line length for the producer-facing pages; methodology and
+ * data pages override back to narrower for long-form reading. */
+main.content {
+  max-width: 1100px;
+}
+
+/* Audience-card grid on the landing page. */
+.grid {
+  gap: 1.5rem;
+}
+.grid .g-col-12 h3 {
+  margin-top: 0;
+}
+
+/* Tighten the gap between a figure and its caveat callout. */
+.quarto-figure + .callout {
+  margin-top: 0.5rem;
+}
+
+/* Vintage stamp readability. */
+.callout-important {
+  font-size: 0.95rem;
+}
+
+/* Mobile: compress large hero charts to a scrollable container rather than
+ * forcing a reflow that truncates axis labels. */
+@media (max-width: 600px) {
+  .plotly-graph-div {
+    min-width: 500px;
+    overflow-x: auto;
+  }
+}

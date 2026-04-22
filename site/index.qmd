@@ -1,0 +1,98 @@
+---
+title: "Livestock Marketing Alternatives Explorer"
+subtitle: "An open, continuously-updated companion to a forthcoming Arizona REDACTED Extension service article, *Market Alternatives and Price Slide Considerations for Selling Feeder Cattle* (Sall & Tronstad, in preparation)."
+toc: false
+---
+
+::: {.callout-note appearance="minimal"}
+This site is in **Phase 1 prototype**. One figure (price–weight explorer) is live; more are coming as additional public data pipelines land.
+:::
+
+## What this is
+
+A producer-facing, Extension-aligned platform that takes the figures and comparisons in a forthcoming Arizona REDACTED Extension service article — *Market Alternatives and Price Slide Considerations for Selling Feeder Cattle* by Sall & Tronstad (in preparation) — and keeps them current as new public USDA and BLS data land. The article itself updates the 1994 *Comparison of Livestock Marketing Alternatives* chapter in the REDACTED publication (Tronstad, 1994). Every number on this site is sourced from a public-domain federal dataset; every figure is reproducible from versioned code; every page has an **edit on GitHub** link for corrections.
+
+## Who this is for
+
+::: {.grid}
+
+::: {.g-col-12 .g-col-md-4}
+### For producers
+
+A handful of focused, mobile-friendly pages that answer the questions rural producers actually ask: *What did cattle bring last week at weight X?* *Is it better to sell now or retain?* *What does a slide contract cost me in a given market?*
+
+[Start with the price–weight explorer →](price-weight.qmd)
+:::
+
+::: {.g-col-12 .g-col-md-4}
+### For Extension peers & graduate students
+
+Each figure has a **methodology** link explaining what's computed, the deflation choice, and the data vintage. All code is MIT-licensed; every page has an "Edit on GitHub" link so a correction or a state-level adaptation is a pull request away.
+
+[Read the methodology →](methodology/index.qmd)
+:::
+
+::: {.g-col-12 .g-col-md-4}
+### For researchers & journalists
+
+Raw snapshots are committed as Parquet and released annually as a Zenodo deposit with a DOI. Every pipeline run is logged in the `MANIFEST.json`; every figure carries a vintage stamp.
+
+[Browse the data →](data.qmd)
+:::
+
+:::
+
+## Featured figure
+
+A quick look at the price–weight explorer, built on archived Clovis, NM feeder-cattle auction data.
+
+```{python}
+#| fig-cap: "Preview: feeder cattle price by weight class. Full explorer on the [Price–weight](price-weight.qmd) page."
+#| fig-width: 8
+#| fig-height: 4
+#| echo: false
+
+# Placeholder figure. Replaced with a real preview when the Clovis archive
+# snapshot lands in data/processed/clovis_archive_2000_2025.parquet.
+import plotly.graph_objects as go
+
+fig = go.Figure()
+fig.add_annotation(
+    text="Preview chart arrives with the Clovis archive snapshot (Phase 1 item #8).",
+    x=0.5, y=0.5, xref="paper", yref="paper",
+    showarrow=False,
+)
+fig.update_layout(
+    height=300,
+    margin=dict(t=20, b=20, l=20, r=20),
+    xaxis=dict(visible=False),
+    yaxis=dict(visible=False),
+)
+fig.show()
+```
+
+## Last refreshed
+
+```{python}
+#| echo: false
+import json
+from pathlib import Path
+manifest_path = Path(__file__).resolve().parents[1] / "data" / "processed" / "MANIFEST.json"
+if manifest_path.exists():
+    with manifest_path.open("r", encoding="utf-8") as f:
+        manifest = json.load(f)
+    entries = manifest.get("entries", [])
+    if entries:
+        latest = entries[-1]
+        print(f"CPI vintage: {latest.get('vintage')} · written {latest.get('written_at_utc')}")
+    else:
+        print("CPI vintage: not yet populated")
+else:
+    print("CPI vintage: not yet populated")
+```
+
+## Governance
+
+This platform is maintained in the open. The guiding commitment is [**Automation Over Features**](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/GOVERNANCE.md): every new page must be scheduled, must fail loudly, must fall back to last-known-good on failure, must carry a vintage stamp, must have a methodology page, and must be license-compliant — before it ships.
+
+Content: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/). Code: [MIT](https://opensource.org/licenses/MIT). Citation: [CITATION.cff](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/CITATION.cff).

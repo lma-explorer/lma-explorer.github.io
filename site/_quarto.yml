@@ -1,0 +1,65 @@
+project:
+  type: website
+  output-dir: _site
+  preview:
+    port: 4848
+
+website:
+  title: "Livestock Marketing Alternatives Explorer"
+  description: "An interactive companion to a forthcoming Arizona REDACTED Extension service article, Market Alternatives and Price Slide Considerations for Selling Feeder Cattle (Sall & Tronstad, in preparation) — built on public USDA, BLS, and NASS data."
+  site-url: "https://lma-explorer.github.io"
+  repo-url: "https://github.com/lma-explorer/lma-explorer.github.io"
+  repo-actions: [edit, source, issue]
+  back-to-top-navigation: true
+  page-navigation: true
+  reader-mode: false
+  twitter-card: true
+  open-graph: true
+
+  navbar:
+    background: light
+    search: true
+    left:
+      - text: "Home"
+        href: index.qmd
+      - text: "Price–weight explorer"
+        href: price-weight.qmd
+      - text: "Methodology"
+        href: methodology/index.qmd
+      - text: "Data"
+        href: data.qmd
+      - text: "About"
+        href: about.qmd
+    right:
+      - icon: github
+        href: https://github.com/lma-explorer/lma-explorer.github.io
+        aria-label: GitHub repository
+
+  page-footer:
+    left: |
+      Built on public USDA-AMS, BLS, and USDA NASS data. Code MIT; content and derived data CC-BY-4.0.
+    right: |
+      See [GOVERNANCE](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/GOVERNANCE.md) and [CITATION](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/CITATION.cff).
+
+format:
+  html:
+    theme:
+      light: cosmo
+      dark: darkly
+    css: styles.css
+    toc: true
+    toc-depth: 3
+    toc-location: right
+    link-external-newwindow: true
+    link-external-icon: true
+    code-fold: true
+    code-summary: "Show the code"
+    fig-responsive: true
+    email-obfuscation: references
+
+execute:
+  freeze: auto
+  echo: false
+  warning: false
+
+editor: source

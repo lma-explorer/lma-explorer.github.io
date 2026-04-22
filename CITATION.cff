@@ -1,0 +1,45 @@
+cff-version: 1.2.0
+title: Livestock Marketing Alternatives Explorer
+message: >-
+  If you use this platform or any of its derived data, please
+  cite as below. Once an annual Zenodo deposit is live,
+  please prefer the versioned DOI over the repository URL.
+type: software
+authors:
+  - family-names: Sall
+    given-names: Isal
+    affiliation: Independent
+    # Note: affiliation intentionally listed as "Independent" for this
+    # personally-maintained platform, even though the maintainer is
+    # concurrently a postdoctoral researcher at the REDACTED institution.
+    # See GOVERNANCE.md (institutional posture) for rationale.
+  - family-names: TBD-COMAINTAINER-LAST
+    given-names: TBD-COMAINTAINER-FIRST
+    affiliation: Independent
+    # Placeholder for co-author / methodology reviewer. Likely candidate
+    # based on prior publication record: Russell Tronstad (UA Cooperative
+    # Extension). Not hardcoded pending explicit confirmation from the
+    # co-author themselves.
+abstract: >-
+  An interactive, continuously updated companion platform to
+  a forthcoming Arizona REDACTED Extension service article,
+  "Market Alternatives and Price Slide Considerations for
+  Selling Feeder Cattle" (Sall & Tronstad, in preparation),
+  which updates the 1994 REDACTED publication
+  chapter "Comparison of Livestock Marketing Alternatives"
+  (Tronstad, 1994). Ingests public-domain USDA-AMS, BLS, and
+  USDA NASS data on a scheduled refresh and publishes
+  producer-facing figures, methodology, and versioned data
+  snapshots.
+keywords:
+  - livestock marketing
+  - feeder cattle
+  - agricultural economics
+  - USDA AMS
+  - Extension
+license: MIT
+license-url: https://opensource.org/licenses/MIT
+repository-code: https://github.com/lma-explorer/lma-explorer.github.io
+url: https://lma-explorer.github.io
+version: 0.1.0-phase0
+date-released: 2026-04-21

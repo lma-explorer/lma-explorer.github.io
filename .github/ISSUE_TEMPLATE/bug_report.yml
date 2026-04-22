@@ -1,0 +1,46 @@
+name: Bug report
+description: Something on the site or in the code is broken.
+title: "[Bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. The more concrete you can be about what you saw vs. what you expected, the faster we can fix it.
+        If the bug is about stale or drifted data (AMS report slug change, BLS revision, NASS suppression), please use the "Data source drift" template instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Plain-language description of what went wrong.
+      placeholder: "On the price-weight explorer, the 500–600 lb band shows zero observations for 2024 even though the Clovis report had that weight class all year."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      placeholder: "I expected the band to show 2024 data the same way it shows 2022 and 2023."
+    validations:
+      required: true
+  - type: input
+    id: page-or-file
+    attributes:
+      label: Page URL or file path
+      placeholder: "https://lma-explorer.github.io/price-weight/ or /pipelines/ams/ingest.py"
+    validations:
+      required: true
+  - type: input
+    id: browser-or-env
+    attributes:
+      label: Browser / environment (if it's a site bug)
+      placeholder: "Safari 17 on iPhone, or Chrome 132 on macOS"
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to the price-weight page
+        2. Select weight class 500–600 lb, sex Steer
+        3. Set year range to 2020–2024
+        4. Observe that 2024 is blank

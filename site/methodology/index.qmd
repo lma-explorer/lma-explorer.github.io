@@ -1,0 +1,44 @@
+---
+title: "Methodology"
+subtitle: "How figures on this site are computed, and the choices behind them."
+toc: true
+toc-depth: 2
+---
+
+This page collects the methodological choices that sit behind the figures on the platform. If any of them surprise you, open an [issue](https://github.com/lma-explorer/lma-explorer.github.io/issues) — we would rather hear about a disagreement than watch a reader walk away confused.
+
+## Guiding commitments
+
+1. **Public-domain data only.** USDA-AMS LMR (via the MARS API), BLS CPI-U via the public v2 API, and USDA NASS QuickStats. CME futures are link-out only; we do not mirror proprietary prices.
+2. **Every figure carries a vintage stamp.** The CPI vintage used to deflate, the date the underlying AMS report was published, and the date the page was last rebuilt — all visible on the page or one click away.
+3. **Reproducibility before breadth.** We would rather serve one figure that can be re-computed from source in a few minutes than five figures whose provenance has drifted.
+4. **Last-known-good on failure.** A failed pipeline run never overwrites a good snapshot. The site keeps serving the last successful vintage until the failure is investigated. See [GOVERNANCE](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/GOVERNANCE.md).
+
+## Data sources and their pipelines
+
+| Source | Series or dataset | Pipeline | Refresh cadence |
+|---|---|---|---|
+| BLS | CPI-U, All Items, U.S. City Average, NSA (`CUUR0000SA0`) | `pipelines/bls/` | Monthly, 16th 14:00 UTC |
+| USDA-AMS | Livestock Market Reporting (MARS API) | `pipelines/ams/` *(Phase 2)* | Daily |
+| USDA NASS | QuickStats — state/county crop and livestock statistics | `pipelines/nass/` *(Phase 2)* | Annual |
+
+Archived Clovis, NM auction data is committed directly as a static Parquet snapshot; it is not on a live refresh.
+
+## Specific methodology pages
+
+- [CPI deflation and the article-basis vintage](cpi.qmd)
+
+More will land as Phase 2 pipelines go live.
+
+## What a methodology page contains
+
+Every methodology page on this site is expected to answer, in order:
+
+1. **What is being measured?** (The underlying concept in plain language.)
+2. **Where does the data come from?** (The specific series, the API endpoint, the vintage.)
+3. **What transformations are applied?** (Unit conversions, category mappings, deflation, weighting.)
+4. **What is deliberately left out?** (Excluded years, excluded categories, known quality caveats.)
+5. **Where is the code?** (Link to the pipeline module and the `.qmd` file's source.)
+6. **Who to contact?** (A GitHub issue template or a maintainer's handle.)
+
+If a page you are reading does not answer one of these, that is a bug — open an issue.
