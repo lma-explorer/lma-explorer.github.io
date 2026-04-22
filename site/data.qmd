@@ -16,7 +16,9 @@ Every pipeline on this platform writes a versioned Parquet snapshot on each run.
 import json
 from pathlib import Path
 
-manifest_path = Path(__file__).resolve().parents[1] / "data" / "processed" / "MANIFEST.json"
+# Quarto's Jupyter kernel has no __file__. Paths are resolved from the cwd
+# Quarto sets during render — the .qmd file's directory (site/).
+manifest_path = Path("..") / "data" / "processed" / "MANIFEST.json"
 if manifest_path.exists():
     with manifest_path.open("r", encoding="utf-8") as f:
         manifest = json.load(f)
