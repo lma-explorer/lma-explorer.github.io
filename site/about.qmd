@@ -1,0 +1,27 @@
+---
+title: "About"
+subtitle: "Who maintains this, and how to get in touch."
+toc: false
+---
+
+## What this platform is
+
+The Livestock Marketing Alternatives Explorer is an open, continuously-updated companion site to a forthcoming Arizona Cooperative Extension article, *Market Alternatives and Price Slide Considerations for Selling Feeder Cattle* (Sall & Tronstad, in preparation). That article updates and extends the 1994 *Comparison of Livestock Marketing Alternatives* chapter in the Arizona Ranchers' Management Guide (Tronstad, 1994). Where the article itself is a fixed snapshot of one year's comparisons (Clovis, NM feeder-cattle auction data from 2000 through December 2025, deflated to December 2025 dollars), this platform keeps the comparisons alive as new public USDA-AMS, BLS, and USDA NASS data land, and adds interactive tools so producers and Extension peers can work against their own year ranges, weight classes, and deflation choices. The platform goes to public launch when the article has a public URL; until then, a short pilot-reviewer list is the only external audience.
+
+## Who maintains it
+
+Primary author and maintainer: **Isal Sall**, postdoctoral researcher at the University of Arizona. The platform is maintained independently of any single institution (see [Decisions Log](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/DECISIONS_LOG.md)), with a co-author and methodology reviewer from University of Arizona Cooperative Extension. See [CITATION.cff](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/CITATION.cff) for the current author list.
+
+## How to engage
+
+- **Found a number that looks off?** Open an [issue](https://github.com/lma-explorer/lma-explorer.github.io/issues/new/choose) — every page has an "Edit on GitHub" link to jump straight in.
+- **Want to adapt the platform to another region or state?** The code is MIT-licensed. Fork it; the data pipelines are independent of any particular region.
+- **Extension peer who wants to review or contribute a methodology page?** Reach out via a GitHub issue; we maintain a pilot-reviewer list (see [`DECISIONS_LOG.md`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/DECISIONS_LOG.md), Decision 5).
+
+## Governance
+
+Read [GOVERNANCE.md](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/GOVERNANCE.md) for the full decision-authority matrix, the Automation Over Features commitment, and the acceptable-use posture. In short: every feature ships with a scheduled refresh, a failure detector, a last-known-good fallback, a vintage stamp, a methodology page, and license-compliant source attribution — or it does not ship.
+
+## Acknowledgments
+
+This platform sits at the intersection of publicly-funded federal data (BLS, USDA-AMS, USDA NASS) and publicly-released Extension research. It exists because those data are in the public domain and because Extension's mission is to put trustworthy information in reach of rural producers. The maintainer's broader research portfolio — including a three-year USGS-funded project on evapotranspiration in the Lower Colorado River Basin — informs the long-term direction but does not fund this platform, which is maintained on the maintainer's own computer and own time.

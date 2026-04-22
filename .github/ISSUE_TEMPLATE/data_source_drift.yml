@@ -1,0 +1,52 @@
+name: Data source drift
+description: A scheduled ingestion has failed or appears to be returning wrong/stale data.
+title: "[Drift] "
+labels: ["data-source-drift", "urgent-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template when an upstream data source has changed its schema, slug, field names, or content in a way that breaks ingestion. This is the most common failure mode for the platform; per `GOVERNANCE.md`, scheduled workflows should auto-open an issue using this template on failure.
+  - type: dropdown
+    id: source
+    attributes:
+      label: Affected data source
+      options:
+        - USDA-AMS (MARS API)
+        - BLS CPI (CUUR0000SA0)
+        - USDA NASS QuickStats
+        - CME link-out (public page changed)
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: workflow-run
+    attributes:
+      label: Failing workflow run URL (if auto-opened)
+      placeholder: "https://github.com/lma-explorer/lma-explorer.github.io/actions/runs/..."
+  - type: input
+    id: last-good
+    attributes:
+      label: Last known good run / vintage
+      placeholder: "cpi_2026-03.parquet (run 2026-03-12) — still live on site"
+  - type: textarea
+    id: symptom
+    attributes:
+      label: Symptom
+      description: What does the failure look like — schema hash mismatch, empty response, HTTP error, suspicious values?
+    validations:
+      required: true
+  - type: textarea
+    id: schema-diff
+    attributes:
+      label: Schema or value diff (if known)
+      placeholder: "AMS field `reported_date` renamed to `report_date` in response body."
+  - type: checkboxes
+    id: safeguards
+    attributes:
+      label: Confirm safeguards
+      options:
+        - label: Last-known-good data is still live on the published site
+          required: true
+        - label: No partial or wrong data was published as a result of this failure
+          required: true

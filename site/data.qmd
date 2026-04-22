@@ -1,0 +1,42 @@
+---
+title: "Data snapshots"
+subtitle: "Every vintage is a release artifact. Browse, download, cite."
+toc: true
+toc-depth: 2
+---
+
+## What's here
+
+Every pipeline on this platform writes a versioned Parquet snapshot on each run. The snapshots accumulate in `data/processed/`; a `MANIFEST.json` records each one with its vintage, sha256, and row count. Once a year, the accumulated snapshots are bundled into a Zenodo deposit with a versioned DOI, which is the preferred citation target for researchers.
+
+## Snapshots on disk
+
+```{python}
+#| echo: false
+import json
+from pathlib import Path
+
+manifest_path = Path(__file__).resolve().parents[1] / "data" / "processed" / "MANIFEST.json"
+if manifest_path.exists():
+    with manifest_path.open("r", encoding="utf-8") as f:
+        manifest = json.load(f)
+    print(f"Series: {manifest.get('series', '(unknown)')}")
+    print()
+    print(f"{'Vintage':<10} {'Rows':>7}  {'File':<50}")
+    print("-" * 72)
+    for entry in manifest.get("entries", []):
+        vintage = entry.get("vintage", "?")
+        rows = entry.get("rows", "?")
+        file = entry.get("file", "?")
+        print(f"{vintage:<10} {rows:>7}  {file:<50}")
+else:
+    print("No manifest yet. The first successful monthly BLS refresh populates this.")
+```
+
+## How to cite
+
+Prefer the versioned Zenodo DOI when one exists. Until the first annual deposit, cite the repository directly using the [CITATION.cff](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/CITATION.cff) file and the relevant commit SHA.
+
+## License
+
+All derived data: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/). See [LICENSE-DATA](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/LICENSE-DATA.md) for the source-by-source breakdown.

@@ -1,0 +1,46 @@
+name: Feature request
+description: Propose a new figure, page, calculator, or data source.
+title: "[Feature] "
+labels: ["feature", "needs-automation-story"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Per `GOVERNANCE.md`, this project optimizes for automation over features. A feature request is ready to work on only when it has a credible automation story — a scheduled-run definition, a failure-detection path, and a last-known-good fallback. If you can't answer those sections below yet, the feature request is still welcome; it just stays in triage until the automation story is sketched.
+  - type: textarea
+    id: feature
+    attributes:
+      label: The feature
+      description: What is it, and which audience does it serve?
+      placeholder: "Retained-ownership vs. sell-at-weaning calculator for the /lab subdomain — serves producers."
+    validations:
+      required: true
+  - type: textarea
+    id: value
+    attributes:
+      label: Why it matters
+      description: What decision does this help someone make that they can't make today?
+    validations:
+      required: true
+  - type: textarea
+    id: data
+    attributes:
+      label: Underlying data sources
+      description: Which ingestion pipelines does this depend on? Any new sources?
+    validations:
+      required: true
+  - type: textarea
+    id: automation-story
+    attributes:
+      label: Automation story (can be draft)
+      description: Schedule, failure detection, last-known-good behavior. Leave blank if you haven't thought it through yet — the maintainers will pair on this before work starts.
+  - type: dropdown
+    id: audience
+    attributes:
+      label: Primary audience
+      options:
+        - Producers / ranchers
+        - Extension peers / students
+        - Researchers / journalists
+    validations:
+      required: true

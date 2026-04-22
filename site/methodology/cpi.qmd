@@ -1,0 +1,62 @@
+---
+title: "CPI deflation and the article-basis vintage"
+subtitle: "Why some figures deflate to 2026 dollars and others keep nominal prices — and how to tell which is which."
+toc: true
+toc-depth: 2
+---
+
+## What is being measured
+
+When a figure on this site says it shows **real dollars**, it means nominal prices have been divided by a Consumer Price Index value to remove the effect of general price-level change. The CPI series used is the **CPI-U, All Items, U.S. City Average, Not Seasonally Adjusted** (BLS series `CUUR0000SA0`).
+
+NSA is used rather than seasonally adjusted CPI because seasonal-adjustment patterns reflect a general consumer basket and do not cleanly transfer to livestock prices; the actual price level a producer faced in a given month is what NSA reports.
+
+## Where the data comes from
+
+- **Series**: `CUUR0000SA0`
+- **Publisher**: U.S. Bureau of Labor Statistics, public v2 API
+- **License**: U.S. public domain
+- **Pipeline**: `pipelines/bls/` in this repo — see the [pipeline README](https://github.com/lma-explorer/lma-explorer.github.io/tree/main/pipelines/bls).
+- **Schedule**: 16th of each month, 14:00 UTC (`.github/workflows/bls_cpi_refresh.yml`).
+
+The pipeline writes two artifacts that figures choose between:
+
+```
+data/processed/cpi_latest.parquet            # newest vintage, updated monthly
+data/processed/cpi_article_basis_2025.parquet  # frozen to the forthcoming article's December 2025 CPI basis
+```
+
+## The two-vintage choice
+
+BLS revises CPI values. A figure that is meant to reproduce the numbers in the forthcoming Extension article must keep deflating with the CPI vintage current when the article is finalized (December 2025 basis), even after BLS publishes revisions; a figure that is meant to show current real prices should deflate with the most recent vintage. We do not let either choice be an implicit default.
+
+**Every `.qmd` file that deflates names its CPI vintage in its first code cell.** It is deliberate and visible in the source. The page caption reports the vintage too, so a reader can see at a glance which basis is in play.
+
+## Base-month pinning
+
+The article-basis file, `cpi_article_basis_2025.parquet`, is a one-time release artifact. It is committed once and never overwritten by the scheduled pipeline. It freezes the historical CPI series as of the vintage current when the forthcoming article is finalized (December 2025 basis).
+
+If BLS revises a historical value, `cpi_latest.parquet` picks that up on its next monthly run and the `revision_count` column increments for the affected month. The article-basis file ignores that revision by construction, preserving article reproducibility.
+
+## The month-over-month sanity check
+
+Before any new vintage is snapshotted, the pipeline checks that no month-over-month CPI change exceeds 5 percent in absolute value. CPI has not moved that fast even in the 2021–2022 inflation spike; a change beyond that bound is almost certainly a unit shift, a decimal error, or a malformed API response. If the check fails, the pipeline exits non-zero, opens a `data-source-drift` issue, and the site keeps serving the prior vintage.
+
+## How to read the vintage stamp
+
+When a figure caption says `CPI vintage: 2026-04`, that means the deflation used the CPI series as published in the April 2026 BLS release. If you are reproducing the figure locally and BLS has since published May 2026 values, your numbers will differ slightly if you use the newer vintage — which is why the site publishes the vintage alongside the figure rather than burying it in code.
+
+## What is deliberately left out
+
+- Regional CPIs (e.g., CPI for the Mountain Census region) are not used. Phase 2 candidate.
+- Chained-CPI variants are not used. The article uses the standard CPI-U.
+- Producer Price Index (PPI) is not used for livestock-price deflation here. A separate Phase 2 methodology page will introduce PPI for feed-cost-side figures where it is more appropriate.
+
+## Code
+
+- Pipeline: [`pipelines/bls/`](https://github.com/lma-explorer/lma-explorer.github.io/tree/main/pipelines/bls)
+- This page's source: [`site/methodology/cpi.qmd`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/site/methodology/cpi.qmd)
+
+## Contact
+
+Spotted an error or a methodological disagreement? Open a [new issue](https://github.com/lma-explorer/lma-explorer.github.io/issues/new/choose) with the `methodology` label.

@@ -1,0 +1,5 @@
+0000000000000000000000000000000000000000000000000000000000000000
+# Placeholder. The first successful run of validate.py will overwrite this
+# with the real sha256 of the BLS response's sorted root/series/data key
+# sets. Regenerate deliberately via `python -m pipelines.bls.validate
+# --rebaseline` after reviewing any schema change in data/raw/bls/.

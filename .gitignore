@@ -1,0 +1,47 @@
+# Raw API response cache — debugging artifact, not redistributable
+/data/raw/
+!/data/raw/.gitkeep
+
+# Quarto build output
+_site/
+.quarto/
+_freeze/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# R
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+renv/library/
+renv/local/
+renv/cellar/
+renv/staging/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment + secrets
+.env
+.env.local
+*.secret
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Editor state
+.vscode/
+.idea/
+*.swp
+*.swo

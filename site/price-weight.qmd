@@ -1,0 +1,151 @@
+---
+title: "What did feeder cattle bring at Clovis, by weight?"
+subtitle: "Price–weight explorer · Clovis, NM auction archive"
+toc: true
+toc-depth: 2
+---
+
+::: {.callout-tip appearance="simple"}
+**Caveat before scrolling.** Clovis is one auction in one region. These prices are not representative of national feeder-cattle prices. Treat this page as a regional reference, not a market index. See [Methodology](methodology/index.qmd) for the archive's coverage and the deflation choice.
+:::
+
+## About this page
+
+The forthcoming Extension article *Market Alternatives and Price Slide Considerations for Selling Feeder Cattle* (Sall & Tronstad, in preparation) walks through feeder-cattle pricing by weight class using archived Clovis, NM auction data from January 2000 through December 2025 — 26 years of weekly observations, deflated to December 2025 dollars. This page keeps that comparison alive and lets readers swap the year range, the weight classes, and the deflation choice. The underlying snapshot is a committed Parquet file that will be refreshed alongside the live AMS ingestion pipeline in Phase 2.
+
+## Pick your slice
+
+```{python}
+#| echo: false
+#| label: data-load
+
+# Phase 1 stub. Replace with the actual archive once clovis_archive_2000_2025.parquet
+# lands in data/processed/. Until then, a small synthetic stand-in keeps the
+# layout honest without claiming to show real prices.
+
+from pathlib import Path
+import pandas as pd
+
+CLOVIS_PATH = Path(__file__).resolve().parents[1] / "data" / "processed" / "clovis_archive_2000_2025.parquet"
+
+if CLOVIS_PATH.exists():
+    df = pd.read_parquet(CLOVIS_PATH)
+    data_is_placeholder = False
+else:
+    # Synthetic stand-in. Clearly labeled so it is never mistaken for real data.
+    import numpy as np
+    rng = np.random.default_rng(seed=2026)
+    # Weight class bins follow the forthcoming article's breakdown
+    # (e.g., Table 2): 300-399 through 800-899 lb, heifers and steers.
+    weight_classes = ["300-399 lb", "400-499 lb", "500-599 lb", "600-699 lb", "700-799 lb", "800-899 lb"]
+    # Full article coverage is 2000-2025; the stand-in uses a trimmed window
+    # so the layout is readable without a real snapshot in hand.
+    years = list(range(2020, 2026))
+    sexes = ["Steer", "Heifer"]
+    rows = []
+    base_by_class = {wc: 280 - i * 15 for i, wc in enumerate(weight_classes)}
+    for year in years:
+        for wc in weight_classes:
+            for sex in sexes:
+                mean = base_by_class[wc] + rng.normal(0, 8) + (year - 2020) * 5
+                if sex == "Heifer":
+                    mean -= 12
+                rows.append({
+                    "report_date": pd.Timestamp(f"{year}-06-15"),
+                    "weight_class": wc,
+                    "sex": sex,
+                    "head_count": int(rng.integers(40, 400)),
+                    "price_low_cwt": round(mean - 10, 2),
+                    "price_mean_cwt": round(mean, 2),
+                    "price_high_cwt": round(mean + 10, 2),
+                })
+    df = pd.DataFrame(rows)
+    data_is_placeholder = True
+
+if data_is_placeholder:
+    print("SYNTHETIC STAND-IN DATA — for layout only. Not real prices.")
+```
+
+::: {.callout-important}
+**Data vintage**: {{< meta data_vintage >}} · see [Data](data.qmd) for raw snapshots · see [Methodology](methodology/index.qmd) for comparability caveats.
+:::
+
+## Min–mean–max by weight class
+
+```{python}
+#| fig-cap: "Feeder cattle price bands by weight class. Hover for head count."
+#| label: fig-price-weight
+#| echo: false
+
+import plotly.graph_objects as go
+
+# Aggregate across all selected years; Phase 1 shows the full snapshot window.
+# In Phase 2 this becomes a driven chart with Observable JS inputs for year
+# range, sex selection, and deflation toggle. Keeping Phase 1 simple per the
+# Automation Over Features commitment: one page live > two pages planned.
+
+agg = (
+    df.groupby(["weight_class", "sex"], as_index=False)
+      .agg(
+          price_low=("price_low_cwt", "min"),
+          price_mean=("price_mean_cwt", "mean"),
+          price_high=("price_high_cwt", "max"),
+          head_count=("head_count", "sum"),
+      )
+)
+
+fig = go.Figure()
+for sex, color in [("Steer", "#1f77b4"), ("Heifer", "#d62728")]:
+    sub = agg[agg["sex"] == sex]
+    fig.add_trace(go.Scatter(
+        x=sub["weight_class"],
+        y=sub["price_mean"],
+        mode="lines+markers",
+        name=f"{sex} (mean)",
+        line=dict(color=color, width=2),
+        error_y=dict(
+            type="data",
+            symmetric=False,
+            array=sub["price_high"] - sub["price_mean"],
+            arrayminus=sub["price_mean"] - sub["price_low"],
+            thickness=1,
+        ),
+        hovertemplate=(
+            "<b>%{x}</b><br>"
+            f"{sex}<br>"
+            "Mean: $%{y:.2f}/cwt<br>"
+            "Head: %{customdata}<extra></extra>"
+        ),
+        customdata=sub["head_count"],
+    ))
+
+fig.update_layout(
+    xaxis_title="Weight class",
+    yaxis_title="Price ($/cwt, nominal)",
+    height=450,
+    margin=dict(t=20, b=40, l=60, r=20),
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    hovermode="x unified",
+)
+fig.show()
+```
+
+## Download
+
+- [Parquet snapshot](../data/processed/clovis_archive_2000_2025.parquet) — feeder cattle archive (2000–2025)
+- [CSV export](../data/processed/clovis_archive_2000_2025.csv) — generated on each site build
+
+## Why these choices
+
+**Min–mean–max rather than a single point.** Auction prices vary within a weight class and within a sale day; collapsing them to a single number hides risk that matters to a seller deciding when to market.
+
+**Nominal dollars for Phase 1.** CPI deflation is wired up in the pipeline (see [Methodology → CPI](methodology/cpi.qmd)) but not turned on for this page yet; the Phase 2 UI toggle will let readers switch between nominal and real dollars (article-basis, December 2025 dollars).
+
+**Clovis only.** Because that is the archive the forthcoming article uses. As the live AMS pipeline lands, more markets will appear behind the same interface.
+
+## What's next on this page
+
+- [ ] Real Clovis archive replaces the synthetic stand-in (Phase 1 item #8 in `PHASE1_PLAN.md`).
+- [ ] Year-range slider + sex filter + inflation toggle (Phase 2).
+- [ ] Live AMS pipeline attaching current-season comparisons (Phase 2).
+- [ ] Downloadable session summary for producers to take to a banker (Phase 3).
