@@ -26,7 +26,8 @@ The forthcoming Extension article *Market Alternatives and Price Slide Considera
 from pathlib import Path
 import pandas as pd
 
-CLOVIS_PATH = Path(__file__).resolve().parents[1] / "data" / "processed" / "clovis_archive_2000_2025.parquet"
+# Jupyter kernel has no __file__; Quarto renders from the .qmd's directory.
+CLOVIS_PATH = Path("..") / "data" / "processed" / "clovis_archive_2000_2025.parquet"
 
 if CLOVIS_PATH.exists():
     df = pd.read_parquet(CLOVIS_PATH)

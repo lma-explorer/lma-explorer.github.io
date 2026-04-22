@@ -77,7 +77,8 @@ fig.show()
 #| echo: false
 import json
 from pathlib import Path
-manifest_path = Path(__file__).resolve().parents[1] / "data" / "processed" / "MANIFEST.json"
+# Same pattern as data.qmd — cwd is site/ at render time.
+manifest_path = Path("..") / "data" / "processed" / "MANIFEST.json"
 if manifest_path.exists():
     with manifest_path.open("r", encoding="utf-8") as f:
         manifest = json.load(f)
