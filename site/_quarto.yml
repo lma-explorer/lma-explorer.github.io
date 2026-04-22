@@ -6,7 +6,7 @@ project:
 
 website:
   title: "Livestock Marketing Alternatives Explorer"
-  description: "An interactive companion to a forthcoming Arizona REDACTED Extension service article, Market Alternatives and Price Slide Considerations for Selling Feeder Cattle (Sall & Tronstad, in preparation) — built on public USDA, BLS, and NASS data."
+  description: "An interactive companion to a forthcoming Extension article, Market Alternatives and Price Slide Considerations for Selling Feeder Cattle (Sall & Tronstad, in preparation) — built on public USDA, BLS, and NASS data."
   site-url: "https://lma-explorer.github.io"
   repo-url: "https://github.com/lma-explorer/lma-explorer.github.io"
   repo-actions: [edit, source, issue]

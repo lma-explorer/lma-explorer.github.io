@@ -4,10 +4,10 @@ This document defines who is responsible for what, how changes get into the repo
 
 ## Maintainers
 
-- **Primary maintainer**: TBD-PRIMARY (placeholder until Phase 1 exit; see `DECISIONS_LOG.md`, Decision 5).
+- **Primary maintainer**: TBD-PRIMARY (placeholder until Phase 1 exit).
 - **Co-maintainer**: TBD-COMAINTAINER (placeholder until Phase 1 exit).
 
-Both maintainers are individuals, not institutions. The platform is intentionally institution-independent so that policy changes at any single Extension office cannot strand the project. See `DECISIONS_LOG.md` Decision 1.
+Both maintainers are individuals, not institutions. The platform is intentionally institution-independent so that policy changes at any single Extension office cannot strand the project.
 
 ## Decision authority
 

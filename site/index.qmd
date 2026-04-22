@@ -1,6 +1,6 @@
 ---
 title: "Livestock Marketing Alternatives Explorer"
-subtitle: "An open, continuously-updated companion to a forthcoming Arizona REDACTED Extension service article, *Market Alternatives and Price Slide Considerations for Selling Feeder Cattle* (Sall & Tronstad, in preparation)."
+subtitle: "An open, continuously-updated companion to a forthcoming Extension article, *Market Alternatives and Price Slide Considerations for Selling Feeder Cattle* (Sall & Tronstad, in preparation)."
 toc: false
 ---
 
@@ -10,7 +10,7 @@ This site is in **Phase 1 prototype**. One figure (price–weight explorer) is l
 
 ## What this is
 
-A producer-facing, Extension-aligned platform that takes the figures and comparisons in a forthcoming Arizona REDACTED Extension service article — *Market Alternatives and Price Slide Considerations for Selling Feeder Cattle* by Sall & Tronstad (in preparation) — and keeps them current as new public USDA and BLS data land. The article itself updates the 1994 *Comparison of Livestock Marketing Alternatives* chapter in the REDACTED publication (Tronstad, 1994). Every number on this site is sourced from a public-domain federal dataset; every figure is reproducible from versioned code; every page has an **edit on GitHub** link for corrections.
+A producer-facing, Extension-aligned platform that takes the figures and comparisons in a forthcoming Extension article — *Market Alternatives and Price Slide Considerations for Selling Feeder Cattle* by Sall & Tronstad (in preparation) — and keeps them current as new public USDA and BLS data land. The article itself updates an earlier 1994 Extension chapter on livestock marketing alternatives (Tronstad, 1994). Every number on this site is sourced from a public-domain federal dataset; every figure is reproducible from versioned code; every page has an **edit on GitHub** link for corrections.
 
 ## Who this is for
 

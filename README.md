@@ -1,6 +1,6 @@
 # Livestock Marketing Alternatives Explorer
 
-An interactive, continuously updated companion to a forthcoming Arizona REDACTED Extension service article, *Market Alternatives and Price Slide Considerations for Selling Feeder Cattle* (Sall & Tronstad, in preparation). The article extends and updates the earlier *Comparison of Livestock Marketing Alternatives* (Tronstad, 1994) in the REDACTED publication; this repository is the code, data pipelines, and published website for the platform companion.
+An interactive, continuously updated companion to a forthcoming Extension article, *Market Alternatives and Price Slide Considerations for Selling Feeder Cattle* (Sall & Tronstad, in preparation). The article extends and updates an earlier 1994 Extension guide chapter on livestock marketing alternatives (Tronstad, 1994); this repository is the code, data pipelines, and published website for the platform companion.
 
 **Status**: Phase 1 (Prototype). First public figure forthcoming. Accompanying Extension article is in draft; the platform will link to the article on release.
 
@@ -42,7 +42,7 @@ One additional source is **link-out only** and is *not* mirrored in this reposit
 /.github/workflows/   Scheduled refresh, site build, annual Zenodo deposit
 ```
 
-See `DECISIONS_LOG.md` for the Phase 0 decisions that shaped this layout and the strategy document in `/docs/` for the underlying roadmap.
+See `/docs/` for the underlying roadmap and strategy document.
 
 ## Licensing
 
