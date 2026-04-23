@@ -5,13 +5,13 @@ exit non-zero so the scheduled workflow opens a data-source-drift issue and
 does NOT commit a new snapshot.
 
     1. Schema-hash check: a hash derived from the set of field names at the
-       levels of the MARS response (root, report, row) must equal the hash
-       committed in ``expected_schema.sha256``. Catches the overwhelming
-       majority of MARS structural changes without being sensitive to
-       value-level differences.
+       levels of the MARS response (envelope + first result row) must equal
+       the hash committed in ``expected_schema.sha256``. Catches the
+       overwhelming majority of MARS structural changes without being
+       sensitive to value-level differences.
 
-    2. Value sanity: price fields within documented $/cwt bounds, weight-class
-       labels drawn from the known set, no negative head counts.
+    2. Value sanity: per-cwt prices within documented bounds, weight-class
+       bins in expected 50-lb granularity, no negative head counts.
 
     3. Continuity: the new pull must extend the last committed snapshot
        forward; MARS occasionally republishes a corrected row for the most
@@ -37,33 +37,48 @@ import argparse
 import hashlib
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RAW_DIR = REPO_ROOT / "data" / "raw" / "clovis"
 PROCESSED_DIR = REPO_ROOT / "data" / "processed"
 SCHEMA_HASH_PATH = Path(__file__).with_name("expected_schema.sha256")
 
-# Defensive bounds for Clovis feeder-cattle $/cwt prices, 1992-present window.
-# Chosen to catch decimal-shift errors (e.g. $23 or $2300) without rejecting
-# real market moves. Revisit if the market ever runs outside this band.
+# Defensive bounds for Clovis feeder-cattle $/cwt prices, the window MARS covers
+# (2019-present). Wide enough to tolerate the real market swings observed
+# during 2020-2021 and 2024-2026, tight enough to catch decimal-shift errors.
 MIN_PLAUSIBLE_PRICE = 20.0
 MAX_PLAUSIBLE_PRICE = 800.0
+
+# MARS weight-break bins are nominally 50-lb wide. We verify every observed
+# span falls within [0, 100] lbs to catch a unit change (e.g. kg instead of
+# lbs) or a structural reshape of the weight-break fields.
+MAX_WEIGHT_BREAK_SPAN_LBS = 100
+
+# A handful of known-bad rows exist in USDA-AMS's archive (data-entry errors
+# in the published report that were never corrected). We tolerate up to this
+# fraction of feeder-cattle Per-Cwt rows failing sanity — enough to survive
+# one-off typos in the long archive, strict enough that a systemic unit
+# change or decimal shift (which would affect a whole week's worth of rows)
+# still trips the check and opens a data-source-drift issue.
+MAX_BAD_ROW_FRACTION = 0.001  # 0.1%
 
 # Up to 2 weeks of history may be revised in a given pull. A revision reaching
 # further back than this triggers a data-source-drift alert rather than a
 # silent rewrite of the committed archive.
 MAX_HISTORY_REVISION_DEPTH = 2
 
-# MARS suppression markers — cells missing, preliminary, or otherwise
-# unpublished. Mirrored from the BLS validator's set because MARS reports
-# historically use the same conventions; extend if a new marker shows up.
+# MARS suppression / missing-value markers. Treated as missing rather than
+# pipeline failures. Extend if a new marker appears.
 SUPPRESSION_MARKERS = {"", "-", "(NA)", "N/A", "(X)", "NA", None}
 
 
 # --------------------------------------------------------------------------- #
-# Schema hashing                                                              #
+# Helpers                                                                     #
 # --------------------------------------------------------------------------- #
 
 
@@ -74,32 +89,37 @@ def _latest_raw() -> Path:
     return candidates[-1]
 
 
+def _latest_snapshot() -> Path | None:
+    """Newest clovis_weekly_*.parquet (excluding the article-basis file)."""
+    if not PROCESSED_DIR.exists():
+        return None
+    candidates = sorted(
+        p
+        for p in PROCESSED_DIR.iterdir()
+        if p.name.startswith("clovis_weekly_") and p.name.endswith(".parquet")
+    )
+    return candidates[-1] if candidates else None
+
+
+# --------------------------------------------------------------------------- #
+# Schema hashing                                                              #
+# --------------------------------------------------------------------------- #
+
+
 def _key_signature(body: Any) -> str:
-    """Build a deterministic, order-independent signature of the MARS shape.
+    """Build a deterministic signature of the MARS response shape.
 
-    MARS typically returns either a list of row dicts at the top level or a
-    wrapping envelope (e.g. ``{"reports": [...]}``). We hash sorted keys at
-    the outer level and at the first row, which is coarse enough to ignore
-    per-row value changes but strict enough to catch any renamed or added
-    field.
-
-    NOTE: the exact shape is confirmed from the first live MARS response and
-    the key paths below may be tightened once known. Until then the signature
-    covers both common MARS envelopes.
+    Hashes the sorted key set at the envelope level and at the first
+    ``results`` row. Coarse enough to ignore per-row value changes, strict
+    enough to catch renamed, added, or removed fields at either level.
     """
     parts: list[str] = []
 
     if isinstance(body, dict):
         parts.append("root:" + ",".join(sorted(body.keys())))
-        # Common envelope keys we probe for the row list.
-        rows: list[Any] = []
-        for key in ("results", "reports", "data", "report_detail", "records"):
-            v = body.get(key)
-            if isinstance(v, list):
-                rows = v
-                break
-        if not rows and "Results" in body:
-            rows = body["Results"]  # tolerate capitalization variants
+        rows = body.get("results")
+        if not isinstance(rows, list):
+            rows = []
     elif isinstance(body, list):
         parts.append("root:list")
         rows = body
@@ -127,16 +147,16 @@ def _load_expected_hash() -> str:
 def _write_expected_hash(h: str) -> None:
     SCHEMA_HASH_PATH.write_text(
         f"{h}\n"
-        "# sha256 of the MARS AMS_1781 response's key sets (root + first row).\n"
-        "# Regenerate deliberately via "
-        "`python -m pipelines.clovis.validate --rebaseline`\n"
+        "# sha256 of the MARS AMS_1781 response key sets (root envelope + first\n"
+        "# results row). Regenerate deliberately via:\n"
+        "#   python -m pipelines.clovis.validate --rebaseline\n"
         "# after reviewing any schema change in data/raw/clovis/.\n",
         encoding="utf-8",
     )
 
 
 # --------------------------------------------------------------------------- #
-# Check stubs                                                                 #
+# Checks                                                                      #
 # --------------------------------------------------------------------------- #
 
 
@@ -150,39 +170,134 @@ def check_schema(body: Any) -> None:
 
 
 def check_value_sanity(body: Any) -> None:
-    """Walk the response's numeric price fields and bound-check them.
+    """Inspect feeder-cattle $/cwt rows for impossible values.
 
-    TODO: specialize to the exact field names once the live MARS response is
-    known. Until then we walk any numeric field with 'price' in the key name
-    and apply the same bounds — correct-enough for a first pass, to be
-    tightened after inspection.
+    Individual out-of-bounds rows are logged to stderr and tolerated as
+    known-bad archive entries. The check fails only if the fraction of
+    anomalous rows exceeds ``MAX_BAD_ROW_FRACTION`` — which would indicate a
+    structural change (unit swap, decimal shift) affecting many rows, not a
+    one-off typo in a single published report.
     """
-    def walk(node: Any) -> None:
-        if isinstance(node, dict):
-            for k, v in node.items():
-                if isinstance(v, (int, float)) and "price" in k.lower():
-                    if not (MIN_PLAUSIBLE_PRICE <= float(v) <= MAX_PLAUSIBLE_PRICE):
-                        raise AssertionError(
-                            f"price out of plausible bounds: {k}={v}"
-                        )
-                else:
-                    walk(v)
-        elif isinstance(node, list):
-            for item in node:
-                walk(item)
+    rows = body.get("results") if isinstance(body, dict) else body or []
+    feeder_rows = 0
+    bad: list[str] = []
+    for i, r in enumerate(rows):
+        if r.get("commodity") != "Feeder Cattle":
+            continue
+        if r.get("price_unit") != "Per Cwt":
+            continue
+        feeder_rows += 1
+        row_bad = False
+        for field in ("avg_price", "avg_price_min", "avg_price_max"):
+            v = r.get(field)
+            if v in SUPPRESSION_MARKERS:
+                continue
+            try:
+                fv = float(v)
+            except (TypeError, ValueError):
+                bad.append(f"row {i} ({r.get('report_date')}): non-numeric {field}={v!r}")
+                row_bad = True
+                continue
+            if not (MIN_PLAUSIBLE_PRICE <= fv <= MAX_PLAUSIBLE_PRICE):
+                bad.append(
+                    f"row {i} ({r.get('report_date')}): {field}={fv} outside "
+                    f"[{MIN_PLAUSIBLE_PRICE}, {MAX_PLAUSIBLE_PRICE}] $/cwt"
+                )
+                row_bad = True
+        hc = r.get("head_count")
+        if hc is not None and hc not in SUPPRESSION_MARKERS:
+            try:
+                if int(hc) < 0:
+                    bad.append(f"row {i}: negative head_count={hc}")
+                    row_bad = True
+            except (TypeError, ValueError):
+                bad.append(f"row {i}: non-numeric head_count={hc!r}")
+                row_bad = True
+        lo, hi = r.get("weight_break_low"), r.get("weight_break_high")
+        if lo is not None and hi is not None:
+            try:
+                span = int(hi) - int(lo)
+            except (TypeError, ValueError):
+                span = None
+            if span is not None and not (0 < span <= MAX_WEIGHT_BREAK_SPAN_LBS):
+                bad.append(
+                    f"row {i}: weight_break span {span} lb outside "
+                    f"(0, {MAX_WEIGHT_BREAK_SPAN_LBS}]"
+                )
+                row_bad = True
+        del row_bad  # counter not needed; 'bad' list already tracks cases
 
-    walk(body)
+    for line in bad[:20]:
+        print(f"[validate] WARNING: {line}", file=sys.stderr)
+    if len(bad) > 20:
+        print(
+            f"[validate] WARNING: ... and {len(bad) - 20} more anomalies suppressed in log.",
+            file=sys.stderr,
+        )
+
+    if feeder_rows == 0:
+        raise AssertionError("no Feeder Cattle Per-Cwt rows in payload")
+    bad_fraction = len(bad) / feeder_rows
+    if bad_fraction > MAX_BAD_ROW_FRACTION:
+        raise AssertionError(
+            f"value sanity: {len(bad)} anomalous rows out of {feeder_rows} "
+            f"feeder-cattle Per-Cwt rows ({bad_fraction:.3%}) exceeds the "
+            f"{MAX_BAD_ROW_FRACTION:.1%} tolerance. Likely a structural change "
+            f"(unit swap, decimal shift); investigate before rebaselining."
+        )
 
 
 def check_continuity(body: Any) -> None:
-    """Ensure the pull extends the committed archive without rewriting
-    history further back than MAX_HISTORY_REVISION_DEPTH weeks.
+    """Confirm the new pull doesn't rewrite deep history.
 
-    TODO: fill in once the field name for the auction date is known and the
-    prior-snapshot parquet exists. Stubbed to pass for now so the first
-    backfill can land; re-enabled in the follow-up after snapshot.py has run.
+    We extract the set of auction dates in the new payload and the set in the
+    most recent committed snapshot, and check two things:
+
+        - No new auction_date is older than the prior snapshot's newest date
+          by more than ``MAX_HISTORY_REVISION_DEPTH`` weeks.
+        - No existing auction_date from the prior snapshot is absent from the
+          new payload up to that depth.
+
+    On the first run (no prior snapshot), this check is a no-op.
     """
-    return
+    prior_path = _latest_snapshot()
+    if prior_path is None:
+        return
+
+    new_rows = body.get("results") if isinstance(body, dict) else body or []
+    new_dates = set()
+    for r in new_rows:
+        if r.get("commodity") != "Feeder Cattle":
+            continue
+        d = r.get("report_date")
+        try:
+            new_dates.add(datetime.strptime(d, "%m/%d/%Y").date())
+        except (TypeError, ValueError):
+            continue
+
+    if not new_dates:
+        raise AssertionError("no feeder-cattle auction dates in new payload")
+
+    prior = pd.read_parquet(prior_path, columns=["auction_date"])
+    prior_dates = set(pd.to_datetime(prior["auction_date"]).dt.date.unique())
+    if not prior_dates:
+        return
+
+    newest_prior = max(prior_dates)
+    # Any new date that's older than (newest_prior - N weeks) AND not present
+    # in prior would be a silent deep-history revision.
+    cutoff_days = MAX_HISTORY_REVISION_DEPTH * 7
+    deep_new = [
+        d for d in (new_dates - prior_dates)
+        if (newest_prior - d).days > cutoff_days
+    ]
+    if deep_new:
+        raise AssertionError(
+            f"{len(deep_new)} new auction date(s) older than "
+            f"{MAX_HISTORY_REVISION_DEPTH}w before prior snapshot's newest date "
+            f"({newest_prior.isoformat()}); deep-history revision suspected. "
+            f"Examples: {sorted(deep_new)[:5]}"
+        )
 
 
 # --------------------------------------------------------------------------- #

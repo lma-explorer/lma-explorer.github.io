@@ -56,3 +56,9 @@ PHASE1_PLAN.md
 # The public repo sources Clovis data directly from USDA-AMS (public-domain)
 # and treats CME futures as link-out only. See LICENSE-DATA.md.
 Data_REDACTED/
+
+# Local MARS API samples and scratch JSON. USDA-AMS data is public-domain
+# and redistributable, but raw one-off pulls belong in data/raw/clovis/
+# (also gitignored) under the pipeline's control; the top-level folder is
+# a research scratchpad and we don't want 60+ MB blobs in the repo.
+Data_USDA_AMS/

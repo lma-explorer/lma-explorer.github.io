@@ -11,18 +11,30 @@ artifacts:
 module; it is a one-time release artifact pinned to the Clovis vintage current
 when the forthcoming Extension article is finalized (December 2025 basis).
 
-The long-format schema we target (finalized once the MARS response shape is
-confirmed — see TODO in ``_payload_to_dataframe``):
+Long-format schema (preserves MARS's native 50-lb binning; downstream code
+aggregates to the 100-lb bins the article uses):
 
-    auction_date   : date      # the auction the observation came from
-    class          : string    # 'steer' / 'heifer' (or 'mixed' if MARS reports it)
-    weight_low     : int       # lower bound of weight-class bin, lbs
-    weight_high    : int       # upper bound of weight-class bin, lbs
-    price_low      : float     # $/cwt, range low
-    price_high     : float     # $/cwt, range high
-    price_weighted : float     # $/cwt, weighted average
-    head_count     : int       # number of head in this observation
-    vintage        : date      # when this snapshot was first written
+    auction_date      : date        (MARS report_date, MM/DD/YYYY parsed)
+    commodity         : string      ("Feeder Cattle")
+    class             : string      ("Steers" / "Heifers" / "Bulls")
+    frame             : string      ("Medium and Large" / "Medium" / "Large" / ...)
+    muscle_grade      : string      ("1" / "1-2" / "2" / ...)
+    weight_break_low  : Int32 (NaN) lower 50-lb bin edge (lbs)
+    weight_break_high : Int32 (NaN) upper 50-lb bin edge (lbs)
+    avg_weight        : float (NaN) observed average weight (lbs)
+    avg_weight_min    : float (NaN)
+    avg_weight_max    : float (NaN)
+    head_count        : Int32       number of head in this observation
+    price_low         : float       avg_price_min, $/cwt
+    price_high        : float       avg_price_max, $/cwt
+    price_avg         : float       avg_price,     $/cwt
+    receipts          : Int32 (NaN) total auction receipts that week
+    vintage           : date        when this snapshot was first written
+
+We filter to ``commodity == "Feeder Cattle"`` and ``price_unit == "Per Cwt"``.
+Replacement Cattle, Slaughter Cattle, and head-priced breeding stock stay in
+the raw JSON for the record but do not land in the processed parquet — the
+article uses feeder $/cwt prices only.
 
 Usage:
     python -m pipelines.clovis.snapshot
@@ -48,6 +60,20 @@ MANIFEST_PATH = PROCESSED_DIR / "clovis_MANIFEST.json"
 ARTICLE_BASIS_NAME = "clovis_article_basis_2025.parquet"  # never written here
 LATEST_NAME = "clovis_latest.parquet"
 
+# The pipeline narrows the raw payload to feeder-cattle, per-cwt observations —
+# the article's empirical core. Other commodities (Replacement, Slaughter) and
+# other price units (Per Unit, Per Head, Per Family) are preserved in the raw
+# JSON but not carried into the processed snapshot.
+KEEP_COMMODITY = "Feeder Cattle"
+KEEP_PRICE_UNIT = "Per Cwt"
+KEEP_CLASSES = {"Steers", "Heifers", "Bulls"}
+
+# Matches validate.py. Rows with an ``avg_price`` outside this window are
+# treated as USDA-AMS data-entry errors in the source archive and dropped
+# from the snapshot; the validator reports them as warnings first.
+MIN_PLAUSIBLE_PRICE = 20.0
+MAX_PLAUSIBLE_PRICE = 800.0
+
 
 def _vintage_tag() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -61,28 +87,103 @@ def _load_raw() -> dict[str, Any]:
         return json.load(f)
 
 
-def _payload_to_dataframe(payload: Any, vintage_tag: str) -> pd.DataFrame:
-    """Convert a MARS AMS_1781 response to the long-format DataFrame above.
+def _parse_date(s: str | None) -> date | None:
+    if not s:
+        return None
+    try:
+        return datetime.strptime(s, "%m/%d/%Y").date()
+    except ValueError:
+        return None
 
-    TODO: fill in once the live MARS response shape is inspected. The current
-    body is deliberately minimal — it returns an empty frame with the right
-    columns so the rest of the pipeline (manifest, latest-copy, downstream
-    validate) can exercise end-to-end before the parser is complete.
-    """
-    vintage_first = date.fromisoformat(vintage_tag)
-    columns = [
-        "auction_date",
-        "class",
-        "weight_low",
-        "weight_high",
+
+def _payload_to_dataframe(payload: Any, vintage_tag: str) -> pd.DataFrame:
+    """Convert a MARS AMS_1781 response to the long-format DataFrame above."""
+    if isinstance(payload, dict):
+        rows = payload.get("results") or []
+    elif isinstance(payload, list):
+        rows = payload
+    else:
+        rows = []
+
+    vintage_d = date.fromisoformat(vintage_tag)
+    records: list[dict[str, Any]] = []
+    for r in rows:
+        if r.get("commodity") != KEEP_COMMODITY:
+            continue
+        if r.get("price_unit") != KEEP_PRICE_UNIT:
+            continue
+        if r.get("class") not in KEEP_CLASSES:
+            continue
+        ad = _parse_date(r.get("report_date"))
+        if ad is None:
+            continue
+        # Drop any row whose headline avg_price is outside plausible bounds —
+        # USDA-AMS archive has known one-off data-entry errors (e.g. a
+        # Heifers row on 2021-09-01 with avg_price_min=1.44). The validator
+        # warns on these; the snapshot excludes them.
+        try:
+            ap = float(r.get("avg_price"))
+        except (TypeError, ValueError):
+            continue
+        if not (MIN_PLAUSIBLE_PRICE <= ap <= MAX_PLAUSIBLE_PRICE):
+            continue
+        records.append(
+            {
+                "auction_date": ad,
+                "commodity": r.get("commodity"),
+                "class": r.get("class"),
+                "frame": r.get("frame"),
+                "muscle_grade": r.get("muscle_grade"),
+                "weight_break_low": r.get("weight_break_low"),
+                "weight_break_high": r.get("weight_break_high"),
+                "avg_weight": r.get("avg_weight"),
+                "avg_weight_min": r.get("avg_weight_min"),
+                "avg_weight_max": r.get("avg_weight_max"),
+                "head_count": r.get("head_count"),
+                "price_low": r.get("avg_price_min"),
+                "price_high": r.get("avg_price_max"),
+                "price_avg": r.get("avg_price"),
+                "receipts": r.get("receipts"),
+                "vintage": vintage_d,
+            }
+        )
+
+    df = pd.DataFrame.from_records(records)
+    if df.empty:
+        return df
+
+    # Sort deterministically: by auction date, class, and weight bin (low first, null last).
+    df = df.sort_values(
+        by=[
+            "auction_date",
+            "class",
+            "frame",
+            "muscle_grade",
+            "weight_break_low",
+            "weight_break_high",
+        ],
+        na_position="last",
+    ).reset_index(drop=True)
+
+    # Dtype hygiene: dates as proper datetime64[ns], nullable ints for counts.
+    df["auction_date"] = pd.to_datetime(df["auction_date"])
+    df["vintage"] = pd.to_datetime(df["vintage"])
+    for col in (
+        "weight_break_low",
+        "weight_break_high",
+        "head_count",
+        "receipts",
+    ):
+        df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int32")
+    for col in (
+        "avg_weight",
+        "avg_weight_min",
+        "avg_weight_max",
         "price_low",
         "price_high",
-        "price_weighted",
-        "head_count",
-        "vintage",
-    ]
-    df = pd.DataFrame(columns=columns)
-    df["vintage"] = pd.to_datetime([vintage_first] * len(df))
+        "price_avg",
+    ):
+        df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64")
     return df
 
 
@@ -123,10 +224,10 @@ def main(argv: list[str] | None = None) -> int:
     df = _payload_to_dataframe(payload, vintage)
     if df.empty:
         print(
-            "[snapshot] WARNING: parser returned an empty frame — this is expected "
-            "until _payload_to_dataframe is finalized against a real MARS response.",
+            "[snapshot] no Feeder Cattle $/cwt rows extracted from payload",
             file=sys.stderr,
         )
+        return 1
 
     snapshot_path = PROCESSED_DIR / f"clovis_weekly_{vintage}.parquet"
     latest_path = PROCESSED_DIR / LATEST_NAME
