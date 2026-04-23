@@ -1,0 +1,100 @@
+name: Clovis weekly refresh
+
+# Runs each Thursday at 18:00 UTC (~1:00 PM US Central), giving USDA-AMS
+# time to publish the Wednesday auction report. If we miss a window, manual
+# dispatch picks up the slack.
+on:
+  schedule:
+    - cron: "0 18 * * 4"
+  workflow_dispatch:
+    inputs:
+      backfill:
+        description: "Run as backfill (fetch full MARS-available history)"
+        required: false
+        default: "false"
+
+# Only one refresh can be in flight at a time.
+concurrency:
+  group: clovis-refresh
+  cancel-in-progress: false
+
+permissions:
+  contents: write      # commit the new parquet snapshot and manifest
+  issues: write        # open a data-source-drift issue on failure
+  pull-requests: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: pipelines/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r pipelines/requirements.txt
+
+      - name: Ingest
+        env:
+          AMS_MARS_API_KEY: ${{ secrets.AMS_MARS_API_KEY }}
+        run: |
+          if [ "${{ github.event.inputs.backfill }}" = "true" ]; then
+            python -m pipelines.clovis.ingest --backfill
+          else
+            python -m pipelines.clovis.ingest
+          fi
+
+      - name: Validate
+        run: python -m pipelines.clovis.validate
+
+      - name: Snapshot
+        run: python -m pipelines.clovis.snapshot
+
+      - name: Commit new snapshot
+        # If snapshot produced no changes (e.g. MARS hasn't published a new
+        # report yet), we exit gracefully without a commit.
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/processed
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          STAMP=$(date -u +%Y-%m-%d)
+          git commit -m "chore(clovis): refresh AMS_1781 snapshot ${STAMP}"
+          git push
+
+      - name: Open data-source-drift issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `Clovis refresh failed on ${new Date().toISOString().slice(0,10)}`;
+            const body = [
+              `The scheduled Clovis (AMS_1781) refresh failed.`,
+              ``,
+              `**Workflow run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              ``,
+              `Per the Automation Over Features commitment in GOVERNANCE.md, no new parquet snapshot was committed, so the published site still serves the last-known-good snapshot. Investigate before the next weekly tick:`,
+              ``,
+              `1. Pull the raw payload from the failed run's logs (or re-run with \`workflow_dispatch\`).`,
+              `2. Compare to the last-known-good raw JSON in \`data/raw/clovis/\` from a prior successful run.`,
+              `3. If the change is structural, update downstream code and then \`python -m pipelines.clovis.validate --rebaseline\`.`,
+              `4. If the change is a value anomaly (USDA-AMS publication error), wait for AMS to correct and re-run manually.`,
+            ].join("\n");
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ["data-source-drift", "automated"],
+            });
