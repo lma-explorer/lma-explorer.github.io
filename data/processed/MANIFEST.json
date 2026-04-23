@@ -1,0 +1,12 @@
+{
+  "series": "CUUR0000SA0",
+  "entries": [
+    {
+      "vintage": "2026-04",
+      "file": "data/processed/cpi_2026-04.parquet",
+      "sha256": "227eeeb2fd9a590de1617f1eca050ea1468580ac72dc7dbf2dbbd25ffbc2574b",
+      "rows": 494,
+      "written_at_utc": "2026-04-23T02:10:57+00:00"
+    }
+  ]
+}
