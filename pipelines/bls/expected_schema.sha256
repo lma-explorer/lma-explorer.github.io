@@ -1,5 +1,5 @@
-0000000000000000000000000000000000000000000000000000000000000000
-# Placeholder. The first successful run of validate.py will overwrite this
-# with the real sha256 of the BLS response's sorted root/series/data key
-# sets. Regenerate deliberately via `python -m pipelines.bls.validate
-# --rebaseline` after reviewing any schema change in data/raw/bls/.
+9b8833219c10b9ef1442f37845100c0190e9b787d7584d243582c89bb022753d
+# sha256 of sorted root/series/data key sets from the BLS CPI-U CUUR0000SA0
+# response (baselined 2026-04-22 from first successful backfill).
+# Regenerate deliberately via `python -m pipelines.bls.validate --rebaseline`
+# after reviewing any schema change in data/raw/bls/.

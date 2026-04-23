@@ -50,6 +50,13 @@ SCHEMA_HASH_PATH = Path(__file__).with_name("expected_schema.sha256")
 MAX_MOM_ABSOLUTE_CHANGE = 0.05  # 5 percent
 MAX_HISTORY_REVISION_DEPTH = 2  # periods
 
+# Values BLS uses to mark a cell as suppressed, preliminary-but-unpublished,
+# or otherwise not available. Treated as missing (NaN) rather than as
+# pipeline failures — a single suppressed cell in a 40-year backfill should
+# not kill the refresh. If BLS ever starts returning these for the most
+# recent month systematically, the continuity check downstream catches it.
+SUPPRESSION_MARKERS = {"", "-", "(NA)", "N/A", "(X)", "NA"}
+
 
 # --------------------------------------------------------------------------- #
 # Schema hashing                                                              #
@@ -131,7 +138,13 @@ def _period_to_month_index(year: str, period: str) -> int:
 
 
 def check_mom_sanity(body: dict[str, Any]) -> list[str]:
-    """Return a list of human-readable error messages; empty means OK."""
+    """Return a list of human-readable error messages; empty means OK.
+
+    Suppressed / non-published cells (values in SUPPRESSION_MARKERS) are
+    skipped with a stderr warning; MoM comparison resumes at the next
+    numeric cell. Truly non-numeric garbage (an unexpected string that
+    isn't a known suppression marker) still fails loud.
+    """
     rows = sorted(
         _iter_data_rows(body),
         key=lambda r: _period_to_month_index(r["year"], r["period"]),
@@ -144,12 +157,26 @@ def check_mom_sanity(body: dict[str, Any]) -> list[str]:
         period = row.get("period", "")
         if not period.startswith("M"):
             continue
-        try:
-            value = float(row["value"])
-        except (TypeError, ValueError):
-            errors.append(f"non-numeric value at {row.get('year')}-{period}: {row.get('value')!r}")
+        raw_value = row.get("value")
+        raw_str = "" if raw_value is None else str(raw_value).strip()
+        label = f"{row.get('year')}-{period}"
+        if raw_str in SUPPRESSION_MARKERS:
+            # Gap in the series. Reset the MoM anchor so a suppressed month
+            # doesn't leak a spurious comparison across the gap.
+            print(
+                f"[validate] WARN skipping suppressed cell at {label}: {raw_value!r}",
+                file=sys.stderr,
+            )
+            prev_value = None
+            prev_label = None
             continue
-        label = f"{row['year']}-{period}"
+        try:
+            value = float(raw_str)
+        except ValueError:
+            errors.append(f"non-numeric value at {label}: {raw_value!r}")
+            prev_value = None
+            prev_label = None
+            continue
         if prev_value is not None:
             change = (value - prev_value) / prev_value
             if abs(change) > MAX_MOM_ABSOLUTE_CHANGE:
@@ -206,11 +233,23 @@ def check_continuity(body: dict[str, Any]) -> list[str]:
     }
 
     errors: list[str] = []
-    new_rows = [
-        (int(r["year"]), int(r["period"][1:]), float(r["value"]))
-        for r in _iter_data_rows(body)
-        if str(r.get("period", "")).startswith("M")
-    ]
+    # Skip suppressed cells when building the continuity map — they're handled
+    # in check_mom_sanity. A suppressed value can't be compared against a prior
+    # vintage's numeric value meaningfully.
+    new_rows: list[tuple[int, int, float]] = []
+    for r in _iter_data_rows(body):
+        period = str(r.get("period", ""))
+        if not period.startswith("M"):
+            continue
+        raw = r.get("value")
+        raw_str = "" if raw is None else str(raw).strip()
+        if raw_str in SUPPRESSION_MARKERS:
+            continue
+        try:
+            new_rows.append((int(r["year"]), int(period[1:]), float(raw_str)))
+        except ValueError:
+            # Silently ignore here; check_mom_sanity already flagged it.
+            continue
     new_map = {(y, m): v for y, m, v in new_rows}
 
     if not new_map:
