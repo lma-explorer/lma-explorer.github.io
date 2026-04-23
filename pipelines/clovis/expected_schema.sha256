@@ -1,5 +1,5 @@
-0000000000000000000000000000000000000000000000000000000000000000
-# placeholder — will be replaced by the real hash after the first successful
-# MARS AMS_1781 pull is inspected. Regenerate via:
+3e22f9e6fc266f30d84f2214f9deffa33ddcc30c82b4b5ce2a11857b3ae19751
+# sha256 of the MARS AMS_1781 response key sets (root envelope + first
+# results row). Regenerate deliberately via:
 #   python -m pipelines.clovis.validate --rebaseline
-# Never rebaseline to silence a failing pipeline; review the raw JSON first.
+# after reviewing any schema change in data/raw/clovis/.
