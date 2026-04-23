@@ -1,0 +1,12 @@
+{
+  "slug": "AMS_1781",
+  "entries": [
+    {
+      "vintage": "2026-04-23",
+      "file": "data/processed/clovis_weekly_2026-04-23.parquet",
+      "sha256": "d37577c45747a1d07e520ce716cfae7b863c0a38cb8a2d52e40d8038be455ce6",
+      "rows": 26045,
+      "written_at_utc": "2026-04-23T22:47:28+00:00"
+    }
+  ]
+}
