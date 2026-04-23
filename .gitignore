@@ -50,3 +50,9 @@ Thumbs.db
 # Pulled out 2026-04-22 pending explicit approvals to publish.
 DECISIONS_LOG.md
 PHASE1_PLAN.md
+
+# Third-party proprietary data — kept locally, never committed.
+# LMIC compilations (member-only); CME feeder-futures are proprietary.
+# The public repo sources Clovis data directly from USDA-AMS (public-domain)
+# and treats CME futures as link-out only. See LICENSE-DATA.md.
+Data_LMIC/

@@ -1,13 +1,15 @@
 name: Build and deploy Quarto site
 
-# Rebuild the site on any push to main, when the monthly BLS refresh succeeds
-# (so the manifest and charts pick up the new vintage), and weekly as a
-# belt-and-suspenders defense against drift.
+# Rebuild the site on any push to main, when the monthly BLS refresh or the
+# weekly Clovis refresh succeeds (so manifests and charts pick up the new
+# vintage), and weekly as a belt-and-suspenders defense against drift.
 on:
   push:
     branches: [main]
   workflow_run:
-    workflows: ["BLS CPI monthly refresh"]
+    workflows:
+      - "BLS CPI monthly refresh"
+      - "Clovis weekly refresh"
     types: [completed]
   schedule:
     - cron: "0 15 * * 1"   # Mondays, 15:00 UTC
