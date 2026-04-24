@@ -1,0 +1,351 @@
+---
+title: "When in the year do feeder cattle fetch the most?"
+subtitle: "Weekly seasonality · Clovis, NM auction"
+toc: true
+toc-depth: 2
+---
+
+::: {.callout-tip appearance="simple"}
+**Caveat before scrolling.** Seasonality is a pattern, not a prediction. Any single year can look very different from the weekly average shown here — drought, calf-crop timing, regional demand, and futures-market moves all shift the intra-year curve. See [Methodology](methodology/index.qmd) for how the window was chosen.
+:::
+
+## About this page
+
+The companion to the [Price–weight explorer](price-weight.qmd). That page answers *"what does a heavier calf bring?"*; this page answers *"when in the year does a given-weight calf bring the most?"* The forthcoming Extension article *Market Alternatives and Price Slide Considerations for Selling Feeder Cattle* (Sall & Tronstad, in preparation) treats these as Section 5.2 / Figures 3–4 and, for print-layout reasons, shows only three bins (400–499, 600–699, 700–799). This page offers all six 100-lb bins: **click a weight class in the legend to hide it; double-click to isolate it.** The three article-subset colors (black, orange, blue) are preserved for visual continuity with the paper.
+
+```{python}
+#| echo: false
+#| label: data-load
+
+from pathlib import Path
+import pandas as pd
+
+PROCESSED = Path("..") / "data" / "processed"
+ARCHIVE_PATH = PROCESSED / "clovis_archive_2000_2025.parquet"
+LATEST_PATH = PROCESSED / "clovis_latest.parquet"
+CPI_PATH = PROCESSED / "cpi_latest.parquet"
+
+data_is_placeholder = False
+data_source_label = None
+
+if ARCHIVE_PATH.exists():
+    df = pd.read_parquet(ARCHIVE_PATH)
+    data_source_label = "1992–present historical reconstruction"
+elif LATEST_PATH.exists():
+    df = pd.read_parquet(LATEST_PATH)
+    data_source_label = "USDA-AMS MARS feed (AMS_1781)"
+else:
+    # Synthetic stand-in. Clearly labelled so it is never mistaken for real data.
+    import numpy as np
+    rng = np.random.default_rng(seed=2026)
+    # 52 weeks × 3 bins × 2 classes × 6 years = seed rows with a gentle seasonal shape
+    rows = []
+    bins = {"400-499 lb": 270, "600-699 lb": 230, "700-799 lb": 200}
+    for year in range(2020, 2026):
+        for week in range(1, 53):
+            for cl in ("Steers", "Heifers"):
+                for wb, base in bins.items():
+                    seasonal = 15 * (1 - abs(week - 30) / 25)  # peak near week 30
+                    noise = rng.normal(0, 5)
+                    mean = base + seasonal + noise - (12 if cl == "Heifers" else 0) + (year - 2020) * 6
+                    rows.append({
+                        "auction_date": pd.Timestamp(f"{year}-01-01") + pd.Timedelta(weeks=week-1),
+                        "weight_bin": wb,
+                        "class": cl,
+                        "head_count": int(rng.integers(20, 200)),
+                        "price_avg": round(mean, 2),
+                    })
+    df = pd.DataFrame(rows)
+    # Add frame/muscle columns so the downstream filter accepts these rows.
+    df["frame"] = "Medium and Large"
+    df["muscle_grade"] = "1"
+    df["weight_break_low"] = df["weight_bin"].str[:3].astype(int)
+    df["avg_weight"] = df["weight_break_low"] + 50
+    data_is_placeholder = True
+    data_source_label = "synthetic stand-in (no live data available)"
+
+if data_is_placeholder:
+    print("SYNTHETIC STAND-IN DATA — for layout only. Not real prices.")
+```
+
+```{python}
+#| echo: false
+#| label: data-shape
+
+# Same filtering as the price-weight page: Medium and Large, muscle grade 1,
+# 100-lb bins derived from weight_break_low (fall back to avg_weight for
+# rows before MARS added that field, pre-2024). We then restrict to the
+# three bins the article shows on this chart: 400–499, 600–699, 700–799.
+
+import pandas as pd
+
+if not data_is_placeholder:
+    slim = df[
+        (df["class"].isin(["Steers", "Heifers"]))
+        & (df["frame"] == "Medium and Large")
+        & (df["muscle_grade"] == "1")
+    ].copy()
+    wb = slim["weight_break_low"]
+    aw = slim["avg_weight"]
+    raw_weight = wb.fillna(aw)
+    slim = slim[raw_weight.notna()].copy()
+    slim["bin_lo"] = ((raw_weight[raw_weight.notna()] // 100) * 100).astype(int)
+    slim = slim[(slim["bin_lo"] >= 300) & (slim["bin_lo"] <= 800)]
+    slim["bin_hi"] = slim["bin_lo"] + 99
+    slim["weight_bin"] = slim.apply(
+        lambda r: f"{int(r['bin_lo'])}–{int(r['bin_hi'])} lb", axis=1
+    )
+    work = slim[
+        ["auction_date", "weight_bin", "class",
+         "price_low", "price_avg", "price_high"]
+    ].copy()
+else:
+    work = df.copy()
+    work["price_low"] = work["price_avg"]  # placeholder has only price_avg
+    work["price_high"] = work["price_avg"]
+
+# Keep all six 100-lb bins the pipeline produces; the reader picks which to
+# view via the legend. The article shows a three-class subset; we mark those
+# with the article's specific colors and put the other three into a palette
+# that stays readable on a white background.
+SEASONAL_BINS = [
+    "300–399 lb", "400–499 lb", "500–599 lb",
+    "600–699 lb", "700–799 lb", "800–899 lb",
+]
+work = work[work["weight_bin"].isin(SEASONAL_BINS)].copy()
+
+# Window metadata for the caption
+date_min = pd.to_datetime(work["auction_date"]).min()
+date_max = pd.to_datetime(work["auction_date"]).max()
+n_years = pd.to_datetime(work["auction_date"]).dt.year.nunique()
+n_obs = len(work)
+```
+
+```{python}
+#| echo: false
+#| label: deflate-to-dec-2025
+
+# Identical deflation logic to the price-weight page: CPI-U NSA, Dec 2025 basis,
+# per-month join. See site/price-weight.qmd for the full explanatory comment.
+import sys as _sys
+import pandas as pd
+
+BASIS_PERIOD = pd.Timestamp("2025-12-01")
+cpi_basis_label = "December 2025"
+
+deflation_available = False
+if CPI_PATH.exists():
+    cpi = pd.read_parquet(CPI_PATH)[["period", "cpi_u"]].copy()
+    cpi["period"] = pd.to_datetime(cpi["period"])
+    basis_rows = cpi[cpi["period"] == BASIS_PERIOD]
+    if not basis_rows.empty:
+        cpi_basis_value = float(basis_rows["cpi_u"].iloc[0])
+        deflation_available = True
+    else:
+        fallback = cpi.sort_values("period").iloc[-1]
+        cpi_basis_value = float(fallback["cpi_u"])
+        cpi_basis_label = pd.to_datetime(fallback["period"]).strftime("%B %Y")
+        deflation_available = True
+
+if deflation_available:
+    work["period_month"] = work["auction_date"].dt.to_period("M").dt.to_timestamp()
+    cpi_lookup = cpi.set_index("period")["cpi_u"]
+    work["cpi_u_month"] = work["period_month"].map(cpi_lookup)
+    work["deflator"] = cpi_basis_value / work["cpi_u_month"]
+    missing_cpi = int(work["deflator"].isna().sum())
+    if missing_cpi:
+        print(
+            f"[deflate] {missing_cpi} observations lack a CPI month-match; "
+            "leaving nominal.", file=_sys.stderr,
+        )
+    work["deflator"] = work["deflator"].fillna(1.0)
+    work["price_avg_real"] = work["price_avg"] * work["deflator"]
+else:
+    work["price_avg_real"] = work["price_avg"]
+```
+
+::: {.callout-important}
+**Data source**: `{python} data_source_label` ·
+**Window**: `{python} date_min.strftime('%Y-%m-%d')` to `{python} date_max.strftime('%Y-%m-%d')` (`{python} n_years` calendar years) ·
+**Observations**: `{python} f"{n_obs:,}"` across three bins ·
+**Grade shown**: Medium and Large, muscle grade 1 ·
+**Deflation basis**: `{python} cpi_basis_label` CPI-U NSA (`CUUR0000SA0`).
+:::
+
+## Weekly price pattern
+
+Each line is the average price for a weight class at each week of the calendar year, averaged across every year in the window. The top panel shows Steers; the bottom shows Heifers. The toggle switches between nominal dollars and real (December-2025) dollars. Hover any point to see the exact value and the number of observations behind it.
+
+```{python}
+#| echo: false
+
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+# Aggregate weekly mean for each (class, bin) series. ISO-week 1-53; most years
+# have 52, a few have 53. We collapse week 53 into week 52 so the x-axis fits
+# the article's 1-52 grid without an orphan bar.
+work["iso_week"] = work["auction_date"].dt.isocalendar().week.astype(int)
+work.loc[work["iso_week"] == 53, "iso_week"] = 52
+
+def _weekly(work_df, price_col):
+    agg = (
+        work_df.groupby(["class", "weight_bin", "iso_week"], as_index=False)
+               .agg(price=(price_col, "mean"), n=(price_col, "count"))
+    )
+    return agg
+
+
+seas_nominal = _weekly(work, "price_avg")
+seas_real = _weekly(work, "price_avg_real")
+
+# Six-class palette. The three article colors are preserved; the three
+# extras are picked for contrast against black/orange/blue and for
+# readability on a white background.
+COLOR_BY_BIN = {
+    "300–399 lb": "#6a3d9a",   # purple
+    "400–499 lb": "#000000",   # black    (article)
+    "500–599 lb": "#2ca02c",   # green
+    "600–699 lb": "#d17a00",   # orange   (article)
+    "700–799 lb": "#1f77b4",   # blue     (article)
+    "800–899 lb": "#8b0000",   # dark red
+}
+BIN_ORDER = [
+    "300–399 lb", "400–499 lb", "500–599 lb",
+    "600–699 lb", "700–799 lb", "800–899 lb",
+]
+
+fig = make_subplots(
+    rows=2, cols=1,
+    shared_xaxes=True,
+    vertical_spacing=0.10,
+    subplot_titles=(
+        "NM Clovis Steers — Cash Prices",
+        "NM Clovis Heifers — Cash Prices",
+    ),
+)
+
+# Single set of 12 traces — one per (class × bin) — with nominal y-data
+# shown initially. The nominal/real toggle restyles the y arrays in place,
+# which means the user's legend clicks (hiding specific bins) persist across
+# toggles. Only Steers-row traces carry legend entries; Heifers-row traces
+# share their legendgroup so clicking a bin in the legend toggles both panels.
+
+nominal_y, real_y, custom_n = [], [], []
+
+def _add_class(cls, row, show_legend):
+    for wb in BIN_ORDER:
+        sub_nom = (
+            seas_nominal[(seas_nominal["class"] == cls) & (seas_nominal["weight_bin"] == wb)]
+            .sort_values("iso_week")
+        )
+        sub_real = (
+            seas_real[(seas_real["class"] == cls) & (seas_real["weight_bin"] == wb)]
+            .sort_values("iso_week")
+        )
+        x = sub_nom["iso_week"].tolist()
+        y_nom = sub_nom["price"].tolist()
+        y_real = sub_real["price"].tolist()
+        n_per_week = sub_nom["n"].tolist()
+        fig.add_trace(
+            go.Scatter(
+                x=x, y=y_nom, mode="lines+markers",
+                name=wb,
+                legendgroup=wb,
+                showlegend=show_legend,
+                line=dict(color=COLOR_BY_BIN[wb], width=2),
+                marker=dict(color=COLOR_BY_BIN[wb], size=5),
+                customdata=n_per_week,
+                hovertemplate=(
+                    f"<b>{wb} · {cls}</b><br>"
+                    "Week %{x}<br>"
+                    "Avg price: $%{y:.2f}/cwt<br>"
+                    "n = %{customdata:,}<extra></extra>"
+                ),
+            ),
+            row=row, col=1,
+        )
+        nominal_y.append(y_nom)
+        real_y.append(y_real)
+        custom_n.append(n_per_week)
+
+
+_add_class("Steers",  row=1, show_legend=True)
+_add_class("Heifers", row=2, show_legend=False)
+
+fig.update_layout(
+    height=760,
+    margin=dict(t=90, b=60, l=80, r=30),
+    hovermode="x unified",
+    paper_bgcolor="white",
+    plot_bgcolor="white",
+    font=dict(family="Helvetica, Arial, sans-serif", size=13, color="#222"),
+    legend=dict(orientation="h", yanchor="bottom", y=1.04, xanchor="center", x=0.5),
+    updatemenus=[dict(
+        type="buttons",
+        direction="right",
+        active=0,
+        x=0.0, y=1.12,
+        xanchor="left", yanchor="top",
+        pad=dict(r=6, t=4, b=4),
+        showactive=True,
+        buttons=[
+            dict(label="Nominal $",
+                 method="update",
+                 # restyle — swap the y-arrays on all 12 traces. Legend
+                 # visibility that the user has set via clicks persists
+                 # because we are not touching each trace's `visible` flag.
+                 args=[
+                     {"y": nominal_y},
+                     {"yaxis.title.text": "Avg price, $/cwt (nominal)",
+                      "yaxis2.title.text": "Avg price, $/cwt (nominal)"},
+                 ]),
+            dict(label=f"Real ({cpi_basis_label} $)",
+                 method="update",
+                 args=[
+                     {"y": real_y},
+                     {"yaxis.title.text": f"Avg price, $/cwt (base = {cpi_basis_label})",
+                      "yaxis2.title.text": f"Avg price, $/cwt (base = {cpi_basis_label})"},
+                 ]),
+        ],
+    )],
+)
+
+# Axes
+fig.update_xaxes(
+    title_text="",
+    tickmode="linear", tick0=1, dtick=4,  # every 4 weeks → 1, 5, 9, ...
+    showgrid=False, linecolor="#888", mirror=False, ticks="outside",
+    range=[0.5, 52.5],
+)
+fig.update_xaxes(title_text="Week of calendar year", row=2, col=1)
+
+fig.update_yaxes(
+    showgrid=True, gridcolor="#e5e5e5",
+    tickprefix="$", linecolor="#888", mirror=False, ticks="outside",
+    title_text="Avg price, $/cwt (nominal)",
+)
+fig.update_layout(yaxis2=dict(matches="y"))
+
+fig.show()
+```
+
+## How to read this
+
+**Flat lines mean no seasonality.** If a weight class's line is close to horizontal across the 52-week calendar, that class shows no clear "best time of year" to sell — the price you'd expect depends on year-to-year market conditions more than on the calendar date. Feeder cattle at Clovis are mostly like this: the intra-year pattern is subtle relative to the year-to-year volatility.
+
+**Sloped or peaked lines mean seasonality is worth naming.** Look for consistent humps — common across all three weight classes in the same weeks — rather than one noisy class's outlier. The price-weight spread between classes (vertical distance between the three lines) is what the [Price–weight explorer](price-weight.qmd) zooms in on; this page is about the horizontal dimension.
+
+**Why the article picks a three-class subset.** The forthcoming paper shows only 400–499, 600–699, and 700–799 to bracket the typical marketing decision — below 500 lb is "calf on the cow" territory, 600–700 lb is the background/grass-season exit, and 700–800 lb is the feedlot-ready window — and because print-layout constraints make more than three lines hard to read. This page preserves the article's three colors (black, orange, blue) for those classes, adds three more for 300–399, 500–599, and 800–899, and lets you click any legend entry to hide or isolate it. Double-click a legend entry to show *only* that class.
+
+## Download
+
+- [Parquet snapshot](../data/processed/clovis_latest.parquet) — Clovis feeder-cattle archive, latest MARS vintage
+- [Vintage manifest](../data/processed/clovis_MANIFEST.json) — SHA-256 of every snapshot the pipeline has committed
+- [CPI deflator](../data/processed/cpi_latest.parquet) — BLS CPI-U NSA (`CUUR0000SA0`), the deflation basis
+
+## What's next on this page
+
+- [ ] Year-range slider matching the price-weight explorer (Phase 2).
+- [ ] Percentile bands (10/50/90) around each line for the per-week dispersion.
+- [ ] Side-by-side "this year vs. historical average" overlay for the current marketing season.
