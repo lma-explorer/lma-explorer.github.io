@@ -1,108 +1,171 @@
 ---
 title: "What did feeder cattle bring at Clovis, by weight?"
-subtitle: "Price–weight explorer · Clovis, NM auction archive"
+subtitle: "Price–weight explorer · Clovis, NM auction"
 toc: true
 toc-depth: 2
 ---
 
 ::: {.callout-tip appearance="simple"}
-**Caveat before scrolling.** Clovis is one auction in one region. These prices are not representative of national feeder-cattle prices. Treat this page as a regional reference, not a market index. See [Methodology](methodology/index.qmd) for the archive's coverage and the deflation choice.
+**Caveat before scrolling.** Clovis is one auction in one region. These prices are not representative of national feeder-cattle prices. Treat this page as a regional reference, not a market index. See [Methodology](methodology/index.qmd) for the data window and deflation choice.
 :::
 
 ## About this page
 
-The forthcoming Extension article *Market Alternatives and Price Slide Considerations for Selling Feeder Cattle* (Sall & Tronstad, in preparation) walks through feeder-cattle pricing by weight class using archived Clovis, NM auction data from January 2000 through December 2025 — 26 years of weekly observations, deflated to December 2025 dollars. This page keeps that comparison alive and lets readers swap the year range, the weight classes, and the deflation choice. The underlying snapshot is a committed Parquet file that will be refreshed alongside the live AMS ingestion pipeline in Phase 2.
-
-## Pick your slice
+The forthcoming Extension article *Market Alternatives and Price Slide Considerations for Selling Feeder Cattle* (Sall & Tronstad, in preparation) walks through feeder-cattle pricing by weight class using archived Clovis, NM auction data. This page keeps that comparison alive against the live USDA-AMS feed and is refreshed automatically each week by the `clovis_refresh` GitHub Actions workflow.
 
 ```{python}
 #| echo: false
 #| label: data-load
 
-# Phase 1 stub. Replace with the actual archive once clovis_archive_2000_2025.parquet
-# lands in data/processed/. Until then, a small synthetic stand-in keeps the
-# layout honest without claiming to show real prices.
+# Load from the most informative Clovis parquet available. The ongoing MARS
+# pipeline (pipelines/clovis/) writes clovis_latest.parquet on every weekly
+# tick; a one-time historical reconstruction (to be landed separately) will
+# write clovis_archive_2000_2025.parquet. If both exist, archive wins; if
+# neither exists, fall back to a clearly-labelled synthetic stand-in so the
+# page layout remains honest while not claiming to show real prices.
 
 from pathlib import Path
 import pandas as pd
 
-# Jupyter kernel has no __file__; Quarto renders from the .qmd's directory.
-CLOVIS_PATH = Path("..") / "data" / "processed" / "clovis_archive_2000_2025.parquet"
+PROCESSED = Path("..") / "data" / "processed"
+ARCHIVE_PATH = PROCESSED / "clovis_archive_2000_2025.parquet"
+LATEST_PATH = PROCESSED / "clovis_latest.parquet"
 
-if CLOVIS_PATH.exists():
-    df = pd.read_parquet(CLOVIS_PATH)
-    data_is_placeholder = False
+data_is_placeholder = False
+data_source_label = None
+
+if ARCHIVE_PATH.exists():
+    df = pd.read_parquet(ARCHIVE_PATH)
+    data_source_label = "1992–present historical reconstruction"
+elif LATEST_PATH.exists():
+    df = pd.read_parquet(LATEST_PATH)
+    data_source_label = "USDA-AMS MARS feed (AMS_1781)"
 else:
-    # Synthetic stand-in. Clearly labeled so it is never mistaken for real data.
+    # Synthetic stand-in. Clearly labelled so it is never mistaken for real data.
     import numpy as np
     rng = np.random.default_rng(seed=2026)
-    # Weight class bins follow the forthcoming article's breakdown
-    # (e.g., Table 2): 300-399 through 800-899 lb, heifers and steers.
-    weight_classes = ["300-399 lb", "400-499 lb", "500-599 lb", "600-699 lb", "700-799 lb", "800-899 lb"]
-    # Full article coverage is 2000-2025; the stand-in uses a trimmed window
-    # so the layout is readable without a real snapshot in hand.
+    weight_bins = ["300-399 lb", "400-499 lb", "500-599 lb", "600-699 lb", "700-799 lb", "800-899 lb"]
     years = list(range(2020, 2026))
-    sexes = ["Steer", "Heifer"]
+    classes = ["Steers", "Heifers"]
     rows = []
-    base_by_class = {wc: 280 - i * 15 for i, wc in enumerate(weight_classes)}
+    base_by_bin = {wb: 280 - i * 15 for i, wb in enumerate(weight_bins)}
     for year in years:
-        for wc in weight_classes:
-            for sex in sexes:
-                mean = base_by_class[wc] + rng.normal(0, 8) + (year - 2020) * 5
-                if sex == "Heifer":
+        for wb in weight_bins:
+            for cl in classes:
+                mean = base_by_bin[wb] + rng.normal(0, 8) + (year - 2020) * 5
+                if cl == "Heifers":
                     mean -= 12
                 rows.append({
-                    "report_date": pd.Timestamp(f"{year}-06-15"),
-                    "weight_class": wc,
-                    "sex": sex,
+                    "auction_date": pd.Timestamp(f"{year}-06-15"),
+                    "weight_bin": wb,
+                    "class": cl,
                     "head_count": int(rng.integers(40, 400)),
-                    "price_low_cwt": round(mean - 10, 2),
-                    "price_mean_cwt": round(mean, 2),
-                    "price_high_cwt": round(mean + 10, 2),
+                    "price_low": round(mean - 10, 2),
+                    "price_avg": round(mean, 2),
+                    "price_high": round(mean + 10, 2),
                 })
     df = pd.DataFrame(rows)
     data_is_placeholder = True
+    data_source_label = "synthetic stand-in (no live data available)"
 
 if data_is_placeholder:
     print("SYNTHETIC STAND-IN DATA — for layout only. Not real prices.")
 ```
 
+```{python}
+#| echo: false
+#| label: data-shape
+
+# Normalize the parquet into the long-format fields the chart needs.
+#
+# The live MARS snapshot preserves 50-lb weight bins (weight_break_low 300,
+# 350, 400, ...). The article reports 100-lb bins (300-399, 400-499, ...).
+# Here we collapse the 50-lb bins into 100-lb bins, filter to the article's
+# specific grade (Medium and Large, muscle_grade 1), and aggregate across
+# the full available window.
+
+import pandas as pd
+
+if not data_is_placeholder:
+    slim = df[
+        (df["class"].isin(["Steers", "Heifers"]))
+        & (df["frame"] == "Medium and Large")
+        & (df["muscle_grade"] == "1")
+    ].copy()
+    # MARS started reporting weight_break_low/high consistently in 2024. For
+    # earlier years we derive the bin from avg_weight. MARS's 2024+ bins are
+    # 50-lb wide (300,350,400,...); we collapse both branches to 100-lb bins
+    # (300,400,500,...) so one observation in a 350–399 lb MARS bin lands
+    # in the same chart bar as a 2019 observation of a 370 lb pen.
+    wb = slim["weight_break_low"]
+    aw = slim["avg_weight"]
+    raw_weight = wb.fillna(aw)
+    slim = slim[raw_weight.notna()].copy()
+    slim["bin_lo"] = ((raw_weight[raw_weight.notna()] // 100) * 100).astype(int)
+    slim = slim[(slim["bin_lo"] >= 300) & (slim["bin_lo"] <= 800)]
+    slim["bin_hi"] = slim["bin_lo"] + 99
+    slim["weight_bin"] = slim.apply(
+        lambda r: f"{int(r['bin_lo'])}–{int(r['bin_hi'])} lb", axis=1
+    )
+    work = slim[
+        ["auction_date", "weight_bin", "class", "head_count",
+         "price_low", "price_avg", "price_high"]
+    ].copy()
+else:
+    work = df  # placeholder already has the right columns
+
+# Window metadata for the caption
+date_min = pd.to_datetime(work["auction_date"]).min()
+date_max = pd.to_datetime(work["auction_date"]).max()
+n_dates = pd.to_datetime(work["auction_date"]).dt.date.nunique()
+n_obs = len(work)
+```
+
 ::: {.callout-important}
-**Data vintage**: {{< meta data_vintage >}} · see [Data](data.qmd) for raw snapshots · see [Methodology](methodology/index.qmd) for comparability caveats.
+**Data source**: `{python} data_source_label` ·
+**Window**: `{python} date_min.strftime('%Y-%m-%d')` to `{python} date_max.strftime('%Y-%m-%d')` ·
+**Auction dates**: `{python} n_dates` ·
+**Observations**: `{python} f"{n_obs:,}"` ·
+**Grade shown**: Medium and Large, muscle grade 1 (the article's series).
 :::
 
 ## Min–mean–max by weight class
 
 ```{python}
-#| fig-cap: "Feeder cattle price bands by weight class. Hover for head count."
+#| fig-cap: "Feeder cattle price bands by 100-lb weight class. Hover for head count."
 #| label: fig-price-weight
 #| echo: false
 
 import plotly.graph_objects as go
 
-# Aggregate across all selected years; Phase 1 shows the full snapshot window.
-# In Phase 2 this becomes a driven chart with Observable JS inputs for year
-# range, sex selection, and deflation toggle. Keeping Phase 1 simple per the
-# Automation Over Features commitment: one page live > two pages planned.
+# Aggregate across the full available window — Phase 1 simple view.
+# Phase 2 will add a year-range slider and a deflation toggle.
 
 agg = (
-    df.groupby(["weight_class", "sex"], as_index=False)
-      .agg(
-          price_low=("price_low_cwt", "min"),
-          price_mean=("price_mean_cwt", "mean"),
-          price_high=("price_high_cwt", "max"),
-          head_count=("head_count", "sum"),
-      )
+    work.groupby(["weight_bin", "class"], as_index=False)
+        .agg(
+            price_low=("price_low", "min"),
+            price_mean=("price_avg", "mean"),
+            price_high=("price_high", "max"),
+            head_count=("head_count", "sum"),
+        )
 )
 
+# Order weight bins naturally (300 first).
+bin_order = sorted(agg["weight_bin"].unique(), key=lambda s: int(s.split("–")[0].split("-")[0]))
+agg["weight_bin"] = pd.Categorical(agg["weight_bin"], categories=bin_order, ordered=True)
+agg = agg.sort_values(["class", "weight_bin"])
+
 fig = go.Figure()
-for sex, color in [("Steer", "#1f77b4"), ("Heifer", "#d62728")]:
-    sub = agg[agg["sex"] == sex]
+for cl, color in [("Steers", "#1f77b4"), ("Heifers", "#d62728")]:
+    sub = agg[agg["class"] == cl]
+    if sub.empty:
+        continue
     fig.add_trace(go.Scatter(
-        x=sub["weight_class"],
+        x=sub["weight_bin"].astype(str),
         y=sub["price_mean"],
         mode="lines+markers",
-        name=f"{sex} (mean)",
+        name=f"{cl} (mean)",
         line=dict(color=color, width=2),
         error_y=dict(
             type="data",
@@ -113,9 +176,9 @@ for sex, color in [("Steer", "#1f77b4"), ("Heifer", "#d62728")]:
         ),
         hovertemplate=(
             "<b>%{x}</b><br>"
-            f"{sex}<br>"
+            f"{cl}<br>"
             "Mean: $%{y:.2f}/cwt<br>"
-            "Head: %{customdata}<extra></extra>"
+            "Head: %{customdata:,}<extra></extra>"
         ),
         customdata=sub["head_count"],
     ))
@@ -133,8 +196,8 @@ fig.show()
 
 ## Download
 
-- [Parquet snapshot](../data/processed/clovis_archive_2000_2025.parquet) — feeder cattle archive (2000–2025)
-- [CSV export](../data/processed/clovis_archive_2000_2025.csv) — generated on each site build
+- [Parquet snapshot](../data/processed/clovis_latest.parquet) — Clovis feeder-cattle archive, latest MARS vintage
+- [Vintage manifest](../data/processed/clovis_MANIFEST.json) — SHA-256 of every snapshot the pipeline has committed
 
 ## Why these choices
 
@@ -142,11 +205,11 @@ fig.show()
 
 **Nominal dollars for Phase 1.** CPI deflation is wired up in the pipeline (see [Methodology → CPI](methodology/cpi.qmd)) but not turned on for this page yet; the Phase 2 UI toggle will let readers switch between nominal and real dollars (article-basis, December 2025 dollars).
 
-**Clovis only.** Because that is the archive the forthcoming article uses. As the live AMS pipeline lands, more markets will appear behind the same interface.
+**Clovis, Medium-and-Large 1, only.** Because that is the specific cut the forthcoming article reports. Additional frames and muscle grades are preserved in the snapshot and can be surfaced in later Phase 2 filters.
 
 ## What's next on this page
 
-- [ ] Real Clovis archive replaces the synthetic stand-in (Phase 1).
-- [ ] Year-range slider + sex filter + inflation toggle (Phase 2).
-- [ ] Live AMS pipeline attaching current-season comparisons (Phase 2).
+- [ ] Year-range slider + class filter + inflation toggle (Phase 2).
+- [ ] Historical reconstruction extending the window back to 1992 (separate workstream).
+- [ ] Weekly-seasonality panel to complement the by-weight view (Phase 2; maps to Figures 3–4 of the forthcoming article).
 - [ ] Downloadable session summary for producers to take to a banker (Phase 3).
