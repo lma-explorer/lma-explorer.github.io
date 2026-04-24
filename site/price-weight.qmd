@@ -11,7 +11,7 @@ toc-depth: 2
 
 ## About this page
 
-The forthcoming Extension article *Market Alternatives and Price Slide Considerations for Selling Feeder Cattle* (Sall & Tronstad, in preparation) walks through feeder-cattle pricing by weight class using archived Clovis, NM auction data. This page keeps that comparison alive against the live USDA-AMS feed and is refreshed automatically each week by the `clovis_refresh` GitHub Actions workflow.
+The forthcoming Extension article *Market Alternatives and Price Slide Considerations for Selling Feeder Cattle* (Sall & Tronstad, in preparation) walks through feeder-cattle pricing by weight class using archived Clovis, NM auction data. This page keeps that comparison alive against the live USDA-AMS feed and is refreshed automatically each week by the `clovis_refresh` GitHub Actions workflow. Prices can be viewed in nominal dollars or deflated to December 2025 dollars via the toggle above the chart.
 
 ```{python}
 #| echo: false
@@ -30,6 +30,7 @@ import pandas as pd
 PROCESSED = Path("..") / "data" / "processed"
 ARCHIVE_PATH = PROCESSED / "clovis_archive_2000_2025.parquet"
 LATEST_PATH = PROCESSED / "clovis_latest.parquet"
+CPI_PATH = PROCESSED / "cpi_latest.parquet"
 
 data_is_placeholder = False
 data_source_label = None
@@ -121,75 +122,178 @@ n_dates = pd.to_datetime(work["auction_date"]).dt.date.nunique()
 n_obs = len(work)
 ```
 
+```{python}
+#| echo: false
+#| label: deflate-to-dec-2025
+
+# CPI deflation. The BLS pipeline (pipelines/bls/) writes cpi_latest.parquet
+# with columns period (month-start date), cpi_u (All Items NSA), vintage,
+# revision_count. The article's dollar basis is December 2025. The deflator
+# for an observation in month M is:
+#
+#     deflator_M = cpi_u(Dec 2025) / cpi_u(M)
+#     price_real_M = price_nominal_M * deflator_M
+#
+# If cpi_latest.parquet isn't present (e.g. a transient rendering run before
+# the first BLS backfill), real-dollar columns are set equal to nominal and
+# the page still renders; the toggle below just shows identical curves.
+
+import pandas as pd
+
+BASIS_PERIOD = pd.Timestamp("2025-12-01")
+cpi_basis_label = "December 2025"
+
+deflation_available = False
+if CPI_PATH.exists():
+    cpi = pd.read_parquet(CPI_PATH)[["period", "cpi_u"]].copy()
+    cpi["period"] = pd.to_datetime(cpi["period"])
+    basis_rows = cpi[cpi["period"] == BASIS_PERIOD]
+    if not basis_rows.empty:
+        cpi_basis_value = float(basis_rows["cpi_u"].iloc[0])
+        deflation_available = True
+    else:
+        # Fall back to the latest CPI month if December 2025 isn't published yet.
+        fallback = cpi.sort_values("period").iloc[-1]
+        cpi_basis_value = float(fallback["cpi_u"])
+        cpi_basis_label = pd.to_datetime(fallback["period"]).strftime("%B %Y")
+        deflation_available = True
+
+if deflation_available:
+    # Join each observation to its month's CPI.
+    work["period_month"] = work["auction_date"].dt.to_period("M").dt.to_timestamp()
+    cpi_lookup = cpi.set_index("period")["cpi_u"]
+    work["cpi_u_month"] = work["period_month"].map(cpi_lookup)
+    work["deflator"] = cpi_basis_value / work["cpi_u_month"]
+    # Observations whose month pre-dates our CPI series (rare; BLS CPI-U
+    # starts well before 2019) fall back to deflator = 1 — i.e., real ≡ nominal
+    # for those rows. Logs a visible count in the page's render log.
+    missing_cpi = int(work["deflator"].isna().sum())
+    if missing_cpi:
+        print(f"[deflate] {missing_cpi} observations lack a CPI month-match; leaving nominal.")
+    work["deflator"] = work["deflator"].fillna(1.0)
+    work["price_low_real"] = work["price_low"] * work["deflator"]
+    work["price_avg_real"] = work["price_avg"] * work["deflator"]
+    work["price_high_real"] = work["price_high"] * work["deflator"]
+else:
+    # No CPI available — real columns equal nominal so the toggle is harmless.
+    work["price_low_real"] = work["price_low"]
+    work["price_avg_real"] = work["price_avg"]
+    work["price_high_real"] = work["price_high"]
+```
+
 ::: {.callout-important}
 **Data source**: `{python} data_source_label` ·
 **Window**: `{python} date_min.strftime('%Y-%m-%d')` to `{python} date_max.strftime('%Y-%m-%d')` ·
 **Auction dates**: `{python} n_dates` ·
 **Observations**: `{python} f"{n_obs:,}"` ·
-**Grade shown**: Medium and Large, muscle grade 1 (the article's series).
+**Grade shown**: Medium and Large, muscle grade 1 (the article's series) ·
+**Deflation basis**: `{python} cpi_basis_label` CPI-U NSA (`CUUR0000SA0`).
 :::
 
 ## Min–mean–max by weight class
 
+Feeder-cattle price bands by 100-lb weight class. The toggle above the chart switches between nominal dollars and real December-2025 dollars. Hover any point for head count; error bars extend to the window's min and max observations.
+
 ```{python}
-#| fig-cap: "Feeder cattle price bands by 100-lb weight class. Hover for head count."
-#| label: fig-price-weight
 #| echo: false
 
 import plotly.graph_objects as go
 
-# Aggregate across the full available window — Phase 1 simple view.
-# Phase 2 will add a year-range slider and a deflation toggle.
+# Two aggregations from the same rows — nominal and real. We render both as
+# trace pairs (Steers, Heifers); Plotly buttons toggle which pair is visible.
 
-agg = (
-    work.groupby(["weight_bin", "class"], as_index=False)
-        .agg(
-            price_low=("price_low", "min"),
-            price_mean=("price_avg", "mean"),
-            price_high=("price_high", "max"),
-            head_count=("head_count", "sum"),
-        )
-)
+def _aggregate(work_df, low_col, avg_col, high_col):
+    agg = (
+        work_df.groupby(["weight_bin", "class"], as_index=False)
+               .agg(
+                   price_low=(low_col, "min"),
+                   price_mean=(avg_col, "mean"),
+                   price_high=(high_col, "max"),
+                   head_count=("head_count", "sum"),
+               )
+    )
+    # Order weight bins naturally (300 first).
+    bin_order = sorted(
+        agg["weight_bin"].unique(),
+        key=lambda s: int(s.split("–")[0].split("-")[0]),
+    )
+    agg["weight_bin"] = pd.Categorical(agg["weight_bin"], categories=bin_order, ordered=True)
+    return agg.sort_values(["class", "weight_bin"])
 
-# Order weight bins naturally (300 first).
-bin_order = sorted(agg["weight_bin"].unique(), key=lambda s: int(s.split("–")[0].split("-")[0]))
-agg["weight_bin"] = pd.Categorical(agg["weight_bin"], categories=bin_order, ordered=True)
-agg = agg.sort_values(["class", "weight_bin"])
+
+agg_nominal = _aggregate(work, "price_low", "price_avg", "price_high")
+agg_real = _aggregate(work, "price_low_real", "price_avg_real", "price_high_real")
 
 fig = go.Figure()
-for cl, color in [("Steers", "#1f77b4"), ("Heifers", "#d62728")]:
-    sub = agg[agg["class"] == cl]
-    if sub.empty:
-        continue
-    fig.add_trace(go.Scatter(
-        x=sub["weight_bin"].astype(str),
-        y=sub["price_mean"],
-        mode="lines+markers",
-        name=f"{cl} (mean)",
-        line=dict(color=color, width=2),
-        error_y=dict(
-            type="data",
-            symmetric=False,
-            array=sub["price_high"] - sub["price_mean"],
-            arrayminus=sub["price_mean"] - sub["price_low"],
-            thickness=1,
-        ),
-        hovertemplate=(
-            "<b>%{x}</b><br>"
-            f"{cl}<br>"
-            "Mean: $%{y:.2f}/cwt<br>"
-            "Head: %{customdata:,}<extra></extra>"
-        ),
-        customdata=sub["head_count"],
-    ))
+color_by_class = {"Steers": "#1f77b4", "Heifers": "#d62728"}
+
+# Traces 0,1 = nominal Steers, Heifers (visible initially).
+# Traces 2,3 = real    Steers, Heifers (hidden initially).
+for agg_df, mode_label, visible in [
+    (agg_nominal, "nominal", True),
+    (agg_real, f"real {cpi_basis_label}", False),
+]:
+    for cl in ["Steers", "Heifers"]:
+        sub = agg_df[agg_df["class"] == cl]
+        if sub.empty:
+            continue
+        fig.add_trace(go.Scatter(
+            x=sub["weight_bin"].astype(str),
+            y=sub["price_mean"],
+            mode="lines+markers",
+            name=f"{cl} ({mode_label})",
+            visible=visible,
+            line=dict(color=color_by_class[cl], width=2),
+            error_y=dict(
+                type="data",
+                symmetric=False,
+                array=sub["price_high"] - sub["price_mean"],
+                arrayminus=sub["price_mean"] - sub["price_low"],
+                thickness=1,
+            ),
+            hovertemplate=(
+                "<b>%{x}</b><br>"
+                f"{cl} ({mode_label})<br>"
+                "Mean: $%{y:.2f}/cwt<br>"
+                "Head: %{customdata:,}<extra></extra>"
+            ),
+            customdata=sub["head_count"],
+        ))
 
 fig.update_layout(
     xaxis_title="Weight class",
     yaxis_title="Price ($/cwt, nominal)",
-    height=450,
-    margin=dict(t=20, b=40, l=60, r=20),
+    height=480,
+    margin=dict(t=70, b=40, l=60, r=20),
     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     hovermode="x unified",
+    updatemenus=[dict(
+        type="buttons",
+        direction="right",
+        active=0,
+        x=0.01, y=1.18,
+        xanchor="left", yanchor="top",
+        pad=dict(r=6, t=4, b=4),
+        showactive=True,
+        buttons=[
+            dict(
+                label="Nominal $",
+                method="update",
+                args=[
+                    {"visible": [True, True, False, False]},
+                    {"yaxis.title.text": "Price ($/cwt, nominal)"},
+                ],
+            ),
+            dict(
+                label=f"Real ({cpi_basis_label} $)",
+                method="update",
+                args=[
+                    {"visible": [False, False, True, True]},
+                    {"yaxis.title.text": f"Price ($/cwt, real {cpi_basis_label})"},
+                ],
+            ),
+        ],
+    )],
 )
 fig.show()
 ```
@@ -198,18 +302,21 @@ fig.show()
 
 - [Parquet snapshot](../data/processed/clovis_latest.parquet) — Clovis feeder-cattle archive, latest MARS vintage
 - [Vintage manifest](../data/processed/clovis_MANIFEST.json) — SHA-256 of every snapshot the pipeline has committed
+- [CPI deflator](../data/processed/cpi_latest.parquet) — BLS CPI-U NSA (`CUUR0000SA0`), the deflation basis
 
 ## Why these choices
 
 **Min–mean–max rather than a single point.** Auction prices vary within a weight class and within a sale day; collapsing them to a single number hides risk that matters to a seller deciding when to market.
 
-**Nominal dollars for Phase 1.** CPI deflation is wired up in the pipeline (see [Methodology → CPI](methodology/cpi.qmd)) but not turned on for this page yet; the Phase 2 UI toggle will let readers switch between nominal and real dollars (article-basis, December 2025 dollars).
+**Nominal and real dollars, reader-selectable.** Many producers think in nominal dollars (what the check actually read). Researchers think in real dollars (to compare 2019 against 2026 without inflation muddying the picture). The toggle lets either audience see what they're looking for. Real-dollar prices use December 2025 as the basis — matching the forthcoming article's convention — and are computed from the BLS CPI-U All Items NSA series, auto-refreshed monthly by `pipelines/bls/`. See [Methodology → CPI](methodology/cpi.qmd).
 
 **Clovis, Medium-and-Large 1, only.** Because that is the specific cut the forthcoming article reports. Additional frames and muscle grades are preserved in the snapshot and can be surfaced in later Phase 2 filters.
 
 ## What's next on this page
 
-- [ ] Year-range slider + class filter + inflation toggle (Phase 2).
+- [x] Real Clovis data (live MARS feed) replacing the synthetic stand-in.
+- [x] CPI deflation toggle (nominal / real December-2025 dollars).
+- [ ] Year-range slider + class filter (Phase 2).
 - [ ] Historical reconstruction extending the window back to 1992 (separate workstream).
 - [ ] Weekly-seasonality panel to complement the by-weight view (Phase 2; maps to Figures 3–4 of the forthcoming article).
 - [ ] Downloadable session summary for producers to take to a banker (Phase 3).
