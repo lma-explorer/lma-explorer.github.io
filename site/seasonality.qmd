@@ -339,11 +339,14 @@ fig.update_layout(
 
 # Axes. Match the article's Figures 3/4 convention of printing every week
 # number 1-52 under the bottom panel. A small font keeps all 52 labels
-# readable without collision.
+# readable without collision. The explicit range clips Plotly's default
+# ~5% padding so the first and last ticks sit at the panel edges rather
+# than leaving an empty week -1 and week 53+ gutter.
 fig.update_xaxes(
     tickmode="linear", tick0=1, dtick=1,
     tickfont=dict(size=9),
     showgrid=False, linecolor="#888", mirror=False, ticks="outside",
+    range=[0.5, 52.5],
 )
 fig.update_xaxes(title_text="Week of calendar year", row=2, col=1)
 
