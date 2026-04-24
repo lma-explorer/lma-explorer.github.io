@@ -1,44 +1,162 @@
 ---
-title: "Data snapshots"
-subtitle: "Every vintage is a release artifact. Browse, download, cite."
+title: "Data catalog"
+subtitle: "Every committed snapshot, with its vintage, row count, and SHA — auto-refreshed on each site build."
 toc: true
 toc-depth: 2
 ---
 
-## What's here
-
-Every pipeline on this platform writes a versioned Parquet snapshot on each run. The snapshots accumulate in `data/processed/`; a `MANIFEST.json` records each one with its vintage, sha256, and row count. Once a year, the accumulated snapshots are bundled into a Zenodo deposit with a versioned DOI, which is the preferred citation target for researchers.
-
-## Snapshots on disk
-
-```{python}
-#| echo: false
-import json
-from pathlib import Path
-
-# Quarto's Jupyter kernel has no __file__. Paths are resolved from the cwd
-# Quarto sets during render — the .qmd file's directory (site/).
-manifest_path = Path("..") / "data" / "processed" / "MANIFEST.json"
-if manifest_path.exists():
-    with manifest_path.open("r", encoding="utf-8") as f:
-        manifest = json.load(f)
-    print(f"Series: {manifest.get('series', '(unknown)')}")
-    print()
-    print(f"{'Vintage':<10} {'Rows':>7}  {'File':<50}")
-    print("-" * 72)
-    for entry in manifest.get("entries", []):
-        vintage = entry.get("vintage", "?")
-        rows = entry.get("rows", "?")
-        file = entry.get("file", "?")
-        print(f"{vintage:<10} {rows:>7}  {file:<50}")
-else:
-    print("No manifest yet. The first successful monthly BLS refresh populates this.")
-```
-
-## How to cite
-
-Prefer the versioned Zenodo DOI when one exists. Until the first annual deposit, cite the repository directly using the [CITATION.cff](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/CITATION.cff) file and the relevant commit SHA.
+This page is a live inventory of every Parquet snapshot the repository's pipelines commit to `data/processed/`. Every row below is read at render time from the pipeline's own manifest or the Parquet file itself — nothing here is hand-maintained. If a row shows `(missing)`, the next scheduled run of that pipeline will fill it in.
 
 ## License
 
-All derived data: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/). See [LICENSE-DATA](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/LICENSE-DATA.md) for the source-by-source breakdown.
+All derived snapshots on this page are licensed under **CC BY 4.0** (see [`LICENSE-DATA.md`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/LICENSE-DATA.md)). Attribution expected:
+
+> Livestock Marketing Alternatives Explorer. [Year]. [URL]. Licensed under CC BY 4.0.
+
+Underlying government data (USDA-AMS, BLS) is U.S. public domain.
+
+## Current snapshots
+
+```{python}
+#| echo: false
+#| label: catalog-table
+
+from pathlib import Path
+import json
+import pandas as pd
+from IPython.display import Markdown
+
+PROCESSED = Path("..") / "data" / "processed"
+
+# Every row describes one "series" in the catalog. Each series has a pointer
+# to its Parquet, its pipeline / workflow / methodology pages, and optionally
+# a pointer to its manifest (for vintage stamps and SHA-256).
+CATALOG = [
+    {
+        "title": "BLS CPI-U (monthly)",
+        "parquet": "cpi_latest.parquet",
+        "vintage_column": "period",
+        "manifest": "MANIFEST.json",
+        "pipeline_url": "https://github.com/lma-explorer/lma-explorer.github.io/tree/main/pipelines/bls",
+        "workflow_url": "https://github.com/lma-explorer/lma-explorer.github.io/blob/main/.github/workflows/bls_cpi_refresh.yml",
+        "methodology_url": "methodology/cpi.qmd",
+        "description": "CPI-U, All Items, U.S. City Average, NSA (CUUR0000SA0). Monthly series.",
+    },
+    {
+        "title": "Clovis Livestock Auction (weekly)",
+        "parquet": "clovis_latest.parquet",
+        "vintage_column": "auction_date",
+        "manifest": "clovis_MANIFEST.json",
+        "pipeline_url": "https://github.com/lma-explorer/lma-explorer.github.io/tree/main/pipelines/clovis",
+        "workflow_url": "https://github.com/lma-explorer/lma-explorer.github.io/blob/main/.github/workflows/clovis_refresh.yml",
+        "methodology_url": "methodology/clovis.qmd",
+        "description": "USDA-AMS MARS slug AMS_1781. Feeder-cattle $/cwt, all frame/muscle-grade combinations preserved.",
+    },
+]
+
+
+def _describe_parquet(path: Path, vintage_col: str) -> dict[str, str]:
+    if not path.exists():
+        return {"rows": "_(missing)_", "date_range": "—", "columns": "—", "size": "—"}
+    df = pd.read_parquet(path)
+    size_kb = path.stat().st_size / 1024
+    date_range = "—"
+    if vintage_col in df.columns:
+        s = pd.to_datetime(df[vintage_col])
+        if not s.isna().all():
+            date_range = f"{s.min().date()} → {s.max().date()}"
+    return {
+        "rows": f"{len(df):,}",
+        "date_range": date_range,
+        "columns": str(len(df.columns)),
+        "size": f"{size_kb:,.1f} KB",
+    }
+
+
+def _describe_manifest(path: Path) -> dict[str, str]:
+    if not path.exists():
+        return {"vintage": "_(no manifest)_", "sha": "—", "written": "—", "n_vintages": "0"}
+    with path.open("r", encoding="utf-8") as f:
+        m = json.load(f)
+    entries = m.get("entries", [])
+    if not entries:
+        return {"vintage": "_(empty manifest)_", "sha": "—", "written": "—", "n_vintages": "0"}
+    e = entries[-1]
+    return {
+        "vintage": f"`{e.get('vintage','—')}`",
+        "sha": f"`{(e.get('sha256') or '')[:12]}…`",
+        "written": e.get("written_at_utc", "—"),
+        "n_vintages": str(len(entries)),
+    }
+
+
+blocks = []
+for spec in CATALOG:
+    pq_path = PROCESSED / spec["parquet"]
+    mf_path = PROCESSED / spec["manifest"]
+    pq_info = _describe_parquet(pq_path, spec["vintage_column"])
+    mf_info = _describe_manifest(mf_path)
+    block = (
+        f"### {spec['title']}\n\n"
+        f"{spec['description']}\n\n"
+        f"| Field | Value |\n"
+        f"|---|---|\n"
+        f"| **File** | [`{spec['parquet']}`](../data/processed/{spec['parquet']}) |\n"
+        f"| **Rows** | {pq_info['rows']} |\n"
+        f"| **Columns** | {pq_info['columns']} |\n"
+        f"| **File size** | {pq_info['size']} |\n"
+        f"| **Time range** | {pq_info['date_range']} |\n"
+        f"| **Latest vintage** | {mf_info['vintage']} |\n"
+        f"| **Vintages committed** | {mf_info['n_vintages']} |\n"
+        f"| **Snapshot SHA** | {mf_info['sha']} |\n"
+        f"| **Last written (UTC)** | {mf_info['written']} |\n"
+        f"| **Pipeline code** | [pipelines/]({spec['pipeline_url']}) |\n"
+        f"| **Scheduled workflow** | [.github/workflows/]({spec['workflow_url']}) |\n"
+        f"| **Methodology** | [{spec['methodology_url']}]({spec['methodology_url']}) |\n"
+        f"| **Manifest** | [`{spec['manifest']}`](../data/processed/{spec['manifest']}) |\n"
+    )
+    blocks.append(block)
+
+Markdown("\n\n".join(blocks))
+```
+
+## How to use these snapshots
+
+### Direct download
+Right-click any filename in the tables above and save it, or open its URL directly. Parquet is the canonical format; most tools read it natively (Python via `pd.read_parquet`, R via `arrow::read_parquet`, DuckDB, Polars).
+
+### Stable citation (a specific vintage)
+Cite by the manifest's SHA-256. Every committed vintage has one, and the manifest is append-only — a SHA you cite today will still resolve to the same bytes later. If you need DOI-class persistence, the Phase 2 plan includes an annual Zenodo deposit with citeable DOIs.
+
+### Reproducing a figure on this site
+Every chart on the site reads from `*_latest.parquet`. To reproduce what you see, `git clone` the repo and `pip install -r pipelines/requirements.txt`; every `.qmd` file names the Parquet file it reads in its first code cell.
+
+## Planned additions (Phase 2 candidates)
+
+These are discussed in the platform's roadmap but are not yet scheduled. They appear here to make the absence explicit rather than pretend the current catalog is comprehensive.
+
+| Series | Likely source | Rationale |
+|---|---|---|
+| Historical Clovis 1992–2016 | Archived USDA-AMS PDFs | Extends the 7-year MARS window back to the full 26-year article basis. One-time reconstruction, not a scheduled pipeline. |
+| Willcox, AZ auction | USDA-AMS Market News | regional companion to Clovis for regional producers. |
+| Utah feeder auctions | USDA-AMS Market News | Regional comparison within the 4-corners marketing area. |
+| CME feeder-cattle basis | Derived from Clovis + CME settles | Basis statistics (cash minus nearby futures) for hedge-decision support. Raw futures data stays link-out only per the data license; published output is the derived basis statistic, not the futures price. |
+| USDA NASS QuickStats | NASS API | State/county inventory, production, disappearance. |
+
+## The data folder, laid out
+
+```
+data/
+├── raw/
+│   ├── bls/           # raw BLS JSON payloads (gitignored)
+│   └── clovis/        # raw MARS JSON payloads (gitignored)
+└── processed/
+    ├── cpi_latest.parquet          # BLS, newest vintage
+    ├── cpi_<YYYY-MM>.parquet       # BLS, historical vintages
+    ├── MANIFEST.json               # BLS manifest (vintages + SHAs)
+    ├── clovis_latest.parquet       # Clovis, newest vintage
+    ├── clovis_weekly_<date>.parquet  # Clovis, historical vintages
+    └── clovis_MANIFEST.json        # Clovis manifest
+```
+
+Raw API payloads are kept out of git because they are large debugging artifacts and redundant with the processed snapshots. Processed snapshots, manifests, and release artifacts are all committed.
