@@ -287,26 +287,34 @@ def _add_class(agg_df, cls, row, mode_label, visible, show_legend):
 # only (legendgroup binds the Heifers traces so clicking toggles both panels).
 _add_class(seas_nominal, "Steers",  row=1, mode_label="nominal", visible=True, show_legend=True)
 _add_class(seas_nominal, "Heifers", row=2, mode_label="nominal", visible=True, show_legend=False)
-# Real traces — hidden until the toggle flips them on.
-_add_class(seas_real,    "Steers",  row=1, mode_label=f"real {cpi_basis_label}", visible=False, show_legend=False)
+# Real traces — hidden until the toggle flips them on. Steers-row real traces
+# carry legend entries too, so when the user flips to Real the legend
+# reappears (Plotly auto-hides legend entries whose trace is visible=False).
+_add_class(seas_real,    "Steers",  row=1, mode_label=f"real {cpi_basis_label}", visible=False, show_legend=True)
 _add_class(seas_real,    "Heifers", row=2, mode_label=f"real {cpi_basis_label}", visible=False, show_legend=False)
 
 visible_nominal = [True]  * 12 + [False] * 12
 visible_real    = [False] * 12 + [True]  * 12
 
 fig.update_layout(
-    height=760,
-    margin=dict(t=90, b=60, l=80, r=30),
+    height=780,
+    # Taller top margin so the buttons (higher) and the legend (lower) both
+    # have room without stacking on top of each other.
+    margin=dict(t=130, b=60, l=80, r=30),
     hovermode="x unified",
     paper_bgcolor="white",
     plot_bgcolor="white",
     font=dict(family="Helvetica, Arial, sans-serif", size=13, color="#222"),
-    legend=dict(orientation="h", yanchor="bottom", y=1.04, xanchor="center", x=0.5),
+    # Legend sits between the buttons and the chart, centered horizontally,
+    # with room for all six bin entries.
+    legend=dict(orientation="h", yanchor="bottom", y=1.035, xanchor="center", x=0.5),
     updatemenus=[dict(
         type="buttons",
         direction="right",
         active=0,
-        x=0.0, y=1.12,
+        # Buttons sit above the legend — raising y keeps them clear of the
+        # six-entry horizontal legend below them.
+        x=0.0, y=1.18,
         xanchor="left", yanchor="top",
         pad=dict(r=6, t=4, b=4),
         showactive=True,
@@ -329,11 +337,12 @@ fig.update_layout(
     )],
 )
 
-# Axes. Kept deliberately minimal to match the pattern used on the working
-# price-weight page. Plotly auto-picks reasonable tick spacing on the week
-# axis; we add the axis title only on the bottom panel because shared_xaxes
-# is True above.
+# Axes. Match the article's Figures 3/4 convention of printing every week
+# number 1-52 under the bottom panel. A small font keeps all 52 labels
+# readable without collision.
 fig.update_xaxes(
+    tickmode="linear", tick0=1, dtick=1,
+    tickfont=dict(size=9),
     showgrid=False, linecolor="#888", mirror=False, ticks="outside",
 )
 fig.update_xaxes(title_text="Week of calendar year", row=2, col=1)
