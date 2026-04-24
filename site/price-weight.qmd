@@ -233,11 +233,14 @@ def _aggregate(work_df, low_col, avg_col, high_col):
 agg_nominal = _aggregate(work, "price_low", "price_avg", "price_high")
 agg_real = _aggregate(work, "price_low_real", "price_avg_real", "price_high_real")
 
-# Build two subplots, shared y-axis so the Steers/Heifers eye comparison is honest.
+# Two panels stacked vertically — Steers on top, Heifers below. Each panel
+# uses the full chart width; the shared x-axis puts the weight-class labels
+# only on the bottom panel. The y-axes are matched so the Steers/Heifers
+# comparison is visually honest across the two panels.
 fig = make_subplots(
-    rows=1, cols=2,
-    shared_yaxes=True,
-    horizontal_spacing=0.06,
+    rows=2, cols=1,
+    shared_xaxes=True,
+    vertical_spacing=0.10,
     subplot_titles=("NM Clovis — Steers", "NM Clovis — Heifers"),
 )
 
@@ -260,7 +263,7 @@ HOVER_FMT = (
 )
 
 
-def _add_class_traces(agg_df, cls, col, mode_label, visible):
+def _add_class_traces(agg_df, cls, row, mode_label, visible):
     sub = agg_df[agg_df["class"] == cls]
     if sub.empty:
         return
@@ -274,7 +277,7 @@ def _add_class_traces(agg_df, cls, col, mode_label, visible):
             showlegend=False, hoverinfo="skip", visible=visible,
             name=f"{cls} min ({mode_label})",
         ),
-        row=1, col=col,
+        row=row, col=1,
     )
     # 2) upper bound — fills down to the previous trace (the min line) with gray
     fig.add_trace(
@@ -284,7 +287,7 @@ def _add_class_traces(agg_df, cls, col, mode_label, visible):
             showlegend=False, hoverinfo="skip", visible=visible,
             name=f"{cls} max ({mode_label})",
         ),
-        row=1, col=col,
+        row=row, col=1,
     )
     # 3) average line on top, with the full hover info attached
     fig.add_trace(
@@ -298,23 +301,23 @@ def _add_class_traces(agg_df, cls, col, mode_label, visible):
             customdata=cd,
             hovertemplate=HOVER_FMT,
         ),
-        row=1, col=col,
+        row=row, col=1,
     )
 
 
 # Add nominal traces (visible) — 6 traces total.
-_add_class_traces(agg_nominal, "Steers",  col=1, mode_label="nominal", visible=True)
-_add_class_traces(agg_nominal, "Heifers", col=2, mode_label="nominal", visible=True)
+_add_class_traces(agg_nominal, "Steers",  row=1, mode_label="nominal", visible=True)
+_add_class_traces(agg_nominal, "Heifers", row=2, mode_label="nominal", visible=True)
 # Add real traces (hidden) — 6 more.
-_add_class_traces(agg_real, "Steers",  col=1, mode_label=f"real {cpi_basis_label}", visible=False)
-_add_class_traces(agg_real, "Heifers", col=2, mode_label=f"real {cpi_basis_label}", visible=False)
+_add_class_traces(agg_real, "Steers",  row=1, mode_label=f"real {cpi_basis_label}", visible=False)
+_add_class_traces(agg_real, "Heifers", row=2, mode_label=f"real {cpi_basis_label}", visible=False)
 
 visible_nominal = [True]  * 6 + [False] * 6
 visible_real    = [False] * 6 + [True]  * 6
 
 fig.update_layout(
-    height=480,
-    margin=dict(t=90, b=50, l=70, r=20),
+    height=780,
+    margin=dict(t=90, b=60, l=80, r=30),
     hovermode="x unified",
     paper_bgcolor="white",
     plot_bgcolor="white",
@@ -323,7 +326,7 @@ fig.update_layout(
         type="buttons",
         direction="right",
         active=0,
-        x=0.0, y=1.22,
+        x=0.0, y=1.10,
         xanchor="left", yanchor="top",
         pad=dict(r=6, t=4, b=4),
         showactive=True,
@@ -333,32 +336,34 @@ fig.update_layout(
                  args=[
                      {"visible": visible_nominal},
                      {"yaxis.title.text": "Price, $/cwt (nominal)",
-                      "yaxis2.title.text": ""},
+                      "yaxis2.title.text": "Price, $/cwt (nominal)"},
                  ]),
             dict(label=f"Real ({cpi_basis_label} $)",
                  method="update",
                  args=[
                      {"visible": visible_real},
                      {"yaxis.title.text": f"Price, $/cwt (base = {cpi_basis_label})",
-                      "yaxis2.title.text": ""},
+                      "yaxis2.title.text": f"Price, $/cwt (base = {cpi_basis_label})"},
                  ]),
         ],
     )],
 )
 
-# Axes: dollar-formatted ticks, light horizontal gridlines, no vertical grid.
-for axis in ("xaxis", "xaxis2"):
-    fig.update_layout({axis: dict(
-        title_text="Weight (pounds)",
-        showgrid=False,
-        linecolor="#888", mirror=False, ticks="outside",
-    )})
-for axis in ("yaxis", "yaxis2"):
-    fig.update_layout({axis: dict(
-        showgrid=True, gridcolor="#e5e5e5",
-        tickprefix="$", linecolor="#888", mirror=False, ticks="outside",
-    )})
-fig.update_layout(yaxis=dict(title_text="Price, $/cwt (nominal)"))
+# Axes. With shared_xaxes=True the x-axis title only displays on the bottom
+# panel. Y-axes are matched so the two panels share a price range — the
+# honest visual comparison between Steers and Heifers depends on this.
+fig.update_xaxes(
+    showgrid=False, linecolor="#888", mirror=False, ticks="outside",
+)
+fig.update_xaxes(title_text="Weight (pounds)", row=2, col=1)
+
+fig.update_yaxes(
+    showgrid=True, gridcolor="#e5e5e5",
+    tickprefix="$", linecolor="#888", mirror=False, ticks="outside",
+    title_text="Price, $/cwt (nominal)",
+)
+# Match yaxis2 to yaxis so both panels scale identically.
+fig.update_layout(yaxis2=dict(matches="y"))
 
 fig.show()
 ```
