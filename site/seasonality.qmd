@@ -367,6 +367,12 @@ fig.show()
 
 **Why the article picks a three-class subset.** The forthcoming paper shows only 400–499, 600–699, and 700–799 to bracket the typical marketing decision — below 500 lb is "calf on the cow" territory, 600–700 lb is the background/grass-season exit, and 700–800 lb is the feedlot-ready window — and because print-layout constraints make more than three lines hard to read. This page preserves the article's three colors (black, orange, blue) for those classes, adds three more for 300–399, 500–599, and 800–899, and lets you click any legend entry to hide or isolate it. Double-click a legend entry to show *only* that class.
 
+## See also
+
+- [Price–weight explorer](price-weight.qmd) — the complementary view, sliced by weight class instead of by week. Article Figures 1–2.
+- [Methodology → Clovis pipeline](methodology/clovis.qmd) — every filter, bin, and edge case behind the snapshot this page reads from.
+- [Methodology → CPI deflation](methodology/cpi.qmd) — how the December-2025-basis deflator is computed.
+
 ## Download
 
 - [Parquet snapshot](../data/processed/clovis_latest.parquet) — Clovis feeder-cattle archive, latest MARS vintage

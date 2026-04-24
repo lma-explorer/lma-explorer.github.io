@@ -9,26 +9,71 @@ This page collects the methodological choices that sit behind the figures on the
 
 ## Guiding commitments
 
-1. **Public-domain data only.** USDA-AMS LMR (via the MARS API), BLS CPI-U via the public v2 API, and USDA NASS QuickStats. CME futures are link-out only; we do not mirror proprietary prices.
+1. **Public-domain data only.** USDA-AMS Market News via the MARS API, BLS CPI-U via the public v2 API, and USDA NASS QuickStats. CME futures are link-out only; third-party compilations (e.g., LMIC) are used as local research references but never redistributed. See [`LICENSE-DATA.md`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/LICENSE-DATA.md).
 2. **Every figure carries a vintage stamp.** The CPI vintage used to deflate, the date the underlying AMS report was published, and the date the page was last rebuilt — all visible on the page or one click away.
 3. **Reproducibility before breadth.** We would rather serve one figure that can be re-computed from source in a few minutes than five figures whose provenance has drifted.
 4. **Last-known-good on failure.** A failed pipeline run never overwrites a good snapshot. The site keeps serving the last successful vintage until the failure is investigated. See [GOVERNANCE](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/GOVERNANCE.md).
 
-## Data sources and their pipelines
+## Live pipelines and their current freshness
 
-| Source | Series or dataset | Pipeline | Refresh cadence |
-|---|---|---|---|
-| BLS | CPI-U, All Items, U.S. City Average, NSA (`CUUR0000SA0`) | `pipelines/bls/` | Monthly, 16th 14:00 UTC |
-| USDA-AMS | Livestock Market Reporting (MARS API) | `pipelines/ams/` *(Phase 2)* | Daily |
-| USDA NASS | QuickStats — state/county crop and livestock statistics | `pipelines/nass/` *(Phase 2)* | Annual |
+Every row below is read at render time from the pipeline's own manifest file, so the "latest vintage" shown is whatever this page picked up during the last site build — not a hand-typed number.
 
-Archived Clovis, NM auction data is committed directly as a static Parquet snapshot; it is not on a live refresh.
+```{python}
+#| echo: false
+#| label: freshness-table
+
+from pathlib import Path
+import json
+from IPython.display import Markdown
+
+PROCESSED = Path("..") / "data" / "processed"
+MANIFESTS = [
+    ("BLS CPI-U (monthly refresh)", PROCESSED / "MANIFEST.json"),
+    ("USDA-AMS Clovis auction (weekly refresh)", PROCESSED / "clovis_MANIFEST.json"),
+]
+
+def _row(label, path):
+    if not path.exists():
+        return f"| {label} | _(no manifest yet)_ | — | — | — |"
+    with path.open("r", encoding="utf-8") as f:
+        m = json.load(f)
+    entries = m.get("entries", [])
+    if not entries:
+        return f"| {label} | _(empty manifest)_ | — | — | — |"
+    e = entries[-1]
+    rows = e.get("rows", "—")
+    rows_str = f"{rows:,}" if isinstance(rows, int) else "—"
+    sha = (e.get("sha256") or "")[:12]
+    return (
+        f"| {label} | `{e.get('vintage','—')}` | {rows_str} | "
+        f"`{sha}…` | {e.get('written_at_utc','—')} |"
+    )
+
+header = (
+    "| Pipeline | Latest vintage | Rows committed | Snapshot SHA | Written (UTC) |\n"
+    "|---|---|---|---|---|"
+)
+body = "\n".join(_row(label, path) for label, path in MANIFESTS)
+Markdown(header + "\n" + body)
+```
+
+## Data sources
+
+| Source | Series or dataset | Pipeline | Refresh cadence | Status |
+|---|---|---|---|---|
+| BLS | CPI-U, All Items, U.S. City Average, NSA (`CUUR0000SA0`) | [`pipelines/bls/`](https://github.com/lma-explorer/lma-explorer.github.io/tree/main/pipelines/bls) | Monthly, 16th 14:00 UTC | **Live** |
+| USDA-AMS | Clovis Livestock Auction feeder-cattle report (`AMS_1781`) via MARS API | [`pipelines/clovis/`](https://github.com/lma-explorer/lma-explorer.github.io/tree/main/pipelines/clovis) | Weekly, Thursday 18:00 UTC | **Live** |
+| USDA-AMS | Additional Market News reports (other auctions, other commodities) | Not yet built | — | *Phase 2 candidate* |
+| USDA NASS | QuickStats — state/county crop and livestock statistics | Not yet built | — | *Phase 2 candidate* |
+| LMIC | Member-access compilations (auction archives, futures) | Local research use only — never committed | — | *Local reference* |
+| CME | Feeder-cattle and live-cattle futures | Link-out only; derived statistics may be published | — | *Proprietary source* |
+
+The Clovis archive predating the MARS window (pre-2019) is a separate one-time historical reconstruction workstream, not a scheduled pipeline.
 
 ## Specific methodology pages
 
 - [CPI deflation and the article-basis vintage](cpi.qmd)
-
-More will land as Phase 2 pipelines go live.
+- [Clovis auction pipeline: slug `AMS_1781`, filters, and schema](clovis.qmd)
 
 ## What a methodology page contains
 

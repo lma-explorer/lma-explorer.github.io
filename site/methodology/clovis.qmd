@@ -1,0 +1,132 @@
+---
+title: "Clovis auction pipeline"
+subtitle: "How `AMS_1781` is pulled, filtered, binned, and snapshotted each week."
+toc: true
+toc-depth: 2
+---
+
+## What is being measured
+
+The [Price–weight explorer](../price-weight.qmd) and [Weekly seasonality](../seasonality.qmd) pages both read from a weekly snapshot of the Clovis Livestock Auction — specifically, the USDA Agricultural Marketing Service's Market News report for feeder cattle sold at Clovis, NM. This page documents every transformation between that raw AMS report and the DataFrame the charts consume.
+
+## Where the data comes from
+
+- **Report**: *Clovis Livestock Auction - Clovis, NM* — a weekly AMS Market News report covering Wednesday sales.
+- **MARS slug**: `AMS_1781` (numeric `slug_id` = `1781`)
+- **Office**: Portales, NM (USDA-AMS reporting office for Clovis)
+- **Publisher**: USDA-AMS Market News via the [MARS API](https://mymarketnews.ams.usda.gov/mars-api) (requires a free API key)
+- **License**: U.S. public domain (17 U.S.C. § 105)
+- **Pipeline**: [`pipelines/clovis/`](https://github.com/lma-explorer/lma-explorer.github.io/tree/main/pipelines/clovis)
+- **Schedule**: weekly, Thursday 18:00 UTC, via [`clovis_refresh.yml`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/.github/workflows/clovis_refresh.yml). Thursday 18:00 UTC is ~1:00 PM U.S. Central, giving AMS time to publish the Wednesday auction report.
+
+## Current freshness
+
+```{python}
+#| echo: false
+#| label: clovis-freshness
+
+from pathlib import Path
+import json
+import pandas as pd
+from IPython.display import Markdown
+
+MANIFEST = Path("..") / "data" / "processed" / "clovis_MANIFEST.json"
+if MANIFEST.exists():
+    with MANIFEST.open("r", encoding="utf-8") as f:
+        m = json.load(f)
+    entries = m.get("entries", [])
+    if entries:
+        e = entries[-1]
+        freshness = (
+            f"- **Latest vintage committed**: `{e.get('vintage','—')}`  \n"
+            f"- **Rows in the snapshot**: {e.get('rows','—'):,}  \n"
+            f"- **SHA-256**: `{e.get('sha256','—')[:16]}…`  \n"
+            f"- **Written (UTC)**: {e.get('written_at_utc','—')}  \n"
+            f"- **Total vintages committed to date**: {len(entries)}"
+        )
+    else:
+        freshness = "_No vintages committed yet. The next scheduled Thursday 18:00 UTC refresh will populate this._"
+else:
+    freshness = "_Manifest not yet created. Expected path: `data/processed/clovis_MANIFEST.json`._"
+Markdown(freshness)
+```
+
+## What the raw MARS response looks like
+
+MARS returns a JSON envelope with roughly 40,000+ rows for the full AMS_1781 history (MARS's structured window starts in April 2019). Every row represents one weight-class × class-of-cattle observation from one auction date. The fields the pipeline uses:
+
+| Field | Example | Used for |
+|---|---|---|
+| `report_date` | `04/22/2026` | `auction_date` in the snapshot |
+| `commodity` | `Feeder Cattle` | Filtered (we keep feeder cattle only) |
+| `class` | `Steers`, `Heifers`, `Bulls` | Kept as-is |
+| `frame` | `Medium and Large` | Kept as-is (not filtered at the pipeline level) |
+| `muscle_grade` | `1`, `1-2`, `2` | Kept as-is |
+| `price_unit` | `Per Cwt` | Filtered (we keep $/cwt only) |
+| `weight_break_low` / `weight_break_high` | `500 / 550` | Native 50-lb bin from AMS |
+| `avg_weight` | `520` | Fall-back weight when bins are missing |
+| `avg_price_min` / `avg_price_max` / `avg_price` | `220 / 285 / 253.47` | `price_low` / `price_high` / `price_avg` in the snapshot |
+| `head_count` | `37` | Carried through |
+| `receipts` | `834` | Weekly total auction volume |
+
+Other fields in the MARS response (the narrative text, prior-week receipts, freight terms) stay in the raw JSON at `data/raw/clovis/` but do not enter the processed snapshot.
+
+## What the pipeline filters out
+
+The processed snapshot drops the following rows from the raw feed:
+
+- **Non-feeder commodities** — `Replacement Cattle` (bred cows, cow-calf pairs, bred heifers) and `Slaughter Cattle` (cull cows, slaughter bulls). The forthcoming article is specifically about feeder-cattle price-weight behavior; other classes live in their own literature and should not be averaged with them.
+- **Non-per-cwt pricing** — rows priced `Per Head`, `Per Unit`, or `Per Family`. These are breeding-stock rows that don't admit a meaningful $/cwt.
+- **Out-of-bounds prices** — rows with `avg_price` outside `[$20, $800]/cwt`. The validator logs each one to stderr (they show up in the CI run's log), and the snapshot drops them. USDA-AMS's published archive contains a small number of data-entry errors (for example, one 2021-09-01 Heifers row with `avg_price_min = $1.44` where the minimum was almost certainly $144); these are dropped from the chart but remain in the raw JSON for the record.
+
+The tolerance for anomalous rows is capped at 0.1% of all feeder $/cwt rows. If more than that fraction fall outside the bounds, the validator treats it as a structural change (unit swap, decimal shift) and fails the pipeline — the site then keeps serving the prior snapshot and an issue is opened automatically.
+
+## Weight-class binning
+
+The forthcoming article reports prices in **100-lb bins** (300-399, 400-499, 500-599, 600-699, 700-799, 800-899 lb). The MARS feed publishes prices in **50-lb bins** (300-349, 350-399, 400-449, …) starting in 2024; earlier rows have no explicit bin field, only an `avg_weight` for the observed pen.
+
+Both chart pages collapse the native MARS binning into the 100-lb scheme used by the article:
+
+- If `weight_break_low` is populated, the row's bin is `floor(weight_break_low / 100) × 100`. That is, MARS's 350-399 lb and 400-449 lb both land in the same 400-499 lb bin on the chart.
+- If `weight_break_low` is missing (2019-2023 rows), the bin is derived from `avg_weight` the same way: `floor(avg_weight / 100) × 100`.
+
+Observations below 300 lb or above 899 lb are excluded from the charts because the article's empirical range is 300–899 lb. They are preserved in the snapshot and available for future filters.
+
+## Grade filter on the chart
+
+The article, and therefore the two chart pages, show only the **Medium and Large frame, muscle grade 1** subset — the most common grade category in the Clovis archive and the one the article uses for price-slide analysis. All other frame-and-grade combinations (`Medium`, `Large`, `Small and Medium`, muscle grades 2 and 1-2, etc.) are preserved in the snapshot but filtered out in the site's chart code rather than in the pipeline. Adding those as reader-selectable filters is a Phase 2 enhancement.
+
+## The schema-hash validator
+
+Before any new vintage is snapshotted, the pipeline computes a SHA-256 over the sorted key sets at the root of the MARS response envelope *and* the first row of `results`. That hash is compared to `pipelines/clovis/expected_schema.sha256`. Any change — a renamed field, an added field, a removed field — produces a mismatch and fails the pipeline.
+
+The committed baseline hash is:
+
+```
+3e22f9e6fc266f30d84f2214f9deffa33ddcc30c82b4b5ce2a11857b3ae19751
+```
+
+To re-baseline after a reviewed schema change:
+
+```bash
+python -m pipelines.clovis.validate --rebaseline
+```
+
+**Never rebaseline to silence a failing pipeline.** Inspect the raw JSON in `data/raw/clovis/` first, decide whether the change is cosmetic or substantive, and propagate any downstream code changes before the rebaseline.
+
+## What is deliberately left out
+
+- **LMIC-compiled archives** of Clovis (or other auctions) are not redistributed. They are a third-party compilation and fall outside this repo's public-domain commitment. See [`LICENSE-DATA.md`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/LICENSE-DATA.md).
+- **Pre-2019 history** (the full 1992–2016 window the article's 26-year framing implies) is not covered by the MARS API. A one-time reconstruction from archived AMS PDFs is a separate workstream; when it lands, it will be a static `clovis_archive_2000_2025.parquet` file committed once.
+- **Other Clovis reports** (slaughter/replacement cattle reports `AMS_1779` and `AMS_1780`, Special Feeder Sales) are not ingested. They address different marketing decisions than the feeder-cattle weekly report and would need their own methodology pages.
+- **Auction-date metadata that AMS sometimes publishes on an irregular basis** — holiday cancellations, weather closures — is in the narrative text of the raw report but not parsed into structured fields. A Christmas week with no sale simply appears as a missing row.
+
+## Code
+
+- Pipeline source: [`pipelines/clovis/`](https://github.com/lma-explorer/lma-explorer.github.io/tree/main/pipelines/clovis)
+- Workflow file: [`.github/workflows/clovis_refresh.yml`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/.github/workflows/clovis_refresh.yml)
+- This page's source: [`site/methodology/clovis.qmd`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/site/methodology/clovis.qmd)
+
+## Contact
+
+Spotted an error or a methodological disagreement? Open a [new issue](https://github.com/lma-explorer/lma-explorer.github.io/issues/new/choose) with the `methodology` label.

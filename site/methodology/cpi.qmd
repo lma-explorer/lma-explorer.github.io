@@ -1,6 +1,6 @@
 ---
 title: "CPI deflation and the article-basis vintage"
-subtitle: "Why some figures deflate to 2026 dollars and others keep nominal prices — and how to tell which is which."
+subtitle: "Why some figures deflate to December-2025 dollars and others keep nominal prices — and how to tell which is which."
 toc: true
 toc-depth: 2
 ---
@@ -15,15 +15,100 @@ NSA is used rather than seasonally adjusted CPI because seasonal-adjustment patt
 
 - **Series**: `CUUR0000SA0`
 - **Publisher**: U.S. Bureau of Labor Statistics, public v2 API
-- **License**: U.S. public domain
-- **Pipeline**: `pipelines/bls/` in this repo — see the [pipeline README](https://github.com/lma-explorer/lma-explorer.github.io/tree/main/pipelines/bls).
-- **Schedule**: 16th of each month, 14:00 UTC (`.github/workflows/bls_cpi_refresh.yml`).
+- **License**: U.S. public domain (17 U.S.C. § 105)
+- **Pipeline**: [`pipelines/bls/`](https://github.com/lma-explorer/lma-explorer.github.io/tree/main/pipelines/bls)
+- **Schedule**: 16th of each month, 14:00 UTC ([`bls_cpi_refresh.yml`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/.github/workflows/bls_cpi_refresh.yml))
 
 The pipeline writes two artifacts that figures choose between:
 
 ```
 data/processed/cpi_latest.parquet            # newest vintage, updated monthly
-data/processed/cpi_article_basis_2025.parquet  # frozen to the forthcoming article's December 2025 CPI basis
+data/processed/cpi_article_basis_2025.parquet  # one-time release artifact,
+                                             # frozen to the forthcoming
+                                             # article's December 2025 basis
+                                             # (committed once, never
+                                             # overwritten by the pipeline)
+```
+
+The article-basis file is not yet committed — it will be created once the forthcoming Extension article is finalized. Until then, figures on this site deflate with `cpi_latest.parquet` using December 2025 as the basis month. When the article-basis file lands, figures that need to reproduce article numbers exactly will switch their read-path to it.
+
+## Current freshness
+
+```{python}
+#| echo: false
+#| label: bls-freshness
+
+from pathlib import Path
+import json
+import pandas as pd
+from IPython.display import Markdown
+
+MANIFEST = Path("..") / "data" / "processed" / "MANIFEST.json"
+if MANIFEST.exists():
+    with MANIFEST.open("r", encoding="utf-8") as f:
+        m = json.load(f)
+    entries = m.get("entries", [])
+    if entries:
+        e = entries[-1]
+        freshness = (
+            f"- **Latest vintage committed**: `{e.get('vintage','—')}`  \n"
+            f"- **Rows in the snapshot**: {e.get('rows','—'):,}  \n"
+            f"- **SHA-256**: `{e.get('sha256','—')[:16]}…`  \n"
+            f"- **Written (UTC)**: {e.get('written_at_utc','—')}  \n"
+            f"- **Total vintages committed to date**: {len(entries)}"
+        )
+    else:
+        freshness = "_No vintages committed yet. The next scheduled BLS refresh on the 16th at 14:00 UTC will populate this._"
+else:
+    freshness = "_Manifest not yet created. Expected path: `data/processed/MANIFEST.json`._"
+Markdown(freshness)
+```
+
+## The CPI-U series visualized
+
+```{python}
+#| echo: false
+#| label: cpi-series
+
+from pathlib import Path
+import pandas as pd
+import plotly.graph_objects as go
+
+CPI_LATEST = Path("..") / "data" / "processed" / "cpi_latest.parquet"
+
+if CPI_LATEST.exists():
+    cpi = pd.read_parquet(CPI_LATEST)
+    cpi["period"] = pd.to_datetime(cpi["period"])
+    cpi = cpi.sort_values("period")
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=cpi["period"], y=cpi["cpi_u"],
+        mode="lines", line=dict(color="#1a1a1a", width=2),
+        hovertemplate="<b>%{x|%B %Y}</b><br>CPI-U (NSA): %{y:.3f}<extra></extra>",
+        name="CUUR0000SA0",
+    ))
+    # Mark the December 2025 basis
+    basis_row = cpi[cpi["period"] == pd.Timestamp("2025-12-01")]
+    if not basis_row.empty:
+        basis_val = float(basis_row["cpi_u"].iloc[0])
+        fig.add_hline(
+            y=basis_val, line_dash="dot", line_color="#d17a00",
+            annotation_text=f"December 2025 basis = {basis_val:.2f}",
+            annotation_position="top left",
+        )
+    fig.update_layout(
+        height=360,
+        margin=dict(t=40, b=40, l=70, r=20),
+        paper_bgcolor="white", plot_bgcolor="white",
+        xaxis=dict(title_text="Month", showgrid=False, linecolor="#888", ticks="outside"),
+        yaxis=dict(title_text="CPI-U (1982-84 = 100)", showgrid=True, gridcolor="#e5e5e5", linecolor="#888", ticks="outside"),
+        font=dict(family="Helvetica, Arial, sans-serif", size=12, color="#222"),
+        hovermode="x unified",
+    )
+    fig.show()
+else:
+    print("CPI parquet not yet committed. The first BLS refresh will write it.")
 ```
 
 ## The two-vintage choice
@@ -32,30 +117,40 @@ BLS revises CPI values. A figure that is meant to reproduce the numbers in the f
 
 **Every `.qmd` file that deflates names its CPI vintage in its first code cell.** It is deliberate and visible in the source. The page caption reports the vintage too, so a reader can see at a glance which basis is in play.
 
-## Base-month pinning
+## How the deflator is actually computed
 
-The article-basis file, `cpi_article_basis_2025.parquet`, is a one-time release artifact. It is committed once and never overwritten by the scheduled pipeline. It freezes the historical CPI series as of the vintage current when the forthcoming article is finalized (December 2025 basis).
+For any observation made in month *m*, the real price in December-2025 dollars is:
 
-If BLS revises a historical value, `cpi_latest.parquet` picks that up on its next monthly run and the `revision_count` column increments for the affected month. The article-basis file ignores that revision by construction, preserving article reproducibility.
+$$
+p_{\text{real},m} = p_{\text{nominal},m} \times \frac{\text{CPI}_{\text{Dec 2025}}}{\text{CPI}_m}
+$$
+
+Each auction observation carries a `report_date`; we floor that date to the first of the month, look up the CPI value for that month, and compute the deflator row-by-row. Aggregations (weekly means, weight-class means) operate on the deflated column, not on a single aggregate deflator — because a weighted mean of real prices is not equal to the nominal mean times a mean deflator when the data spans multiple months.
 
 ## The month-over-month sanity check
 
 Before any new vintage is snapshotted, the pipeline checks that no month-over-month CPI change exceeds 5 percent in absolute value. CPI has not moved that fast even in the 2021–2022 inflation spike; a change beyond that bound is almost certainly a unit shift, a decimal error, or a malformed API response. If the check fails, the pipeline exits non-zero, opens a `data-source-drift` issue, and the site keeps serving the prior vintage.
 
+BLS also publishes *suppression markers* (empty strings, dashes, `(NA)`) for cells that are unavailable or preliminary. The validator treats these as missing rather than as failures; a single suppressed month never crashes the pipeline.
+
 ## How to read the vintage stamp
 
-When a figure caption says `CPI vintage: 2026-04`, that means the deflation used the CPI series as published in the April 2026 BLS release. If you are reproducing the figure locally and BLS has since published May 2026 values, your numbers will differ slightly if you use the newer vintage — which is why the site publishes the vintage alongside the figure rather than burying it in code.
+When a figure caption says **Deflation basis: December 2025 CPI-U NSA**, that means the deflation used BLS's value for December 2025 as the numerator of the deflator. The specific BLS publication month the value came from is in the manifest; see the "Current freshness" section above for the latest vintage stamp.
+
+If you are reproducing a figure locally and BLS has since revised the December 2025 value, your numbers will differ slightly — which is why the site publishes the vintage alongside the figure rather than burying it in code.
 
 ## What is deliberately left out
 
-- Regional CPIs (e.g., CPI for the Mountain Census region) are not used. Phase 2 candidate.
-- Chained-CPI variants are not used. The article uses the standard CPI-U.
-- Producer Price Index (PPI) is not used for livestock-price deflation here. A separate Phase 2 methodology page will introduce PPI for feed-cost-side figures where it is more appropriate.
+- **Regional CPIs** (e.g., CPI for the Mountain Census region) are not used. A producer in New Mexico might prefer a regional deflator; we keep CPI-U for consistency with the forthcoming article. Phase 2 candidate.
+- **Chained CPI-U (C-CPI-U)** is not used. The article uses the standard CPI-U.
+- **Producer Price Index (PPI)** is not used for livestock-price deflation here. A separate Phase 2 methodology page will introduce PPI for feed-cost figures where it is more appropriate.
+- **Seasonal-adjustment** (the SA variant of CPI-U) is not used — see the opening paragraph.
 
 ## Code
 
-- Pipeline: [`pipelines/bls/`](https://github.com/lma-explorer/lma-explorer.github.io/tree/main/pipelines/bls)
+- Pipeline source: [`pipelines/bls/`](https://github.com/lma-explorer/lma-explorer.github.io/tree/main/pipelines/bls)
 - This page's source: [`site/methodology/cpi.qmd`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/site/methodology/cpi.qmd)
+- Workflow file: [`.github/workflows/bls_cpi_refresh.yml`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/.github/workflows/bls_cpi_refresh.yml)
 
 ## Contact
 
