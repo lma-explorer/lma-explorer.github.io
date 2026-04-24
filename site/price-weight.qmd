@@ -385,6 +385,8 @@ fig.show()
 ## See also
 
 - [Weekly seasonality](seasonality.qmd) — same data, sliced by week of the calendar year instead of by weight class. Answers *"when in the year do these prices peak?"* — maps to the article's Figures 3–4.
+- [Methodology → Clovis pipeline](methodology/clovis.qmd) — every filter, bin, and edge case behind the snapshot this page reads from.
+- [Methodology → CPI deflation](methodology/cpi.qmd) — how the December-2025-basis deflator is computed.
 
 ## What's next on this page
 
