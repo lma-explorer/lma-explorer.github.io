@@ -225,37 +225,41 @@ fig = make_subplots(
     ),
 )
 
-# Single set of 12 traces — one per (class × bin) — with nominal y-data
-# shown initially. The nominal/real toggle restyles the y arrays in place,
-# which means the user's legend clicks (hiding specific bins) persist across
-# toggles. Only Steers-row traces carry legend entries; Heifers-row traces
-# share their legendgroup so clicking a bin in the legend toggles both panels.
+# 24 traces total: 6 bins × (Steers, Heifers) × (nominal, real). Nominal
+# traces (indices 0–11) visible initially; real traces (12–23) hidden.
+# The toggle flips the visibility mask wholesale. Individual legend clicks
+# don't persist across the toggle — the price-weight page has the same
+# behaviour, and this matches the article's convention of showing one
+# dollar-basis at a time anyway.
 
-nominal_y, real_y, custom_n = [], [], []
-
-def _add_class(cls, row, show_legend):
+def _add_class(agg_df, cls, row, mode_label, visible, show_legend):
     for wb in BIN_ORDER:
-        sub_nom = (
-            seas_nominal[(seas_nominal["class"] == cls) & (seas_nominal["weight_bin"] == wb)]
+        sub = (
+            agg_df[(agg_df["class"] == cls) & (agg_df["weight_bin"] == wb)]
             .sort_values("iso_week")
         )
-        sub_real = (
-            seas_real[(seas_real["class"] == cls) & (seas_real["weight_bin"] == wb)]
-            .sort_values("iso_week")
-        )
-        x = sub_nom["iso_week"].tolist()
-        y_nom = sub_nom["price"].tolist()
-        y_real = sub_real["price"].tolist()
-        n_per_week = sub_nom["n"].tolist()
+        if sub.empty:
+            # Emit a placeholder so the visibility mask index stays predictable.
+            fig.add_trace(
+                go.Scatter(
+                    x=[], y=[], name=f"{wb}",
+                    legendgroup=wb, showlegend=False, visible=visible,
+                ),
+                row=row, col=1,
+            )
+            continue
         fig.add_trace(
             go.Scatter(
-                x=x, y=y_nom, mode="lines+markers",
+                x=sub["iso_week"].tolist(),
+                y=sub["price"].tolist(),
+                mode="lines+markers",
                 name=wb,
                 legendgroup=wb,
                 showlegend=show_legend,
+                visible=visible,
                 line=dict(color=COLOR_BY_BIN[wb], width=2),
                 marker=dict(color=COLOR_BY_BIN[wb], size=5),
-                customdata=n_per_week,
+                customdata=sub["n"].tolist(),
                 hovertemplate=(
                     f"<b>{wb} · {cls}</b><br>"
                     "Week %{x}<br>"
@@ -265,13 +269,18 @@ def _add_class(cls, row, show_legend):
             ),
             row=row, col=1,
         )
-        nominal_y.append(y_nom)
-        real_y.append(y_real)
-        custom_n.append(n_per_week)
 
 
-_add_class("Steers",  row=1, show_legend=True)
-_add_class("Heifers", row=2, show_legend=False)
+# Nominal traces — visible initially. Legend entries come from the Steers row
+# only (legendgroup binds the Heifers traces so clicking toggles both panels).
+_add_class(seas_nominal, "Steers",  row=1, mode_label="nominal", visible=True, show_legend=True)
+_add_class(seas_nominal, "Heifers", row=2, mode_label="nominal", visible=True, show_legend=False)
+# Real traces — hidden until the toggle flips them on.
+_add_class(seas_real,    "Steers",  row=1, mode_label=f"real {cpi_basis_label}", visible=False, show_legend=False)
+_add_class(seas_real,    "Heifers", row=2, mode_label=f"real {cpi_basis_label}", visible=False, show_legend=False)
+
+visible_nominal = [True]  * 12 + [False] * 12
+visible_real    = [False] * 12 + [True]  * 12
 
 fig.update_layout(
     height=760,
@@ -292,18 +301,15 @@ fig.update_layout(
         buttons=[
             dict(label="Nominal $",
                  method="update",
-                 # restyle — swap the y-arrays on all 12 traces. Legend
-                 # visibility that the user has set via clicks persists
-                 # because we are not touching each trace's `visible` flag.
                  args=[
-                     {"y": nominal_y},
+                     {"visible": visible_nominal},
                      {"yaxis.title.text": "Avg price, $/cwt (nominal)",
                       "yaxis2.title.text": "Avg price, $/cwt (nominal)"},
                  ]),
             dict(label=f"Real ({cpi_basis_label} $)",
                  method="update",
                  args=[
-                     {"y": real_y},
+                     {"visible": visible_real},
                      {"yaxis.title.text": f"Avg price, $/cwt (base = {cpi_basis_label})",
                       "yaxis2.title.text": f"Avg price, $/cwt (base = {cpi_basis_label})"},
                  ]),
