@@ -164,12 +164,19 @@ if deflation_available:
     cpi_lookup = cpi.set_index("period")["cpi_u"]
     work["cpi_u_month"] = work["period_month"].map(cpi_lookup)
     work["deflator"] = cpi_basis_value / work["cpi_u_month"]
-    # Observations whose month pre-dates our CPI series (rare; BLS CPI-U
-    # starts well before 2019) fall back to deflator = 1 — i.e., real ≡ nominal
-    # for those rows. Logs a visible count in the page's render log.
+    # Observations whose month has not yet published a CPI value (typically
+    # the trailing month or two — BLS publishes with a ~2-week lag, and
+    # Clovis auctions are reported immediately) fall back to deflator = 1
+    # so those rows render as nominal in the real view. Logged to stderr so
+    # CI keeps the count but the rendered page does not leak the message.
+    import sys as _sys
     missing_cpi = int(work["deflator"].isna().sum())
     if missing_cpi:
-        print(f"[deflate] {missing_cpi} observations lack a CPI month-match; leaving nominal.")
+        print(
+            f"[deflate] {missing_cpi} observations lack a CPI month-match; "
+            "leaving nominal.",
+            file=_sys.stderr,
+        )
     work["deflator"] = work["deflator"].fillna(1.0)
     work["price_low_real"] = work["price_low"] * work["deflator"]
     work["price_avg_real"] = work["price_avg"] * work["deflator"]
@@ -190,17 +197,20 @@ else:
 **Deflation basis**: `{python} cpi_basis_label` CPI-U NSA (`CUUR0000SA0`).
 :::
 
-## Min–mean–max by weight class
+## Cash price–weight relationships
 
-Feeder-cattle price bands by 100-lb weight class. The toggle above the chart switches between nominal dollars and real December-2025 dollars. Hover any point for head count; error bars extend to the window's min and max observations.
+Two panels, one per class — Steers on the left, Heifers on the right — each showing the envelope of prices observed in the window. The gray band spans the Minimum and Maximum across the window; the black line is the Average. The toggle above the panels switches between nominal dollars and real (December-2025) dollars. Hover any point to see the exact values and the head count behind that weight class.
 
 ```{python}
 #| echo: false
 
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
-# Two aggregations from the same rows — nominal and real. We render both as
-# trace pairs (Steers, Heifers); Plotly buttons toggle which pair is visible.
+# Two aggregations from the same rows — nominal and real. Each aggregation
+# feeds one class × one subplot × 3 traces (min band base, max band fill,
+# average line). That's 6 traces per mode, 12 total; the updatemenus toggle
+# swaps which 6 are visible.
 
 def _aggregate(work_df, low_col, avg_col, high_col):
     agg = (
@@ -212,7 +222,6 @@ def _aggregate(work_df, low_col, avg_col, high_col):
                    head_count=("head_count", "sum"),
                )
     )
-    # Order weight bins naturally (300 first).
     bin_order = sorted(
         agg["weight_bin"].unique(),
         key=lambda s: int(s.split("–")[0].split("-")[0]),
@@ -224,77 +233,133 @@ def _aggregate(work_df, low_col, avg_col, high_col):
 agg_nominal = _aggregate(work, "price_low", "price_avg", "price_high")
 agg_real = _aggregate(work, "price_low_real", "price_avg_real", "price_high_real")
 
-fig = go.Figure()
-color_by_class = {"Steers": "#1f77b4", "Heifers": "#d62728"}
+# Build two subplots, shared y-axis so the Steers/Heifers eye comparison is honest.
+fig = make_subplots(
+    rows=1, cols=2,
+    shared_yaxes=True,
+    horizontal_spacing=0.06,
+    subplot_titles=("NM Clovis — Steers", "NM Clovis — Heifers"),
+)
 
-# Traces 0,1 = nominal Steers, Heifers (visible initially).
-# Traces 2,3 = real    Steers, Heifers (hidden initially).
-for agg_df, mode_label, visible in [
-    (agg_nominal, "nominal", True),
-    (agg_real, f"real {cpi_basis_label}", False),
-]:
-    for cl in ["Steers", "Heifers"]:
-        sub = agg_df[agg_df["class"] == cl]
-        if sub.empty:
-            continue
-        fig.add_trace(go.Scatter(
-            x=sub["weight_bin"].astype(str),
-            y=sub["price_mean"],
-            mode="lines+markers",
-            name=f"{cl} ({mode_label})",
+# Layout convention:
+#   Traces for (mode, class, layer) ordered so the toggle visibility vector
+#   is predictable.  For each mode we add, in order:
+#       Steers-lower-base, Steers-upper-fill, Steers-avg-line,
+#       Heifers-lower-base, Heifers-upper-fill, Heifers-avg-line.
+#   Nominal traces (indexes 0..5) are visible initially; real traces (6..11)
+#   hidden until the toggle is clicked.
+BAND_FILL = "rgba(170,170,170,0.35)"   # gray shaded band between min and max
+BAND_EDGE = "rgba(170,170,170,0.0)"    # invisible line, used to anchor the fill
+AVG_LINE = "#1a1a1a"                    # near-black for the average
+HOVER_FMT = (
+    "<b>%{x}</b><br>"
+    "Min: $%{customdata[0]:.2f}<br>"
+    "Avg: $%{customdata[1]:.2f}<br>"
+    "Max: $%{customdata[2]:.2f}<br>"
+    "Head: %{customdata[3]:,}<extra></extra>"
+)
+
+
+def _add_class_traces(agg_df, cls, col, mode_label, visible):
+    sub = agg_df[agg_df["class"] == cls]
+    if sub.empty:
+        return
+    x = sub["weight_bin"].astype(str).tolist()
+    lo, avg, hi = sub["price_low"].tolist(), sub["price_mean"].tolist(), sub["price_high"].tolist()
+    cd = list(zip(lo, avg, hi, sub["head_count"].tolist()))
+    # 1) lower bound of the band (invisible line, no fill itself)
+    fig.add_trace(
+        go.Scatter(
+            x=x, y=lo, mode="lines", line=dict(color=BAND_EDGE, width=0),
+            showlegend=False, hoverinfo="skip", visible=visible,
+            name=f"{cls} min ({mode_label})",
+        ),
+        row=1, col=col,
+    )
+    # 2) upper bound — fills down to the previous trace (the min line) with gray
+    fig.add_trace(
+        go.Scatter(
+            x=x, y=hi, mode="lines", line=dict(color=BAND_EDGE, width=0),
+            fill="tonexty", fillcolor=BAND_FILL,
+            showlegend=False, hoverinfo="skip", visible=visible,
+            name=f"{cls} max ({mode_label})",
+        ),
+        row=1, col=col,
+    )
+    # 3) average line on top, with the full hover info attached
+    fig.add_trace(
+        go.Scatter(
+            x=x, y=avg, mode="lines+markers",
+            line=dict(color=AVG_LINE, width=2),
+            marker=dict(color=AVG_LINE, size=6),
+            name=f"{cls} avg ({mode_label})",
+            showlegend=False,
             visible=visible,
-            line=dict(color=color_by_class[cl], width=2),
-            error_y=dict(
-                type="data",
-                symmetric=False,
-                array=sub["price_high"] - sub["price_mean"],
-                arrayminus=sub["price_mean"] - sub["price_low"],
-                thickness=1,
-            ),
-            hovertemplate=(
-                "<b>%{x}</b><br>"
-                f"{cl} ({mode_label})<br>"
-                "Mean: $%{y:.2f}/cwt<br>"
-                "Head: %{customdata:,}<extra></extra>"
-            ),
-            customdata=sub["head_count"],
-        ))
+            customdata=cd,
+            hovertemplate=HOVER_FMT,
+        ),
+        row=1, col=col,
+    )
+
+
+# Add nominal traces (visible) — 6 traces total.
+_add_class_traces(agg_nominal, "Steers",  col=1, mode_label="nominal", visible=True)
+_add_class_traces(agg_nominal, "Heifers", col=2, mode_label="nominal", visible=True)
+# Add real traces (hidden) — 6 more.
+_add_class_traces(agg_real, "Steers",  col=1, mode_label=f"real {cpi_basis_label}", visible=False)
+_add_class_traces(agg_real, "Heifers", col=2, mode_label=f"real {cpi_basis_label}", visible=False)
+
+visible_nominal = [True]  * 6 + [False] * 6
+visible_real    = [False] * 6 + [True]  * 6
 
 fig.update_layout(
-    xaxis_title="Weight class",
-    yaxis_title="Price ($/cwt, nominal)",
     height=480,
-    margin=dict(t=70, b=40, l=60, r=20),
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    margin=dict(t=90, b=50, l=70, r=20),
     hovermode="x unified",
+    paper_bgcolor="white",
+    plot_bgcolor="white",
+    font=dict(family="Helvetica, Arial, sans-serif", size=13, color="#222"),
     updatemenus=[dict(
         type="buttons",
         direction="right",
         active=0,
-        x=0.01, y=1.18,
+        x=0.0, y=1.22,
         xanchor="left", yanchor="top",
         pad=dict(r=6, t=4, b=4),
         showactive=True,
         buttons=[
-            dict(
-                label="Nominal $",
-                method="update",
-                args=[
-                    {"visible": [True, True, False, False]},
-                    {"yaxis.title.text": "Price ($/cwt, nominal)"},
-                ],
-            ),
-            dict(
-                label=f"Real ({cpi_basis_label} $)",
-                method="update",
-                args=[
-                    {"visible": [False, False, True, True]},
-                    {"yaxis.title.text": f"Price ($/cwt, real {cpi_basis_label})"},
-                ],
-            ),
+            dict(label="Nominal $",
+                 method="update",
+                 args=[
+                     {"visible": visible_nominal},
+                     {"yaxis.title.text": "Price, $/cwt (nominal)",
+                      "yaxis2.title.text": ""},
+                 ]),
+            dict(label=f"Real ({cpi_basis_label} $)",
+                 method="update",
+                 args=[
+                     {"visible": visible_real},
+                     {"yaxis.title.text": f"Price, $/cwt (base = {cpi_basis_label})",
+                      "yaxis2.title.text": ""},
+                 ]),
         ],
     )],
 )
+
+# Axes: dollar-formatted ticks, light horizontal gridlines, no vertical grid.
+for axis in ("xaxis", "xaxis2"):
+    fig.update_layout({axis: dict(
+        title_text="Weight (pounds)",
+        showgrid=False,
+        linecolor="#888", mirror=False, ticks="outside",
+    )})
+for axis in ("yaxis", "yaxis2"):
+    fig.update_layout({axis: dict(
+        showgrid=True, gridcolor="#e5e5e5",
+        tickprefix="$", linecolor="#888", mirror=False, ticks="outside",
+    )})
+fig.update_layout(yaxis=dict(title_text="Price, $/cwt (nominal)"))
+
 fig.show()
 ```
 
