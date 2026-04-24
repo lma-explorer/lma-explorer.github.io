@@ -24,6 +24,8 @@ website:
         href: index.qmd
       - text: "Price–weight explorer"
         href: price-weight.qmd
+      - text: "Weekly seasonality"
+        href: seasonality.qmd
       - text: "Methodology"
         href: methodology/index.qmd
       - text: "Data"

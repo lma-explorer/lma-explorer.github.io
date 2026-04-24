@@ -382,11 +382,15 @@ fig.show()
 
 **Clovis, Medium-and-Large 1, only.** Because that is the specific cut the forthcoming article reports. Additional frames and muscle grades are preserved in the snapshot and can be surfaced in later Phase 2 filters.
 
+## See also
+
+- [Weekly seasonality](seasonality.qmd) — same data, sliced by week of the calendar year instead of by weight class. Answers *"when in the year do these prices peak?"* — maps to the article's Figures 3–4.
+
 ## What's next on this page
 
 - [x] Real Clovis data (live MARS feed) replacing the synthetic stand-in.
 - [x] CPI deflation toggle (nominal / real December-2025 dollars).
+- [x] Companion seasonality page (matches article Figures 3–4).
 - [ ] Year-range slider + class filter (Phase 2).
 - [ ] Historical reconstruction extending the window back to 1992 (separate workstream).
-- [ ] Weekly-seasonality panel to complement the by-weight view (Phase 2; maps to Figures 3–4 of the forthcoming article).
 - [ ] Downloadable session summary for producers to take to a banker (Phase 3).
