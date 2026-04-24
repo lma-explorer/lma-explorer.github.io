@@ -199,7 +199,7 @@ else:
 
 ## Cash price–weight relationships
 
-Two panels, one per class — Steers on the left, Heifers on the right — each showing the envelope of prices observed in the window. The gray band spans the Minimum and Maximum across the window; the black line is the Average. The toggle above the panels switches between nominal dollars and real (December-2025) dollars. Hover any point to see the exact values and the head count behind that weight class.
+Two panels, one per class — Steers on top, Heifers below — each showing the envelope of prices observed in the window. The gray band spans the Minimum and Maximum across the window; the black line is the Average. The toggle above the panels switches between nominal dollars and real (December-2025) dollars. Hover any point to see the exact values and the head count behind that weight class.
 
 ```{python}
 #| echo: false
