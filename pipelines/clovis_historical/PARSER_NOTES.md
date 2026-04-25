@@ -138,4 +138,4 @@ The 2010 Wayback CV_LS750 sample (`data/raw/clovis_historical/wayback/cv_ls750_2
 - `receipts = 2385` ✓ (matches source "Receipts: 2385")
 - Manual section count matches: 19+12+10+3+14+13+8+4+4+1 = 88 ✓
 
-This means 9.4a, when activated, reuses `era_b_txt.py` unchanged and only adds the REDACTED cross-check + chart-overlay UX work — no parser fork.
+This means 9.4a, when activated, reuses `era_b_txt.py` unchanged and only adds the parser-consistency cross-check + chart-overlay UX work — no parser fork.

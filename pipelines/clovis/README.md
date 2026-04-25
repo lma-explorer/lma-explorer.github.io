@@ -4,11 +4,11 @@ This folder is the companion to `pipelines/bls/`: a three-file pipeline that pul
 
 Per `GOVERNANCE.md`'s Automation Over Features commitment, this pipeline covers the weekly feeder-cattle weighted-average report only. Adding other Clovis reports (slaughter/replacement, special sales), other auctions, or derived indices waits until this one is running cleanly on schedule and serving the price–weight chart on the live site.
 
-## Why USDA-AMS directly (not REDACTED)
+## Why USDA-AMS directly
 
-Historically, `Data_REDACTED/AuctionsClovisNM.xlsx` (sheet `A1`) has been the go-to compilation for this series, going back to 1992. REDACTED is member-access only, and their compilation is not redistributable on a public repo even though the underlying facts come from public-domain USDA reports. This pipeline replaces the REDACTED path with a direct pull from USDA-AMS MARS, which is free, redistributable, and auto-refreshable. `Data_REDACTED/` is kept locally as a research reference; it is gitignored.
+This pipeline pulls the Clovis report from USDA-AMS Market News' own publication path — the MARS API for current data, the per-slug archive for older releases. Both are public-domain (17 U.S.C. § 105) and freely redistributable, which lets the platform commit derived snapshots to a public repository without the licensing complications that follow third-party compilations of the same underlying reports. Any third-party compilation has its own editorial work and licensing terms; the platform avoids those by going to the source.
 
-MARS reliably covers roughly **2017–present** for structured data. Older USDA-AMS reports exist as archived PDFs or flat-text reports; reconstructing the 1992–2016 portion is a separate, one-time workstream (see "Historical reconstruction" below).
+MARS reliably covers **April 2019 → present** for structured weekly data. The October 2017 → April 2019 portion lives in USDA-AMS Market News' per-slug archive as fixed-width TXT reports; that block is reconstructed once via the companion `pipelines/clovis_historical/` package and read alongside the live MARS series via `pipelines/clovis/load.py`.
 
 ## Files
 

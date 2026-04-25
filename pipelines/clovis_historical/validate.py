@@ -6,11 +6,11 @@ Implements PLAN_4.1 §7 validation rules. Designed to be called by
 Behavior matches the live MARS validator (``pipelines/clovis/validate.py``)
 in spirit: per-row schema/range checks plus a per-batch sanity gate. The
 era-B gate is looser on coverage (the 2017 and 2019 partial-year tails
-allow <40 weeks) and includes a hook for the REDACTED private cross-check that
-runs only when ``Data_REDACTED/AuctionsClovisNM.xlsx`` is present locally
-(per Guardrail #1, that file is gitignored and never enters the public
-repo, so the comparison cannot run in CI — it's a local-only forensic
-gate).
+allow <40 weeks) and includes an optional parser-consistency check
+against an external Excel reference compiled from the same USDA-AMS
+public-domain reports. The reference workbook path is read from the
+``CLOVIS_REFERENCE_XLSX`` environment variable; the check skips
+silently when the env var is unset.
 
 Per Guardrail #9 ("loud fail"), ``validate_batch`` returns a
 ``ValidationReport`` with ``passed`` set to False whenever any rule
@@ -66,9 +66,20 @@ CLASS_BALANCE_FLOORS = {
 # Backwards-compat shim if anything else imports the old constant.
 CLASS_BALANCE_FLOOR = 0.03  # kept for type checkers; not used directly
 
-# REDACTED drift threshold: |median delta| > 5% opens a data-source-drift issue.
-REDACTED_DRIFT_THRESHOLD = 0.05
-REDACTED_PATH = REPO_ROOT.parent / "Data_REDACTED" / "AuctionsClovisNM.xlsx"
+# Parser-consistency thresholds — calibrated 2026-04-25 against the full
+# Era B corpus comparing the platform's parse to an independent extraction
+# of the same USDA-AMS reports. Across 3 yrs × 13 (class, bin) cells
+# (39 comparison cells), natural deltas were mean 1.59%, median 1.21%,
+# max 6.14%, with 2/39 cells > 5%. Differences track the choice of
+# aggregation convention (USDA's lot-weighted average vs alternatives
+# like simple-average-of-range), not parser correctness — but a real
+# parser bug would systematically blow these out. Thresholds catch
+# the bug case while accepting natural method-of-aggregation noise.
+PARSER_CONSISTENCY_MEAN_FAIL = 0.05    # parser-broken signal
+PARSER_CONSISTENCY_MAX_FAIL = 0.25     # one-cell extreme outlier
+PARSER_CONSISTENCY_MEAN_WARN = 0.03    # heads-up; investigate
+PARSER_CONSISTENCY_MAX_WARN = 0.10     # one-cell heads-up
+PARSER_CONSISTENCY_LOG = REPO_ROOT / "data" / "raw" / "clovis_historical" / "parser_consistency_log.csv"
 
 
 @dataclass
@@ -198,24 +209,128 @@ def _check_class_balance(df: pd.DataFrame, era: str, report: ValidationReport) -
                 report.note(f"Class balance {year}: {cls} {share:.1%} (≥{floor:.0%} floor)")
 
 
-def _REDACTED_drift_check(df: pd.DataFrame, report: ValidationReport) -> None:
-    """Local-only REDACTED private cross-check. Skips silently if file absent."""
-    if not REDACTED_PATH.exists():
+def _parser_consistency_check(df: pd.DataFrame, report: ValidationReport) -> None:
+    """Optional parser-consistency check against an external Excel reference
+    compiled independently from the same USDA-AMS public-domain reports.
+
+    Reads the workbook path from the ``CLOVIS_REFERENCE_XLSX`` environment
+    variable. If the env var is unset or the file is missing, the check
+    skips silently — the platform's other validator gates (per-row schema
+    and range checks; per-batch coverage and class-balance) still run, and
+    the parquet still ships. The parser-consistency check is opt-in.
+
+    Method: compute annual median ``price_avg`` per (year, class,
+    weight_bin) for both the platform's Era B parse (filtered to the
+    chart's grade=1 population — Steers/Heifers, Medium and Large 1)
+    and the reference workbook's matching sheet (A1, weekly, 100-lb bins).
+    Express deltas as percentages of the reference value. Strong, broad
+    drift across many cells indicates a parser bug; tight agreement is
+    a DIY peer review on the platform's parser.
+
+    Empirically (calibration run 2026-04-25) the natural deltas were
+    1-2% mean across cells, with thin small-bin cells (300-400 lb)
+    running a few percent higher due to sample-size noise. The
+    ``PARSER_CONSISTENCY_*`` thresholds accommodate that.
+
+    Writes the full delta table to ``data/raw/clovis_historical/
+    parser_consistency_log.csv`` (gitignored) for forensic review.
+    """
+    try:
+        # Imported lazily so the validator has no hard openpyxl dependency
+        # in the per-row code path.
+        from pipelines.clovis_historical.reference_reader import (  # type: ignore
+            ENV_VAR, get_reference_path, read_reference_grade_1,
+            annual_median_table, era_b_to_100lb_bin,
+        )
+    except ImportError as e:
+        report.warn(f"Parser-consistency check skipped — could not import reader: {e}")
+        return
+
+    ref_path = get_reference_path()
+    if ref_path is None:
         report.note(
-            f"REDACTED drift check: skipped (Data_REDACTED/AuctionsClovisNM.xlsx not present). "
-            "This is expected in CI; run locally for the full gate."
+            f"Parser-consistency check: skipped ({ENV_VAR} env var unset or "
+            "the configured workbook is not on disk). This is expected in "
+            "CI / clean-clone environments; set the env var locally for the gate."
         )
         return
+
     try:
-        # Implementation deferred to local run. The shape/columns of the REDACTED
-        # workbook are not in this scaffold yet. Emit a placeholder PASS that
-        # the local run replaces with the real per-year delta computation.
-        report.note(
-            "REDACTED drift check: placeholder PASS. Wire the real comparison "
-            "against AuctionsClovisNM.xlsx in the local fork before commit."
+        ref_long = read_reference_grade_1(ref_path)
+        era_b_long = era_b_to_100lb_bin(df)
+
+        if era_b_long.empty:
+            report.note("Parser-consistency check: no grade=1 / 100-lb-bin rows in Era B; skipped.")
+            return
+        ad = pd.to_datetime(era_b_long["auction_date"])
+        lo, hi = ad.min(), ad.max()
+        ref_window = ref_long.df[
+            (ref_long.df["auction_date"] >= lo) & (ref_long.df["auction_date"] <= hi)
+        ]
+
+        ref_med = annual_median_table(ref_window).rename(
+            columns={"price_median": "ref_median", "n_obs": "ref_n"})
+        era_b_med = annual_median_table(era_b_long).rename(
+            columns={"price_median": "platform_median", "n_obs": "platform_n"})
+        merged = ref_med.merge(
+            era_b_med,
+            on=["year", "class", "weight_break_low", "weight_break_high"],
+            how="inner",
         )
+        if merged.empty:
+            report.note("Parser-consistency check: no overlapping (year, class, bin) cells; skipped.")
+            return
+
+        merged["delta_pct"] = ((merged["platform_median"] - merged["ref_median"])
+                                / merged["ref_median"] * 100)
+        merged["abs_delta_pct"] = merged["delta_pct"].abs()
+        merged = merged.sort_values(["year", "class", "weight_break_low"]).reset_index(drop=True)
+
+        # Persist the full table (gitignored) for forensic inspection
+        PARSER_CONSISTENCY_LOG.parent.mkdir(parents=True, exist_ok=True)
+        merged.to_csv(PARSER_CONSISTENCY_LOG, index=False)
+
+        mean_abs = merged["abs_delta_pct"].mean()
+        med_abs = merged["abs_delta_pct"].median()
+        max_abs = merged["abs_delta_pct"].max()
+        n_cells = len(merged)
+        n_over_5 = int((merged["abs_delta_pct"] > 5).sum())
+        n_over_10 = int((merged["abs_delta_pct"] > 10).sum())
+        worst = merged.nlargest(3, "abs_delta_pct")[
+            ["year", "class", "weight_break_low", "weight_break_high",
+             "ref_median", "platform_median", "delta_pct"]
+        ]
+
+        mean_frac = mean_abs / 100
+        max_frac = max_abs / 100
+        if mean_frac > PARSER_CONSISTENCY_MEAN_FAIL:
+            report.fail(
+                f"Parser-consistency FAIL: mean |delta| {mean_abs:.2f}% across {n_cells} cells "
+                f"> {PARSER_CONSISTENCY_MEAN_FAIL * 100:.0f}% threshold. "
+                f"Worst cells:\n{worst.to_string(index=False)}\nFull table: {PARSER_CONSISTENCY_LOG}"
+            )
+        elif max_frac > PARSER_CONSISTENCY_MAX_FAIL:
+            report.fail(
+                f"Parser-consistency FAIL: max-cell |delta| {max_abs:.2f}% "
+                f"> {PARSER_CONSISTENCY_MAX_FAIL * 100:.0f}% threshold. "
+                f"Worst cells:\n{worst.to_string(index=False)}\nFull table: {PARSER_CONSISTENCY_LOG}"
+            )
+        elif (mean_frac > PARSER_CONSISTENCY_MEAN_WARN
+              or max_frac > PARSER_CONSISTENCY_MAX_WARN):
+            report.warn(
+                f"Parser-consistency WARN: mean |delta| {mean_abs:.2f}%, max {max_abs:.2f}%, "
+                f"{n_over_5}/{n_cells} cells > 5% — within tolerance but inspect. "
+                f"Full table: {PARSER_CONSISTENCY_LOG}"
+            )
+        else:
+            report.note(
+                f"Parser-consistency PASS: mean |delta| {mean_abs:.2f}%, median {med_abs:.2f}%, "
+                f"max {max_abs:.2f}% across {n_cells} cells. "
+                f"({n_over_5}/{n_cells} cells > 5%, {n_over_10}/{n_cells} > 10%). "
+                f"Full table: {PARSER_CONSISTENCY_LOG}"
+            )
     except Exception as e:  # noqa: BLE001
-        report.warn(f"REDACTED drift check raised: {e}")
+        report.warn(f"Parser-consistency check raised: {type(e).__name__}: {e}")
 
 
 # ---- public entry point -----------------------------------------------------
@@ -237,7 +352,7 @@ def validate_batch(df: pd.DataFrame, era: str) -> ValidationReport:
 
     _check_coverage(df, era, report)
     _check_class_balance(df, era, report)
-    _REDACTED_drift_check(df, report)
+    _parser_consistency_check(df, report)
 
     return report
 
