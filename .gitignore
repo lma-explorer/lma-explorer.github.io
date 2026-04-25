@@ -62,3 +62,9 @@ Data_LMIC/
 # (also gitignored) under the pipeline's control; the top-level folder is
 # a research scratchpad and we don't want 60+ MB blobs in the repo.
 Data_USDA_AMS/
+
+# Internal planning docs (Phase-0 Decision 7 — kept local until promotion)
+PLAN_*.md
+
+# Sandbox-only CSV artifacts (canonical historical block is .parquet via pyarrow)
+data/processed/*.csv

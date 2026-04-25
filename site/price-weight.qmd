@@ -17,30 +17,35 @@ The forthcoming Extension article *Market Alternatives and Price Slide Considera
 #| echo: false
 #| label: data-load
 
-# Load from the most informative Clovis parquet available. The ongoing MARS
-# pipeline (pipelines/clovis/) writes clovis_latest.parquet on every weekly
-# tick; a one-time historical reconstruction (to be landed separately) will
-# write clovis_archive_2000_2025.parquet. If both exist, archive wins; if
-# neither exists, fall back to a clearly-labelled synthetic stand-in so the
-# page layout remains honest while not claiming to show real prices.
+# Load Clovis observations via the shared loader at pipelines/clovis/load.py.
+# The loader unions the live MARS-era parquet (clovis_latest.parquet, refreshed
+# weekly by the clovis_refresh GitHub Actions workflow) with the one-time
+# historical Era B block (clovis_historical_era_b_latest.parquet, ingested
+# 2026-04-25 from USDA-AMS Market News archive: 2017-10-04 → 2019-04-10).
+# The dedupe rule is most-recent-vintage-wins on
+# (auction_date, class, frame, muscle_grade, weight_break_low, weight_break_high);
+# in practice the era windows are disjoint so no dedupes fire.
+# If neither file exists, fall back to a clearly-labelled synthetic stand-in
+# so the page layout remains honest while not claiming to show real prices.
 
 from pathlib import Path
+import sys
 import pandas as pd
 
 PROCESSED = Path("..") / "data" / "processed"
-ARCHIVE_PATH = PROCESSED / "clovis_archive_2000_2025.parquet"
-LATEST_PATH = PROCESSED / "clovis_latest.parquet"
 CPI_PATH = PROCESSED / "cpi_latest.parquet"
+
+# Make pipelines/ importable when Quarto runs this chunk from site/.
+sys.path.insert(0, str(Path("..").resolve()))
+from pipelines.clovis.load import load_clovis_combined  # noqa: E402
 
 data_is_placeholder = False
 data_source_label = None
 
-if ARCHIVE_PATH.exists():
-    df = pd.read_parquet(ARCHIVE_PATH)
-    data_source_label = "1992–present historical reconstruction"
-elif LATEST_PATH.exists():
-    df = pd.read_parquet(LATEST_PATH)
-    data_source_label = "USDA-AMS MARS feed (AMS_1781)"
+_loaded = load_clovis_combined(PROCESSED)
+if _loaded is not None:
+    df = _loaded.df
+    data_source_label = _loaded.data_source_label
 else:
     # Synthetic stand-in. Clearly labelled so it is never mistaken for real data.
     import numpy as np
