@@ -9,7 +9,7 @@ This page collects the methodological choices that sit behind the figures on the
 
 ## Guiding commitments
 
-1. **Public-domain data only.** USDA-AMS Market News via the MARS API, BLS CPI-U via the public v2 API, and USDA NASS QuickStats. CME futures are link-out only; third-party compilations (e.g., LMIC) are used as local research references but never redistributed. See [`LICENSE-DATA.md`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/LICENSE-DATA.md).
+1. **Public-domain data only.** USDA-AMS Market News via the MARS API, BLS CPI-U via the public v2 API, and USDA NASS QuickStats. CME futures are link-out only; third-party compilations of the same underlying public-domain reports are not redistributed (each carries its own licensing terms outside this repo's public-domain commitment). See [`LICENSE-DATA.md`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/LICENSE-DATA.md).
 2. **Every figure carries a vintage stamp.** The CPI vintage used to deflate, the date the underlying AMS report was published, and the date the page was last rebuilt — all visible on the page or one click away.
 3. **Reproducibility before breadth.** We would rather serve one figure that can be re-computed from source in a few minutes than five figures whose provenance has drifted.
 4. **Last-known-good on failure.** A failed pipeline run never overwrites a good snapshot. The site keeps serving the last successful vintage until the failure is investigated. See [GOVERNANCE](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/GOVERNANCE.md).
@@ -65,10 +65,9 @@ Markdown(header + "\n" + body)
 | USDA-AMS | Clovis Livestock Auction feeder-cattle report (`AMS_1781`) via MARS API | [`pipelines/clovis/`](https://github.com/lma-explorer/lma-explorer.github.io/tree/main/pipelines/clovis) | Weekly, Thursday 18:00 UTC | **Live** |
 | USDA-AMS | Additional Market News reports (other auctions, other commodities) | Not yet built | — | *Phase 2 candidate* |
 | USDA NASS | QuickStats — state/county crop and livestock statistics | Not yet built | — | *Phase 2 candidate* |
-| LMIC | Member-access compilations (auction archives, futures) | Local research use only — never committed | — | *Local reference* |
 | CME | Feeder-cattle and live-cattle futures | Link-out only; derived statistics may be published | — | *Proprietary source* |
 
-The Clovis archive predating the MARS window (pre-2019) is a separate one-time historical reconstruction workstream, not a scheduled pipeline.
+The Clovis weekly series extends back to October 2017 — the floor of USDA-AMS Market News's per-slug archive for this report. The October 2017 → April 2019 portion was a one-time historical reconstruction (read-only after ingest); from April 2019 forward the live MARS pipeline keeps the series current.
 
 ## Specific methodology pages
 
