@@ -7,12 +7,13 @@ artifacts:
     data/processed/clovis_latest.parquet                # convenience copy
     data/processed/clovis_MANIFEST.json                 # append-only record
 
-``data/processed/clovis_article_basis_2025.parquet`` is never touched by this
+``data/processed/clovis_release_basis_2025.parquet`` is never touched by this
 module; it is a one-time release artifact pinned to the Clovis vintage current
-when the forthcoming Extension article is finalized (December 2025 basis).
+at Phase 1 release (December 2025 basis), so historical chart values stay
+reproducible after future refreshes.
 
 Long-format schema (preserves MARS's native 50-lb binning; downstream code
-aggregates to the 100-lb bins the article uses):
+aggregates to the 100-lb bins used on the chart):
 
     auction_date      : date        (MARS report_date, MM/DD/YYYY parsed)
     commodity         : string      ("Feeder Cattle")
@@ -34,7 +35,7 @@ aggregates to the 100-lb bins the article uses):
 We filter to ``commodity == "Feeder Cattle"`` and ``price_unit == "Per Cwt"``.
 Replacement Cattle, Slaughter Cattle, and head-priced breeding stock stay in
 the raw JSON for the record but do not land in the processed parquet — the
-article uses feeder $/cwt prices only.
+chart pages use feeder $/cwt prices only.
 
 Usage:
     python -m pipelines.clovis.snapshot
@@ -57,11 +58,11 @@ RAW_DIR = REPO_ROOT / "data" / "raw" / "clovis"
 PROCESSED_DIR = REPO_ROOT / "data" / "processed"
 MANIFEST_PATH = PROCESSED_DIR / "clovis_MANIFEST.json"
 
-ARTICLE_BASIS_NAME = "clovis_article_basis_2025.parquet"  # never written here
+RELEASE_BASIS_NAME = "clovis_release_basis_2025.parquet"  # never written here
 LATEST_NAME = "clovis_latest.parquet"
 
 # The pipeline narrows the raw payload to feeder-cattle, per-cwt observations —
-# the article's empirical core. Other commodities (Replacement, Slaughter) and
+# the chart pages' empirical core. Other commodities (Replacement, Slaughter) and
 # other price units (Per Unit, Per Head, Per Family) are preserved in the raw
 # JSON but not carried into the processed snapshot.
 KEEP_COMMODITY = "Feeder Cattle"

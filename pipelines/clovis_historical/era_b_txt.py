@@ -30,14 +30,16 @@ Two extra columns kept alongside the canonical 16 (downstream ignores unknowns):
     breed             : string       ("Beef" default; "Holstein" for Holstein header)
     annotation        : string       ("Calves" / "Value Enhanced" / "Thin" / ... or empty)
 
-The 2017-10-05 report includes one Holstein Steer block that the article filters
-out at chart time; we keep it here for fidelity. ``annotation`` carries lot
-attributes ("Calves", "Value Enhanced", etc.) so chart code can mirror the
-existing Era A filter (where `lot_qualifier` is the equivalent MARS field).
+The 2017-10-05 report includes one Holstein Steer block that the chart code
+filters out at render time (frame == "Medium and Large" excludes it); we keep
+it here for fidelity. ``annotation`` carries lot attributes ("Calves",
+"Value Enhanced", etc.) so chart code can mirror the existing Era A filter
+(where `lot_qualifier` is the equivalent MARS field).
 
-Stops parsing at the first ``Slaughter Cows:`` line — the article uses feeder
-$/cwt prices only, per ``pipelines/clovis/snapshot.py`` docstring. Replacement
-Cattle, Slaughter Cattle, Cow/Calf Pairs are intentionally not emitted.
+Stops parsing at the first ``Slaughter Cows:`` line — the chart pages use
+feeder $/cwt prices only, per ``pipelines/clovis/snapshot.py`` docstring.
+Replacement Cattle, Slaughter Cattle, Cow/Calf Pairs are intentionally not
+emitted.
 
 Usage:
     python -m pipelines.clovis_historical.era_b_txt parse <path> [<path>...]

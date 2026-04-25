@@ -198,7 +198,7 @@ _PARQUET_VINTAGE_RE = re.compile(r"^cpi_(\d{4}-\d{2})\.parquet$")
 
 
 def _latest_committed_vintage() -> Path | None:
-    """Return the newest cpi_YYYY-MM.parquet (excluding the article-basis file)."""
+    """Return the newest cpi_YYYY-MM.parquet (excluding the release-basis file)."""
     if not PROCESSED_DIR.exists():
         return None
     candidates = [

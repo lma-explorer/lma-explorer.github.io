@@ -11,7 +11,7 @@ toc-depth: 2
 
 ## About this page
 
-The companion to the [Price–weight explorer](price-weight.qmd). That page answers *"what does a heavier calf bring?"*; this page answers *"when in the year does a given-weight calf bring the most?"* The forthcoming Extension article *Market Alternatives and Price Slide Considerations for Selling Feeder Cattle* (Sall & Tronstad, in preparation) treats these as Section 5.2 / Figures 3–4 and, for print-layout reasons, shows only three bins (400–499, 600–699, 700–799). This page offers all six 100-lb bins: **click a weight class in the legend to hide it; double-click to isolate it.** The three article-subset colors (black, orange, blue) are preserved for visual continuity with the paper.
+The companion to the [Price–weight explorer](price-weight.qmd). That page answers *"what does a heavier calf bring?"*; this page answers *"when in the year does a given-weight calf bring the most?"* The chart shows all six 100-lb bins from 300 lb to 899 lb: **click a weight class in the legend to hide it; double-click to isolate it.** Three bins are emphasized in solid colors (400–499, 600–699, 700–799) — they bracket the typical marketing decision (calf-on-the-cow, background/grass-season exit, feedlot-ready) — and the other three are rendered in lighter accents so the chart reads cleanly when all six are visible.
 
 ```{python}
 #| echo: false
@@ -77,8 +77,9 @@ if data_is_placeholder:
 
 # Same filtering as the price-weight page: Medium and Large, muscle grade 1,
 # 100-lb bins derived from weight_break_low (fall back to avg_weight for
-# rows before MARS added that field, pre-2024). We then restrict to the
-# three bins the article shows on this chart: 400–499, 600–699, 700–799.
+# rows before MARS added that field, pre-2024). All six 100-lb bins from
+# 300 lb to 899 lb are kept; the legend lets the reader hide or isolate
+# any combination.
 
 import pandas as pd
 
@@ -108,9 +109,10 @@ else:
     work["price_high"] = work["price_avg"]
 
 # Keep all six 100-lb bins the pipeline produces; the reader picks which to
-# view via the legend. The article shows a three-class subset; we mark those
-# with the article's specific colors and put the other three into a palette
-# that stays readable on a white background.
+# view via the legend. Three of the six are emphasized in solid colors
+# (400–499, 600–699, 700–799) — they bracket the typical marketing decision —
+# and the other three are rendered in lighter accents so the chart reads
+# cleanly when all six are visible.
 SEASONAL_BINS = [
     "300–399 lb", "400–499 lb", "500–599 lb",
     "600–699 lb", "700–799 lb", "800–899 lb",
@@ -187,7 +189,7 @@ from plotly.subplots import make_subplots
 
 # Aggregate weekly mean for each (class, bin) series. ISO-week 1-53; most years
 # have 52, a few have 53. We collapse week 53 into week 52 so the x-axis fits
-# the article's 1-52 grid without an orphan bar.
+# a clean 1-52 grid without an orphan bar.
 work["iso_week"] = work["auction_date"].dt.isocalendar().week.astype(int)
 work.loc[work["iso_week"] == 53, "iso_week"] = 52
 
@@ -244,8 +246,8 @@ fig = make_subplots(
 # traces (indices 0–11) visible initially; real traces (12–23) hidden.
 # The toggle flips the visibility mask wholesale. Individual legend clicks
 # don't persist across the toggle — the price-weight page has the same
-# behaviour, and this matches the article's convention of showing one
-# dollar-basis at a time anyway.
+# behaviour, and showing one dollar-basis at a time keeps the chart
+# readable.
 
 def _add_class(agg_df, cls, row, mode_label, visible, show_legend):
     for wb in BIN_ORDER:
@@ -340,11 +342,10 @@ fig.update_layout(
     )],
 )
 
-# Axes. Match the article's Figures 3/4 convention of printing every week
-# number 1-52 under the bottom panel. A small font keeps all 52 labels
-# readable without collision. The explicit range clips Plotly's default
-# ~5% padding so the first and last ticks sit at the panel edges rather
-# than leaving an empty week -1 and week 53+ gutter.
+# Axes. Print every week number 1-52 under the bottom panel — a small font
+# keeps all 52 labels readable without collision. The explicit range clips
+# Plotly's default ~5% padding so the first and last ticks sit at the
+# panel edges rather than leaving an empty week -1 and week 53+ gutter.
 fig.update_xaxes(
     tickmode="linear", tick0=1, dtick=1,
     tickfont=dict(size=9),
@@ -368,11 +369,11 @@ fig.show()
 
 **Sloped or peaked lines mean seasonality is worth naming.** Look for consistent humps — common across all three weight classes in the same weeks — rather than one noisy class's outlier. The price-weight spread between classes (vertical distance between the three lines) is what the [Price–weight explorer](price-weight.qmd) zooms in on; this page is about the horizontal dimension.
 
-**Why the article picks a three-class subset.** The forthcoming paper shows only 400–499, 600–699, and 700–799 to bracket the typical marketing decision — below 500 lb is "calf on the cow" territory, 600–700 lb is the background/grass-season exit, and 700–800 lb is the feedlot-ready window — and because print-layout constraints make more than three lines hard to read. This page preserves the article's three colors (black, orange, blue) for those classes, adds three more for 300–399, 500–599, and 800–899, and lets you click any legend entry to hide or isolate it. Double-click a legend entry to show *only* that class.
+**Why three weight classes are emphasized.** The 400–499, 600–699, and 700–799 lines bracket the typical marketing decision — below 500 lb is "calf on the cow" territory, 600–700 lb is the background/grass-season exit, and 700–800 lb is the feedlot-ready window. Those three are drawn in solid black, orange, and blue. The other three (300–399, 500–599, 800–899) are kept on the chart in lighter accents so the full range is available for any reader who wants it, without overwhelming the producer who's just trying to read the three decision-relevant lines. Click any legend entry to hide or isolate it; double-click to show *only* that class.
 
 ## See also
 
-- [Price–weight explorer](price-weight.qmd) — the complementary view, sliced by weight class instead of by week. Article Figures 1–2.
+- [Price–weight explorer](price-weight.qmd) — the complementary view, sliced by weight class instead of by week.
 - [Methodology → Clovis pipeline](methodology/clovis.qmd) — every filter, bin, and edge case behind the snapshot this page reads from.
 - [Methodology → CPI deflation](methodology/cpi.qmd) — how the December-2025-basis deflator is computed.
 

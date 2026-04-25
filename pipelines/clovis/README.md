@@ -39,11 +39,11 @@ Every change — renamed field, new section, altered date format, changed unit �
 
 ## Historical reconstruction (separate workstream)
 
-The public parquet initially covers the MARS-available window (~2017–present). The 1992–2016 portion — the long tail behind the article's "26-year archive" framing — requires parsing historical USDA-AMS Market News PDFs (or the text archives that precede them). That work is not part of this pipeline and is tracked separately; its output, when complete, will land as a one-time `data/processed/clovis_archive_1992_2016.parquet` file and be merged with the ongoing MARS-sourced snapshots.
+The MARS API covers April 2019 → present. October 2017 → April 2019 is reconstructed once from USDA-AMS Market News' per-slug archive (a sibling pipeline at `pipelines/clovis_historical/`); both eras are then unioned by the chart code via `pipelines/clovis/load.py`. Pre-October 2017 history is not present in any public-domain weekly archive currently reachable; if a deeper machine-readable archive becomes available from USDA-AMS, it lands here as a one-time block alongside the existing eras.
 
 ## What lives here vs. where
 
 - Raw API payloads: `data/raw/clovis/` (gitignored).
 - Validated, normalized snapshots: `data/processed/clovis_weekly_<YYYY-MM-DD>.parquet` and `data/processed/clovis_latest.parquet` (committed).
-- The article-basis Clovis file (pinned when the forthcoming Extension article is finalized): `data/processed/clovis_article_basis_2025.parquet` (committed, never overwritten by the pipeline).
+- The release-basis Clovis file (a Phase 1 release artifact pinned to a fixed vintage): `data/processed/clovis_release_basis_2025.parquet` (committed once at Phase 1 release, never overwritten by the pipeline; lets historical chart values stay reproducible after future refreshes).
 - Manifest: `data/processed/clovis_MANIFEST.json` (committed).
