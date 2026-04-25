@@ -17,23 +17,26 @@ The companion to the [Price–weight explorer](price-weight.qmd). That page answ
 #| echo: false
 #| label: data-load
 
+# Load via the shared Clovis loader — see comment in price-weight.qmd's
+# data-load chunk for the union+dedupe semantics.
+
 from pathlib import Path
+import sys
 import pandas as pd
 
 PROCESSED = Path("..") / "data" / "processed"
-ARCHIVE_PATH = PROCESSED / "clovis_archive_2000_2025.parquet"
-LATEST_PATH = PROCESSED / "clovis_latest.parquet"
 CPI_PATH = PROCESSED / "cpi_latest.parquet"
+
+sys.path.insert(0, str(Path("..").resolve()))
+from pipelines.clovis.load import load_clovis_combined  # noqa: E402
 
 data_is_placeholder = False
 data_source_label = None
 
-if ARCHIVE_PATH.exists():
-    df = pd.read_parquet(ARCHIVE_PATH)
-    data_source_label = "1992–present historical reconstruction"
-elif LATEST_PATH.exists():
-    df = pd.read_parquet(LATEST_PATH)
-    data_source_label = "USDA-AMS MARS feed (AMS_1781)"
+_loaded = load_clovis_combined(PROCESSED)
+if _loaded is not None:
+    df = _loaded.df
+    data_source_label = _loaded.data_source_label
 else:
     # Synthetic stand-in. Clearly labelled so it is never mistaken for real data.
     import numpy as np

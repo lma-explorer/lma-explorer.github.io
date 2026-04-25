@@ -52,13 +52,16 @@ A quick look at the price–weight explorer, built on archived Clovis, NM feeder
 #| fig-height: 4
 #| echo: false
 
-# Placeholder figure. Replaced with a real preview when the Clovis archive
-# snapshot lands in data/processed/clovis_archive_2000_2025.parquet.
+# Placeholder figure. The Clovis weekly series (Era B + MARS) now ships
+# combined via pipelines/clovis/load.py — see the price-weight and seasonality
+# pages. A real preview-sized version of the price-weight chart is a Phase-2
+# polish item; the placeholder stays here so the home page renders standalone
+# without re-running the full chart pipeline at index build.
 import plotly.graph_objects as go
 
 fig = go.Figure()
 fig.add_annotation(
-    text="Preview chart arrives with the Clovis archive snapshot (Phase 1 item #8).",
+    text="Combined Clovis series (Oct 2017–present) ready on the Price–weight and Seasonality pages.",
     x=0.5, y=0.5, xref="paper", yref="paper",
     showarrow=False,
 )

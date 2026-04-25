@@ -1,0 +1,69 @@
+{
+  "slug": "AMS_1781_HISTORICAL",
+  "entries": [
+    {
+      "vintage": "2026-04-24",
+      "file": "data/processed/clovis_historical_era_b_2026-04-24.parquet",
+      "sha256": "f55227e4c349a0ed4aacf2e71558f14ae3daaa1a11cbafc1579ac6ed0c9742de",
+      "rows": 7025,
+      "written_at_utc": "2026-04-25T06:35:05.280954+00:00",
+      "era": "B",
+      "format_source": "MMN per-slug archive (CV_LS750 fixed-width TXT)",
+      "latest_path": "data/processed/clovis_historical_era_b_latest.parquet",
+      "auction_week_count": 74,
+      "coverage": "2017-10-04..2019-04-10",
+      "schema_columns": [
+        "auction_date",
+        "commodity",
+        "class",
+        "frame",
+        "muscle_grade",
+        "weight_break_low",
+        "weight_break_high",
+        "avg_weight",
+        "avg_weight_min",
+        "avg_weight_max",
+        "head_count",
+        "price_low",
+        "price_high",
+        "price_avg",
+        "receipts",
+        "vintage",
+        "breed",
+        "annotation"
+      ]
+    },
+    {
+      "vintage": "2026-04-25",
+      "file": "data/processed/clovis_historical_era_b_2026-04-25.csv",
+      "sha256": "911cf2714e894f5ffa1d2334c42a8cd212ebd959ef8446124cbb9ceea8be63da",
+      "rows": 7025,
+      "written_at_utc": "2026-04-25T06:24:03.801322+00:00",
+      "era": "B",
+      "format_source": "MMN per-slug archive (CV_LS750 fixed-width TXT)",
+      "latest_path": "data/processed/clovis_historical_era_b_latest.csv",
+      "auction_week_count": 74,
+      "coverage": "2017-10-04..2019-04-10",
+      "schema_columns": [
+        "auction_date",
+        "commodity",
+        "class",
+        "frame",
+        "muscle_grade",
+        "weight_break_low",
+        "weight_break_high",
+        "avg_weight",
+        "avg_weight_min",
+        "avg_weight_max",
+        "head_count",
+        "price_low",
+        "price_high",
+        "price_avg",
+        "receipts",
+        "vintage",
+        "breed",
+        "annotation"
+      ]
+    }
+  ]
+}

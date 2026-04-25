@@ -114,10 +114,21 @@ python -m pipelines.clovis.validate --rebaseline
 
 **Never rebaseline to silence a failing pipeline.** Inspect the raw JSON in `data/raw/clovis/` first, decide whether the change is cosmetic or substantive, and propagate any downstream code changes before the rebaseline.
 
+## Historical block (2017-10-04 → 2019-04-10)
+
+The MARS API only goes back to April 17, 2019 — the date USDA-AMS first served this slug from MARS. To extend the public series further back, a one-time historical block was ingested from the USDA-AMS Market News per-slug archive at `mymarketnews.ams.usda.gov/viewReport/1781`. The Market News archive starts October 5, 2017 (the date AMS first published this slug to its archive surface) and continues weekly through the format handoff to MARS.
+
+The historical block is a separate parquet — `clovis_historical_era_b_latest.parquet` — written once by `pipelines/clovis_historical/ingest_era_b.py`, with the same long-format schema as the rolling MARS-era snapshot. The chart pages read both files together via `pipelines/clovis/load.py`, which unions them and dedupes per (auction_date, class, frame, muscle_grade, weight_break_low, weight_break_high) with most-recent-vintage-wins. In practice the era windows are disjoint (the last Era B report is 2019-04-10, the first MARS report is 2019-04-17), so no dedupes fire — the dedupe is defensive belt-and-suspenders for any future correction that might land a row in the other era's window.
+
+Two things the historical block surfaces that the rolling snapshot does not:
+
+- **A late-2018 / early-2019 auction-format change.** Clovis ran 2-day Wednesday-Thursday sales for ~16 weeks during a high-receipts run, with the report's prose template changing along with it. The parser's filename-derived date fallback handles this transparently; the only operator-visible signal is a `WARNING:` block listing those weeks during ingest. The data is correct; the variant is documented in `pipelines/clovis_historical/PARSER_NOTES.md`.
+- **A 2022 receipts dip.** Both Era B (above) and the MARS API show 2022 with roughly half the typical lot count (2,395 records vs. 4,450-4,614 for adjacent years). This appears to be a real auction-volume drop, not a parsing artifact — both eras' parsers are doing the right thing. Producers viewing the chart in 2022 will see a thinner band of observations; that is what AMS reported.
+
 ## What is deliberately left out
 
 - **REDACTED-compiled archives** of Clovis (or other auctions) are not redistributed. They are a third-party compilation and fall outside this repo's public-domain commitment. See [`LICENSE-DATA.md`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/LICENSE-DATA.md).
-- **Pre-2019 history** (the full 1992–2016 window the article's 26-year framing implies) is not covered by the MARS API. A one-time reconstruction from archived AMS PDFs is a separate workstream; when it lands, it will be a static `clovis_archive_2000_2025.parquet` file committed once.
+- **Pre-October 2017 history** is not present in any public-domain weekly archive that survived the Cornell ESMIS → NAL ESMIS migration. A sparse Internet-Archive sample (~67 weekly observations across 2000–2017) exists locally as a side asset but is not currently published; promoting it would require explicit Internet-Archive provenance copy and a separate "historical sample" overlay distinct from the main weekly chart. A direct request to USDA-AMS Market News for a deeper machine-readable archive is on the watchlist.
 - **Other Clovis reports** (slaughter/replacement cattle reports `AMS_1779` and `AMS_1780`, Special Feeder Sales) are not ingested. They address different marketing decisions than the feeder-cattle weekly report and would need their own methodology pages.
 - **Auction-date metadata that AMS sometimes publishes on an irregular basis** — holiday cancellations, weather closures — is in the narrative text of the raw report but not parsed into structured fields. A Christmas week with no sale simply appears as a missing row.
 
