@@ -90,7 +90,7 @@ def _latest_raw() -> Path:
 
 
 def _latest_snapshot() -> Path | None:
-    """Newest clovis_weekly_*.parquet (excluding the article-basis file)."""
+    """Newest clovis_weekly_*.parquet (excluding the release-basis file)."""
     if not PROCESSED_DIR.exists():
         return None
     candidates = sorted(

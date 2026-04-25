@@ -7,7 +7,7 @@ Full license text: https://creativecommons.org/licenses/by/4.0/legalcode
 ## What CC-BY-4.0 applies to
 
 - Markdown and Quarto documentation in `/site/` and the repository root (`README.md`, `GOVERNANCE.md`, etc.)
-- Methodology PDFs and, on release, the archived Extension article *Market Alternatives and Price Slide Considerations for Selling Feeder Cattle* (Sall & Tronstad, in preparation) in `/docs/`
+- Methodology PDFs and any platform-authored documentation that lands in `/docs/`
 - Derived Parquet and CSV snapshots under `/data/processed/`
 - Rendered chart images and static HTML figures produced by the site build
 

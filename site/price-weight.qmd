@@ -11,7 +11,7 @@ toc-depth: 2
 
 ## About this page
 
-The forthcoming Extension article *Market Alternatives and Price Slide Considerations for Selling Feeder Cattle* (Sall & Tronstad, in preparation) walks through feeder-cattle pricing by weight class using archived Clovis, NM auction data. This page keeps that comparison alive against the live USDA-AMS feed and is refreshed automatically each week by the `clovis_refresh` GitHub Actions workflow. Prices can be viewed in nominal dollars or deflated to December 2025 dollars via the toggle above the chart.
+This page shows weekly feeder-cattle pricing by weight class at the Clovis, NM auction, drawn from USDA-AMS Market News and refreshed automatically each week by the `clovis_refresh` GitHub Actions workflow. Prices can be viewed in nominal dollars or deflated to December 2025 dollars via the toggle above the chart. The chart is intentionally focused: a single auction, a single grade combination, with the producer's "what does a heavier calf bring this week vs. recent years?" question as the question it answers.
 
 ```{python}
 #| echo: false
@@ -85,10 +85,12 @@ if data_is_placeholder:
 # Normalize the parquet into the long-format fields the chart needs.
 #
 # The live MARS snapshot preserves 50-lb weight bins (weight_break_low 300,
-# 350, 400, ...). The article reports 100-lb bins (300-399, 400-499, ...).
-# Here we collapse the 50-lb bins into 100-lb bins, filter to the article's
-# specific grade (Medium and Large, muscle_grade 1), and aggregate across
-# the full available window.
+# 350, 400, ...). The chart aggregates to 100-lb bins (300-399, 400-499, ...) —
+# the conventional aggregation in USDA-AMS Market News and producer-facing
+# livestock publications, and the granularity at which buyers and sellers
+# negotiate. We collapse the 50-lb MARS bins into 100-lb bins, filter to
+# the dominant grade combination at this auction (Medium and Large,
+# muscle_grade 1), and aggregate across the full available window.
 
 import pandas as pd
 
@@ -133,8 +135,9 @@ n_obs = len(work)
 
 # CPI deflation. The BLS pipeline (pipelines/bls/) writes cpi_latest.parquet
 # with columns period (month-start date), cpi_u (All Items NSA), vintage,
-# revision_count. The article's dollar basis is December 2025. The deflator
-# for an observation in month M is:
+# revision_count. The site's real-dollar basis is December 2025 — a fixed
+# month chosen at Phase 1 release so historical chart values stay stable
+# across BLS revisions. The deflator for an observation in month M is:
 #
 #     deflator_M = cpi_u(Dec 2025) / cpi_u(M)
 #     price_real_M = price_nominal_M * deflator_M
@@ -198,7 +201,7 @@ else:
 **Window**: `{python} date_min.strftime('%Y-%m-%d')` to `{python} date_max.strftime('%Y-%m-%d')` ·
 **Auction dates**: `{python} n_dates` ·
 **Observations**: `{python} f"{n_obs:,}"` ·
-**Grade shown**: Medium and Large, muscle grade 1 (the article's series) ·
+**Grade shown**: Medium and Large, muscle grade 1 (the dominant grade combination at this auction) ·
 **Deflation basis**: `{python} cpi_basis_label` CPI-U NSA (`CUUR0000SA0`).
 :::
 
@@ -383,13 +386,13 @@ fig.show()
 
 **Min–mean–max rather than a single point.** Auction prices vary within a weight class and within a sale day; collapsing them to a single number hides risk that matters to a seller deciding when to market.
 
-**Nominal and real dollars, reader-selectable.** Many producers think in nominal dollars (what the check actually read). Researchers think in real dollars (to compare 2019 against 2026 without inflation muddying the picture). The toggle lets either audience see what they're looking for. Real-dollar prices use December 2025 as the basis — matching the forthcoming article's convention — and are computed from the BLS CPI-U All Items NSA series, auto-refreshed monthly by `pipelines/bls/`. See [Methodology → CPI](methodology/cpi.qmd).
+**Nominal and real dollars, reader-selectable.** Many producers think in nominal dollars (what the check actually read). Researchers think in real dollars (to compare 2019 against 2026 without inflation muddying the picture). The toggle lets either audience see what they're looking for. Real-dollar prices use December 2025 as a fixed basis month so historical chart values stay stable across BLS revisions, computed from the BLS CPI-U All Items NSA series, auto-refreshed monthly by `pipelines/bls/`. See [Methodology → CPI](methodology/cpi.qmd).
 
-**Clovis, Medium-and-Large 1, only.** Because that is the specific cut the forthcoming article reports. Additional frames and muscle grades are preserved in the snapshot and can be surfaced in later Phase 2 filters.
+**Clovis, Medium-and-Large 1, only.** M&L 1 is the dominant grade combination by volume at this auction and across the four-corners region, and the standard reference grade in USDA-AMS feeder-cattle reporting and agricultural-economics analysis of price-slide behavior; restricting to it keeps the comparison apples-to-apples week over week. Additional frames and muscle grades are preserved in the snapshot and can be surfaced in later Phase 2 filters.
 
 ## See also
 
-- [Weekly seasonality](seasonality.qmd) — same data, sliced by week of the calendar year instead of by weight class. Answers *"when in the year do these prices peak?"* — maps to the article's Figures 3–4.
+- [Weekly seasonality](seasonality.qmd) — same data, sliced by week of the calendar year instead of by weight class. Answers *"when in the year do these prices peak?"*
 - [Methodology → Clovis pipeline](methodology/clovis.qmd) — every filter, bin, and edge case behind the snapshot this page reads from.
 - [Methodology → CPI deflation](methodology/cpi.qmd) — how the December-2025-basis deflator is computed.
 

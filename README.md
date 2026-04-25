@@ -1,8 +1,10 @@
 # Livestock Marketing Alternatives Explorer
 
-An interactive, continuously updated companion to a forthcoming Extension article, *Market Alternatives and Price Slide Considerations for Selling Feeder Cattle* (Sall & Tronstad, in preparation). The article extends and updates an earlier 1994 Extension guide chapter on livestock marketing alternatives (Tronstad, 1994); this repository is the code, data pipelines, and published website for the platform companion.
+An interactive, continuously-updated explorer of public-domain weekly feeder-cattle price data for the four-corners region (AZ, NM, UT, CO). This repository is the code, data pipelines, and published website (`https://lma-explorer.github.io/`) for the platform.
 
-**Status**: Phase 1 (Prototype). First public figure forthcoming. Accompanying Extension article is in draft; the platform will link to the article on release.
+A Sall & Tronstad extension article analyzing the same dataset is in preparation. The platform develops its own methodology and is not bound to any particular published comparison; see [`site/methodology/`](site/methodology/) for design rationales.
+
+**Status**: Phase 1 (Prototype). Price-weight explorer and weekly seasonality charts are live, reading from a combined 2017-10 → present Clovis weekly series.
 
 ## Who this is for
 

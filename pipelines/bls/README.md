@@ -35,5 +35,5 @@ Every change — new field, renamed key, new periodicity, changed value encoding
 
 - Raw API payloads: `data/raw/bls/` (gitignored).
 - Validated, normalized snapshots: `data/processed/cpi_<YYYY-MM>.parquet` and `data/processed/cpi_latest.parquet` (committed).
-- The frozen article-basis CPI (pinned to the December 2025 vintage current when the forthcoming Extension article is finalized): `data/processed/cpi_article_basis_2025.parquet` (committed, never overwritten by the pipeline).
+- The frozen release-basis CPI (a Phase 1 release artifact pinned to the December 2025 vintage): `data/processed/cpi_release_basis_2025.parquet` (committed once at Phase 1 release, never overwritten by the pipeline; lets historical chart values stay reproducible after BLS revisions).
 - Manifest: `data/processed/MANIFEST.json` (committed).

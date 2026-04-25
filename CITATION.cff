@@ -18,15 +18,15 @@ authors:
     # Placeholder for co-author / methodology reviewer. Not hardcoded
     # pending explicit confirmation from the co-author themselves.
 abstract: >-
-  An interactive, continuously updated companion platform to
-  a forthcoming Extension article, "Market Alternatives and
-  Price Slide Considerations for Selling Feeder Cattle"
-  (Sall & Tronstad, in preparation), which updates a 1994
-  Extension guide chapter on livestock marketing alternatives
-  (Tronstad, 1994). Ingests public-domain USDA-AMS, BLS, and
-  USDA NASS data on a scheduled refresh and publishes
+  An interactive, continuously-updated explorer of weekly
+  feeder-cattle price data for the four-corners region.
+  Ingests public-domain USDA-AMS Market News, BLS CPI, and
+  USDA NASS QuickStats on a scheduled refresh and publishes
   producer-facing figures, methodology, and versioned data
-  snapshots.
+  snapshots. A Sall & Tronstad extension article analyzing
+  the same dataset is in preparation as related work; the
+  platform's design choices are documented and stand on
+  their own merits.
 keywords:
   - livestock marketing
   - feeder cattle

@@ -12,9 +12,10 @@ month. It is 0 on a month's first appearance and increments by 1 each time
 the snapshot finds the value has changed from the previous vintage's record
 for that month.
 
-``data/processed/cpi_article_basis_2025.parquet`` is never touched by this
+``data/processed/cpi_release_basis_2025.parquet`` is never touched by this
 module; it is a one-time release artifact pinned to the CPI vintage current
-when the forthcoming Extension article is finalized (December 2025 basis).
+at Phase 1 release (December 2025 basis), so historical chart values stay
+reproducible after later BLS revisions.
 
 Usage:
     python -m pipelines.bls.snapshot
@@ -37,7 +38,7 @@ RAW_DIR = REPO_ROOT / "data" / "raw" / "bls"
 PROCESSED_DIR = REPO_ROOT / "data" / "processed"
 MANIFEST_PATH = PROCESSED_DIR / "MANIFEST.json"
 
-ARTICLE_BASIS_NAME = "cpi_article_basis_2025.parquet"  # never written by the pipeline
+RELEASE_BASIS_NAME = "cpi_release_basis_2025.parquet"  # never written by the pipeline
 
 
 def _vintage_tag() -> str:
@@ -67,7 +68,7 @@ def _load_raw() -> dict[str, Any]:
 
 
 def _prior_snapshot() -> pd.DataFrame | None:
-    """Newest cpi_YYYY-MM.parquet (excluding the article-basis file), if any."""
+    """Newest cpi_YYYY-MM.parquet (excluding the release-basis file), if any."""
     if not PROCESSED_DIR.exists():
         return None
     candidates = sorted(
@@ -75,7 +76,7 @@ def _prior_snapshot() -> pd.DataFrame | None:
         for p in PROCESSED_DIR.iterdir()
         if p.name.startswith("cpi_")
         and p.name.endswith(".parquet")
-        and p.name != ARTICLE_BASIS_NAME
+        and p.name != RELEASE_BASIS_NAME
         and p.name != "cpi_latest.parquet"
         # "cpi_YYYY-MM.parquet" -> 10 char stem after 'cpi_'
     )

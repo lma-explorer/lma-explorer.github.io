@@ -1,5 +1,5 @@
 ---
-title: "CPI deflation and the article-basis vintage"
+title: "CPI deflation and the release-basis vintage"
 subtitle: "Why some figures deflate to December-2025 dollars and others keep nominal prices — and how to tell which is which."
 toc: true
 toc-depth: 2
@@ -23,14 +23,14 @@ The pipeline writes two artifacts that figures choose between:
 
 ```
 data/processed/cpi_latest.parquet            # newest vintage, updated monthly
-data/processed/cpi_article_basis_2025.parquet  # one-time release artifact,
-                                             # frozen to the forthcoming
-                                             # article's December 2025 basis
+data/processed/cpi_release_basis_2025.parquet  # one-time release artifact,
+                                             # a CPI vintage pinned to the
+                                             # December 2025 basis month
                                              # (committed once, never
                                              # overwritten by the pipeline)
 ```
 
-The article-basis file is not yet committed — it will be created once the forthcoming Extension article is finalized. Until then, figures on this site deflate with `cpi_latest.parquet` using December 2025 as the basis month. When the article-basis file lands, figures that need to reproduce article numbers exactly will switch their read-path to it.
+The release-basis file is not yet committed — it will be created at Phase 1 release as a frozen reference vintage. Until then, figures on this site deflate with `cpi_latest.parquet` using December 2025 as the basis month. When the release-basis file lands, figures that need to reproduce platform-baseline real-dollar numbers exactly will switch their read-path to it, so historical chart values stay stable across BLS revisions.
 
 ## Current freshness
 
@@ -113,7 +113,7 @@ else:
 
 ## The two-vintage choice
 
-BLS revises CPI values. A figure that is meant to reproduce the numbers in the forthcoming Extension article must keep deflating with the CPI vintage current when the article is finalized (December 2025 basis), even after BLS publishes revisions; a figure that is meant to show current real prices should deflate with the most recent vintage. We do not let either choice be an implicit default.
+BLS revises CPI values. A figure that is meant to reproduce a fixed historical comparison must keep deflating with the CPI vintage that was current when the comparison was first published (December 2025 basis on this site), even after BLS revises later — otherwise yesterday's chart and today's chart can disagree about a 2019 price for no reason other than a CPI revision in between. A figure that is meant to show current real prices should deflate with the most recent vintage. We do not let either choice be an implicit default.
 
 **Every `.qmd` file that deflates names its CPI vintage in its first code cell.** It is deliberate and visible in the source. The page caption reports the vintage too, so a reader can see at a glance which basis is in play.
 
@@ -141,8 +141,8 @@ If you are reproducing a figure locally and BLS has since revised the December 2
 
 ## What is deliberately left out
 
-- **Regional CPIs** (e.g., CPI for the Mountain Census region) are not used. A producer in New Mexico might prefer a regional deflator; we keep CPI-U for consistency with the forthcoming article. Phase 2 candidate.
-- **Chained CPI-U (C-CPI-U)** is not used. The article uses the standard CPI-U.
+- **Regional CPIs** (e.g., CPI for the Mountain Census region) are not used. A producer in New Mexico might prefer a regional deflator; the site keeps CPI-U U.S. City Average because it is the standard agricultural-economics deflator and has the deepest continuous history. Regional alternatives are a Phase 2 candidate.
+- **Chained CPI-U (C-CPI-U)** is not used. The standard CPI-U is the conventional deflator in livestock-price analysis and what most published agricultural-economics work compares against.
 - **Producer Price Index (PPI)** is not used for livestock-price deflation here. A separate Phase 2 methodology page will introduce PPI for feed-cost figures where it is more appropriate.
 - **Seasonal-adjustment** (the SA variant of CPI-U) is not used — see the opening paragraph.
 

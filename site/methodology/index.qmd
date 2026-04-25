@@ -71,7 +71,7 @@ The Clovis weekly series extends back to October 2017 — the floor of USDA-AMS 
 
 ## Specific methodology pages
 
-- [CPI deflation and the article-basis vintage](cpi.qmd)
+- [CPI deflation and the release-basis vintage](cpi.qmd)
 - [Clovis auction pipeline: slug `AMS_1781`, filters, and schema](clovis.qmd)
 
 ## What a methodology page contains
