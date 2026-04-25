@@ -35,13 +35,13 @@
     },
     {
       "vintage": "2026-04-25",
-      "file": "data/processed/clovis_historical_era_b_2026-04-25.csv",
-      "sha256": "911cf2714e894f5ffa1d2334c42a8cd212ebd959ef8446124cbb9ceea8be63da",
+      "file": "data/processed/clovis_historical_era_b_2026-04-25.parquet",
+      "sha256": "1587ef51bd6743fad824869f7f463b6b9778511028ce6b35605050e734d4a5a3",
       "rows": 7025,
-      "written_at_utc": "2026-04-25T06:24:03.801322+00:00",
+      "written_at_utc": "2026-04-25T19:19:38.699507+00:00",
       "era": "B",
       "format_source": "MMN per-slug archive (CV_LS750 fixed-width TXT)",
-      "latest_path": "data/processed/clovis_historical_era_b_latest.csv",
+      "latest_path": "data/processed/clovis_historical_era_b_latest.parquet",
       "auction_week_count": 74,
       "coverage": "2017-10-04..2019-04-10",
       "schema_columns": [
