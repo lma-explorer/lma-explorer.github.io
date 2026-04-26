@@ -1,0 +1,97 @@
+---
+title: "Sell-now compare"
+subtitle: "How this week's Clovis price is compared against the historical band for the same week-of-year, and the choices behind the percentile-band display."
+toc: true
+toc-depth: 2
+---
+
+## What is being measured
+
+The [Sell-now compare page](../sell-now-compare.qmd) answers a narrower question than the rest of the chart shelf. The four exploratory charts (price–weight, seasonality, weekly-trends, basis) each surface a pattern *across* years; the sell-now-compare instead **anchors on the latest auction week** and asks: *given how this same calendar week has typically priced in past years, where does this week's actual price sit?* The visual signal is a colored marker positioned within the historical band, and the categorical answer is one of three percentile-band assignments — top quartile, middle 50%, bottom quartile.
+
+The page does not produce a marketing recommendation. It produces one piece of context — *"is this week good or bad relative to its own historical norm?"* — that a producer combines with everything else they know about their operation, their carrying costs, the futures-hedge alternative, and their risk tolerance.
+
+## Where the data comes from
+
+This methodology page does not introduce new data sources. The sell-now-compare derives a comparison from data already documented on other methodology pages:
+
+- **Cash prices**: combined Clovis snapshot via `pipelines/clovis/load.py` (Era B archive Oct 2017–Apr 2019, plus Era A MARS API Apr 2019–present). See [Methodology → Clovis pipeline](clovis.qmd) for the full filter chain (M&L 1 grade, 100-lb bin derivation, schema-hash validator, etc.).
+- **Real-dollar mode** (when the page's Mode toggle is set to *Real (December 2025 $)*): per-row CPI deflator computed from the BLS CPI-U series (`CUUR0000SA0`). See [Methodology → CPI deflation](cpi.qmd) for the deflation rule and the December-2025 basis-month choice.
+
+The page is read-only with respect to the upstream pipelines — its only computation is the historical-band aggregation and the percentile assignment described below.
+
+## How the comparison is computed
+
+Step-by-step, exactly as the page implements it:
+
+1. **Anchor on the latest reported auction.** Let *L* be the most recent `auction_date` in the snapshot. Let *W* be the ISO week of *L* (with the rare ISO week 53 collapsed into 52, matching the seasonality page's convention).
+2. **Filter to the chart's standard population.** M&L 1 frame and muscle grade (the dominant grade combination in the snapshot per [Methodology → Clovis pipeline](clovis.qmd) §"Grade filter on the chart"); Steers and Heifers; 100-lb weight bins from 300–399 lb to 800–899 lb.
+3. **Construct the per-year-per-cell price set.** For every prior calendar year *y* (i.e., `auction_date.year` < *L*'s year) with an observation in ISO week *W*, compute one head-weighted price per (year, class, weight bin) cell — collapsing any multi-lot weeks within that year and ISO week into a single observation per bin × class.
+4. **Aggregate the historical distribution.** For each (class, weight bin), gather the set of per-year prices from step 3. Compute the historical minimum, mean, maximum, 25th percentile, and 75th percentile, plus *n* — the count of years with data in this cell.
+5. **Compute this week's prices.** For the latest auction *L*, compute head-weighted prices per (class, weight bin) — same head-weighting convention used in step 3.
+6. **Assign a percentile band.** For each (class, weight bin), classify this week's price against the historical distribution from step 4:
+   - **Top 25%** (green) if `current_price >= 75th percentile`
+   - **Bottom 25%** (red) if `current_price <= 25th percentile`
+   - **Middle 50%** (gray) otherwise
+7. **Render.** A vertical gray range bar from min to max; a small horizontal tick at the historical mean; a colored circle marker at the current price.
+
+### Comparison-window scope
+
+The Comparison-window button row (All / Last 5 years / Last 3 years) determines which prior years enter step 3. *All* uses every prior year present in the snapshot; *Last 5 years* and *Last 3 years* restrict to the most recent 5 or 3 calendar years before *L*'s year. The default is *All*, matching the data-richest setting and consistent with the other chart pages' default.
+
+### Mode scope
+
+The Mode button row (Nominal $ / Real Dec-2025 $) determines which price column flows through the entire pipeline above. In *Nominal* mode, the historical band and the current marker are both computed from `price_avg` (raw $/cwt). In *Real* mode, both use `price_avg_real` (CPI-deflated to December 2025 dollars per [Methodology → CPI deflation](cpi.qmd)). Switching modes never mixes nominal and deflated values within a single comparison.
+
+### Why exclude the current year from the historical band
+
+The chart compares this week to *prior* calendar years, not earlier weeks of the current year. A producer reading the chart in week 17 of 2026 sees the historical band for week 17 across 2018–2025 (or fewer years per the chosen window); the current week's price is overlaid on that band, not folded into it. This is a deliberate methodological choice — folding the current year into its own comparison would conflate "where does this week sit historically?" with "where does this week sit within this year's recent trajectory?", which is a different (and arguably more weekly-trends-shaped) question.
+
+## Why percentile bands (and not standard deviations or fixed dollars)
+
+Three thresholding options were considered when designing the page; percentile-bands won for v1.
+
+**Option A — Fixed-dollar threshold.** *"Above the historical average by more than $5/cwt → green; below by more than $5/cwt → red; within $5/cwt → gray."* Simple to explain. Rejected because $5/cwt means very different things across weight bins: a $5 deviation in the 800–899 lb bin (where prices typically swing $20–30/cwt year-to-year for the same week) is noise, while a $5 deviation in the 300–399 lb bin (where week-to-week-of-year volatility can be $100+/cwt) is not even a meaningful signal. Treating both with the same threshold misleads the reader.
+
+**Option B — Standard-deviation threshold.** *"Above one historical SD → green; below one SD → red; within one SD → gray."* Adapts to per-bin volatility, which fixes Option A's main failure. Rejected for two reasons: (1) it assumes the per-bin historical distribution is roughly normal, which is often false for cattle prices in cycle peaks and troughs (the distributions are skewed, sometimes bimodal across a cycle boundary), so the SD-derived bands misrepresent where the "tails" actually are; (2) "standard deviation" is statistical jargon that loses readers without an introductory statistics background. Producer-comprehension within ~60 seconds of reading the chart was a hard constraint.
+
+**Option C — Percentile bands.** *"Top 25% (green), middle 50% (gray), bottom 25% (red)."* Adapts to per-bin volatility *and* makes no distributional assumption — it simply ranks the current price among the historical observations. The producer-explanation is one sentence: *"green means this week's price is in the top quarter of past years for this same week of the year."* Within ~15 seconds of reading the chart, the signal is intelligible without any statistical training. Selected for v1.
+
+**Limitations of percentile bands acknowledged.** With small *n* (say, *n* = 3 historical years for the *Last 3 years* window), the 25th and 75th percentile breakpoints are computed across only three values — the result is honest but lumpy, and a single anomaly year can swing a marker between bands. The chart hover tooltip and the static summary table both report `n = X year(s)` so the reader can weight the signal accordingly. As historical depth grows (the platform's pre-2017 historical reconstruction is on the Phase 2 roadmap), the percentile bands stabilize and shorter comparison windows become more reliable.
+
+**Implementation note.** Percentiles are computed via NumPy's default linear-interpolation rule (`numpy.percentile` with no explicit `method` argument). For *n* = 8 historical years, that places the 25th percentile roughly at the 2nd-lowest year's price and the 75th percentile roughly at the 2nd-highest. The chart's `top 25% (of 8 yr)` band-label phrasing is exact for that case.
+
+## What the chart deliberately does *not* do
+
+- **Not a forecast.** The historical band describes past prices for this week-of-year; the current week's position within that band is a snapshot, not a prediction. Future prices for week *W* in subsequent years can drift outside the historical range, particularly in cycle peaks and troughs.
+- **Not a recommendation.** A green dot doesn't say *sell now*; a red dot doesn't say *hold*. The chart is one input.
+- **Not a hedge calculator.** The [Basis page](../basis.qmd) handles the cash-vs-futures comparison. The sell-now-compare doesn't try to surface the futures-hedge alternative; it deliberately stays narrow.
+- **Not a slide-contract or volume-discount adjustment.** The prices are USDA-AMS reported $/cwt for the M&L 1 grade combination at Clovis. Different lot sizes, transport considerations, and slide-contract pricing structures produce different realized prices than the chart shows.
+- **Not adjusted for buyer mix.** The historical band reflects whatever buyer mix was active at Clovis in past years' week *W*. Composition shifts (more out-of-region order buyers, fewer; more feedlot demand, less) can change current-week prices for reasons the historical comparison cannot capture.
+
+## How to interpret `n = X year(s)`
+
+Every historical-band tooltip and summary-table row reports the number of years that contributed to the band. Two reasons this matters:
+
+- **Small-n caveat.** With *n* = 3 (the *Last 3 years* window minimum) the percentile thresholds are computed across only three values; the band a marker lands in is sensitive to a single anomaly year. The page recommends the *All* window as the default for this reason.
+- **Cell-level coverage gaps.** Some bins may have had no M&L 1 lots in some prior years' week *W* — for instance, an 800–899 lb cell at Clovis may have only 4 or 5 prior years of data even when the *All* window contains 8 calendar years. The `n = X year(s)` count is per-cell, not platform-wide.
+
+## Producer-decision framing
+
+The chart's *"one input, not a recommendation"* framing is consistent with the broader livestock-marketing literature, which uniformly treats *current-vs-historical* price comparisons as one of several inputs producers weigh — alongside carrying costs, alternative marketing channels (forward contracting, video auctions), futures-hedge basis, livestock-risk-protection insurance, and operation-specific constraints (forage, water, financing). Useful entry points that are public and authoritative:
+
+- The [USDA Risk Management Agency](https://www.rma.usda.gov/) maintains producer-facing publications on livestock risk-management instruments (LRP, LGM, hedging) that complement the *"is this week good?"* question with *"and what tools could lock in or hedge against the answer?"*
+- The [USDA-AMS Market News portal](https://www.ams.usda.gov/market-news/livestock-poultry-grain) carries the source reports the platform aggregates from. Their interpretation guidance (typically embedded in the reports themselves) is the most direct primary source for *what a Clovis $/cwt actually represents*.
+- *(Verification pass needed — TODO before public pilot.)* Specific Extension publications from land-grant programs in the four-corners and adjacent regions (Oklahoma State University Extension; Kansas State University Extension; New Mexico State University Extension; Texas A&M AgriLife Extension) typically publish producer marketing guides that frame the sell-now-vs-hold decision in terms of carrying costs, weight-slide pricing, and basis. These are the closest external authorities for the Tier-1 producer's full decision context. Specific URLs to be added once verified.
+
+The page's framing is therefore not novel — it is a faithful summary of how livestock-marketing decision-support tools are typically presented in the public Extension and ag-econ literature.
+
+## Code
+
+- Chart page source: [`site/sell-now-compare.qmd`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/site/sell-now-compare.qmd)
+- Cash data loader: [`pipelines/clovis/load.py`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/clovis/load.py)
+- This methodology page's source: [`site/methodology/sell-now-compare.qmd`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/site/methodology/sell-now-compare.qmd)
+
+## Contact
+
+Spotted an error or a methodological disagreement? Open a [new issue](https://github.com/lma-explorer/lma-explorer.github.io/issues/new/choose) with the `methodology` label.

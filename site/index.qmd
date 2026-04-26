@@ -42,9 +42,17 @@ Raw snapshots are committed as Parquet and released annually as a Zenodo deposit
 
 :::
 
+## Start here: is this week good or bad?
+
+::: {.callout-note appearance="simple" icon="false"}
+**[→ Sell-now compare: is this week's price high or low for this time of year?](sell-now-compare.qmd)**
+
+For each weight class × bin, the page shows where this week's actual Clovis price sits relative to the historical band for the same calendar week of past years. A green dot means top 25% of past years; gray middle 50%; red bottom 25%. One input to a marketing decision, not a recommendation.
+:::
+
 ## Four views of the same dataset
 
-The chart shelf decomposes weekly Clovis prices and CME-feeder basis along four orthogonal axes — pick the page that matches the question you're asking.
+The chart shelf decomposes weekly Clovis prices and CME-feeder basis along four orthogonal axes — pick the page that matches the question you're asking. Each is exploratory; the sell-now compare above is decision-anchored.
 
 ::: {.grid}
 
