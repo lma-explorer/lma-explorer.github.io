@@ -701,7 +701,7 @@ display(HTML(f"""
 
 **Positive basis = cash above futures.** When the line sits above zero, Clovis cash clears above CME — historically rare for the May contract, more common for the November and nearby contracts in fall delivery weeks. The 2024–2026 cash run-up has pushed many of these basis lines positive at week-of-year positions where they have historically been negative.
 
-**The shaded band is the worst-and-best year**, not a typical year. A producer expecting "the average basis" should plan around the solid line; the band's edges are extremes seen once across the available years. Tight bands mean reliable basis; wide bands mean one or two anomaly years (drought, COVID, post-2022 cash blowout) stretched the historical range.
+**The shaded band is the worst-and-best year**, not a typical year. A producer expecting "the average basis" should plan around the solid line; the band's edges are extremes seen once across the available years. Tight bands mean reliable basis; wide bands mean one or two anomaly years (drought, COVID, post-2022 cash blowout) stretched the historical range. The 2022 contribution to any (week, bin) cell sits on a thinner-than-typical lot count — see the [Methodology → 2022 receipts anomaly](methodology/clovis.qmd#the-2022-receipts-anomaly) section for the full discussion.
 
 **The Nearby contract is the simplest hedge reference.** It auto-rolls to whichever contract is closest to expiry, so it's a forward-price reference no matter what time of year a producer is selling. The May and November lines answer the more specific *"what basis should I expect against the spring/fall contract a producer might already have on the books?"*
 

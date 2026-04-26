@@ -127,10 +127,33 @@ The MARS API only goes back to April 17, 2019 — the date USDA-AMS first served
 
 The historical block is a separate parquet — `clovis_historical_era_b_latest.parquet` — written once by `pipelines/clovis_historical/ingest_era_b.py`, with the same long-format schema as the rolling MARS-era snapshot. The chart pages read both files together via `pipelines/clovis/load.py`, which unions them and dedupes per (auction_date, class, frame, muscle_grade, weight_break_low, weight_break_high) with most-recent-vintage-wins. In practice the era windows are disjoint (the last Era B report is 2019-04-10, the first MARS report is 2019-04-17), so no dedupes fire — the dedupe is defensive belt-and-suspenders for any future correction that might land a row in the other era's window.
 
-Two things the historical block surfaces that the rolling snapshot does not:
+One thing the historical block surfaces that the rolling snapshot does not:
 
 - **A late-2018 / early-2019 auction-format change.** Clovis ran 2-day Wednesday-Thursday sales for ~16 weeks during a high-receipts run, with the report's prose template changing along with it. The parser's filename-derived date fallback handles this transparently; the only operator-visible signal is a `WARNING:` block listing those weeks during ingest. The data is correct; the variant is documented in `pipelines/clovis_historical/PARSER_NOTES.md`.
-- **A 2022 receipts dip.** Both Era B (above) and the MARS API show 2022 with roughly half the typical lot count (2,395 records vs. 4,450-4,614 for adjacent years). This appears to be a real auction-volume drop, not a parsing artifact — both eras' parsers are doing the right thing. Producers viewing the chart in 2022 will see a thinner band of observations; that is what AMS reported.
+
+A second data quirk — the 2022 receipts dip — is visible in both eras and gets its own dedicated section below.
+
+## The 2022 receipts anomaly
+
+A reader paging through the Clovis snapshot — or any chart that reads it — will notice that 2022 carries roughly half the lot count of its adjacent years. The MARS-era window of the snapshot recorded **2,395 weekly observations** (rows in the long-format parquet) in 2022 against **4,450–4,614** in the immediately adjacent years (2021, 2023, 2024). The dip is visible across all weight bins and both Steers and Heifers; it is not concentrated in any single (week, bin, class) cell.
+
+### Why we believe the dip is real, not a parsing artifact
+
+- **Two independent parsers see it.** The Era B fixed-width TXT parser (`pipelines/clovis_historical/era_b_txt.py`) and the MARS-API JSON parser (`pipelines/clovis/`) reach the same conclusion via completely different code paths and source formats. A parser regression would have to fail in two unrelated systems in the same year, which is implausible.
+- **The schema-hash validator passed every 2022 vintage.** The pipeline computes a SHA-256 over the MARS response envelope on every run; no 2022 run produced an unexpected schema. A silent field rename or unit shift would have triggered a baseline mismatch and stopped the pipeline.
+- **The validator's anomalous-row tolerance was not tripped.** That check fires when more than 0.1% of rows fall outside the `[$20, $800]/cwt` bound — a signature of unit swaps or decimal errors. It did not fire in 2022 either.
+
+### What this likely reflects in the world
+
+2022 was the most severe drought year of the recent cycle in the four-corners and broader U.S. Southwest region. The conditions tracked by the [U.S. Drought Monitor](https://droughtmonitor.unl.edu/) reached and held the most severe categories ("D3 — Extreme Drought" and "D4 — Exceptional Drought") across much of New Mexico for sustained portions of 2022. Forage conditions in eastern New Mexico's High Plains — the immediate hinterland of the Clovis auction — were particularly compromised. Producers under those conditions can be forced to liquidate herds early, alter normal sale timing, or skip the local auction in favor of direct-to-feedlot consignment. Any of those would reduce the lot count reported through `AMS_1781`.
+
+We deliberately stop short of asserting drought as the *sole* cause of the 2022 dip. The platform doesn't have the producer-survey data that would identify exact mechanisms, and a receipts dip can also reflect changes in consignor behavior (auction patronage trends, alternative marketing channels, regional buyer presence) that operate on slower timescales than weather. Phase 2 work to ingest [USDA NASS QuickStats](https://quickstats.nass.usda.gov/) state-level cattle inventory and sales data would let us cross-check whether the 2022 volume drop at Clovis aligns with broader New Mexico auction-volume trends or is local to this barn.
+
+### What this means for chart reading
+
+The chart pages that average across years (price–weight explorer, weekly seasonality, basis) compute means and bands from whatever observations are present in each (week, weight-bin, class) cell. In 2022 the *number of auctions* held was largely normal — the Wednesday auction continued — but each auction reported fewer lots. So a 2022 (week, bin, class) cell may have only one or two lots backing its weekly average where a 2021 cell had four or five. That makes 2022's contribution to the historical band more sensitive to outliers in the few lots that did clear.
+
+Producers reading the chart should not exclude 2022 — the prices that *did* clear are real and informative — but should be aware that 2022 carries less statistical weight in any cross-year average than a naive count of rows would suggest. The seasonality and basis charts' min/max bands surface this volatility honestly: when 2022 is a band edge for a given (week, bin) cell, the band is reading off a thinly-populated year.
 
 ## What is deliberately left out
 
