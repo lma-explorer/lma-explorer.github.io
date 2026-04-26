@@ -168,7 +168,7 @@ These are discussed in the platform's roadmap but are not yet scheduled. They ap
 | Series | Likely source | Rationale |
 |---|---|---|
 | Pre-2017 Clovis history | Direct request to USDA-AMS Market News | Extends the public series before October 2017, the floor of the Market News per-slug archive. Aspirational; depends on whether AMS will provide a machine-readable archive. |
-| Willcox, AZ auction | USDA-AMS Market News | regional companion to Clovis for regional producers. |
+| Willcox, AZ auction | USDA-AMS Market News | Companion auction in the broader four-corners marketing area. |
 | Utah feeder auctions | USDA-AMS Market News | Regional comparison within the 4-corners marketing area. |
 | CME feeder-cattle basis | Derived from Clovis + CME settles | Basis statistics (cash minus nearby futures) for hedge-decision support. Raw futures data stays link-out only per the data license; published output is the derived basis statistic, not the futures price. |
 | USDA NASS QuickStats | NASS API | State/county inventory, production, disappearance. |

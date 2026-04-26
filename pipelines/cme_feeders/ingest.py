@@ -89,7 +89,7 @@ def _resolve_source() -> Path:
         print(
             f"ERROR: {ENV_VAR} env var not set.\n"
             "Set it to your local feeder-cattle settle Excel:\n"
-            f"    export {ENV_VAR}='.../Data_REDACTED/feederfutures.xlsx'",
+            f"    export {ENV_VAR}='/path/to/feederfutures.xlsx'",
             file=sys.stderr,
         )
         sys.exit(2)
