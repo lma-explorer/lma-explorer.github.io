@@ -11,7 +11,7 @@ toc-depth: 2
 
 ## About this page
 
-This page shows weekly feeder-cattle pricing by weight class at the Clovis, NM auction, drawn from USDA-AMS Market News and refreshed automatically each week by the `clovis_refresh` GitHub Actions workflow. Two button rows above the chart let you pick a **year window** — All, Last 5 years, Last 3 years, or the latest calendar year — in either **nominal dollars** (top row) or **real December 2025 dollars** (bottom row). Only one button is highlighted at a time across both rows; clicking any button sets the chart to that combination. The chart is intentionally focused: a single auction, a single grade combination, with the producer's "what does a heavier calf bring this week vs. recent years?" question as the question it answers.
+This page shows weekly feeder-cattle pricing by weight class at the Clovis, NM auction, drawn from USDA-AMS Market News and refreshed automatically each week by the `clovis_refresh` GitHub Actions workflow. Two button rows above the chart let you pick the **mode** (top: Nominal $ / Real December-2025 $) and the **year window** (bottom: All / Last 5 years / Last 3 years / latest calendar year). Each row maintains its own selection independently — at any moment, the chart shows the combination of both highlighted choices. The chart is intentionally focused: a single auction, a single grade combination, with the producer's "what does a heavier calf bring this week vs. recent years?" question as the question it answers.
 
 ```{python}
 #| echo: false
@@ -207,7 +207,7 @@ else:
 
 ## Cash price–weight relationships
 
-Two panels, one per class — Steers on top, Heifers below — each showing the envelope of prices observed in the selected window. The gray band spans the Minimum and Maximum across the window; the black line is the Average. Two button rows above the panels let the reader pick the **year window** (All, Last 5 years, Last 3 years, or Latest calendar year) and the **dollar basis** (nominal or real Dec 2025); each click sets a new view, defaulting the other dimension to its baseline. Hover any point to see the exact values and the head count behind that weight class.
+Two panels, one per class — Steers on top, Heifers below — each showing the envelope of prices observed in the selected window. The gray band spans the Minimum and Maximum across the window; the black line is the Average. Two button rows above the panels let the reader pick the **mode** (Nominal or Real Dec-2025 dollars) and the **year window** (All, Last 5 years, Last 3 years, or Latest calendar year); each row keeps its own highlight, so the chart at any moment reflects the combination of both selections. Hover any point to see the exact values and the head count behind that weight class.
 
 ```{python}
 #| echo: false
@@ -343,13 +343,12 @@ def _visibility_for(year_idx: int, mode_idx: int) -> list[bool]:
     return out
 
 
-# ---------- two button rows, one per dollar basis ----------
-# Each button is a complete (year, mode) selector. Clicking a button in
-# Row 0 (nominal) ALSO deactivates Row 1's highlight via
-# "updatemenus[1].active": -1, and vice versa — so at any moment, exactly
-# one button across both rows is highlighted, and the chart and the
-# highlight always agree. No dynamic caption needed (the active button
-# is the source of truth for the current view).
+# ---------- two button rows: Mode (2) + Year window (4) ----------
+# Mirrors the basis chart's idiom: each button row corresponds to one
+# orthogonal dimension. A small post-render JS layer (below) keeps each
+# row's highlight independent so a user can read the current chart state
+# off both rows simultaneously rather than playing
+# whose-row-was-clicked-last.
 
 NOMINAL_Y_TITLES = {
     "yaxis.title.text": "Price, $/cwt (nominal)",
@@ -359,44 +358,47 @@ REAL_Y_TITLES = {
     "yaxis.title.text": f"Price, $/cwt (base = {cpi_basis_label})",
     "yaxis2.title.text": f"Price, $/cwt (base = {cpi_basis_label})",
 }
+MODE_Y_TITLES = {0: NOMINAL_Y_TITLES, 1: REAL_Y_TITLES}
 
-# Row 0 — nominal year buttons
-nominal_row_buttons = []
+# Row 0 — Year window buttons. Each = (year × Nominal). Default = All.
+# Cross-clearing on the Mode row is included as a fallback for the case
+# where the JS layer fails to load.
+year_row_buttons = []
 for y_idx, (y_key, y_label, lo_d, hi_d) in enumerate(YEAR_WINDOWS):
-    nominal_row_buttons.append(dict(
+    year_row_buttons.append(dict(
         label=y_label,
         method="update",
         args=[
             {"visible": _visibility_for(y_idx, 0)},
             {
                 **NOMINAL_Y_TITLES,
-                "updatemenus[1].active": -1,  # clear real-row highlight
+                "updatemenus[1].active": -1,  # clear mode row (fallback)
             },
         ],
     ))
 
-# Row 1 — real year buttons
-real_row_buttons = []
-for y_idx, (y_key, y_label, lo_d, hi_d) in enumerate(YEAR_WINDOWS):
-    real_row_buttons.append(dict(
-        label=y_label,
+# Row 1 — Mode buttons. Each = (All × mode). Default = Nominal.
+mode_row_buttons = []
+for m_idx, mode in enumerate(("nominal", "real")):
+    label = "Nominal $" if mode == "nominal" else f"Real ({cpi_basis_label} $)"
+    mode_row_buttons.append(dict(
+        label=label,
         method="update",
         args=[
-            {"visible": _visibility_for(y_idx, 1)},
+            {"visible": _visibility_for(0, m_idx)},
             {
-                **REAL_Y_TITLES,
-                "updatemenus[0].active": -1,  # clear nominal-row highlight
+                **MODE_Y_TITLES[m_idx],
+                "updatemenus[0].active": -1,  # clear year row (fallback)
             },
         ],
     ))
 
 fig.update_layout(
-    height=860,
-    # Top margin needs to accommodate two button rows + their labels above
-    # the subplot title (which sits near y=1.02 in paper coordinates).
-    # 200px / 860px = 0.233 paper fraction of vertical space above the
-    # plot area, leaving room for buttons at y up to ~1.22.
-    margin=dict(t=200, b=60, l=80, r=30),
+    height=900,
+    # Top margin accommodates two button rows + label annotations above
+    # the subplot titles. Mode at y=1.32 (top), Year window at y=1.20
+    # (bottom). Matches basis.qmd's layout.
+    margin=dict(t=240, b=60, l=80, r=30),
     hovermode="x unified",
     paper_bgcolor="white",
     plot_bgcolor="white",
@@ -405,35 +407,35 @@ fig.update_layout(
     # "NM Clovis — Heifers"); a bare `annotations=[...]` would REPLACE them and
     # the panel headers would silently disappear.
     annotations=list(fig.layout.annotations) + [
-        dict(text="<b>Nominal $</b>",
+        dict(text="<b>Mode</b>",
              showarrow=False, xref="paper", yref="paper",
-             x=0.0, y=1.22, xanchor="left", yanchor="top",
+             x=0.0, y=1.32, xanchor="left", yanchor="top",
              font=dict(size=12, color="#222")),
-        dict(text=f"<b>Real ({cpi_basis_label} $)</b>",
+        dict(text="<b>Year window</b>",
              showarrow=False, xref="paper", yref="paper",
-             x=0.0, y=1.10, xanchor="left", yanchor="top",
+             x=0.0, y=1.20, xanchor="left", yanchor="top",
              font=dict(size=12, color="#222")),
     ],
     updatemenus=[
-        dict(  # nominal row (index 0)
+        dict(  # year row (index 0) — All highlighted by default
             type="buttons",
             direction="right",
-            active=0,  # default = All × Nominal
-            x=0.18, y=1.22,
+            active=0,
+            x=0.18, y=1.20,
             xanchor="left", yanchor="top",
             pad=dict(r=6, t=4, b=4),
             showactive=True,
-            buttons=nominal_row_buttons,
+            buttons=year_row_buttons,
         ),
-        dict(  # real row (index 1)
+        dict(  # mode row (index 1) — Nominal highlighted by default
             type="buttons",
             direction="right",
-            active=-1,  # no default highlight (nominal row owns it)
-            x=0.18, y=1.10,
+            active=0,
+            x=0.18, y=1.32,
             xanchor="left", yanchor="top",
             pad=dict(r=6, t=4, b=4),
             showactive=True,
-            buttons=real_row_buttons,
+            buttons=mode_row_buttons,
         ),
     ],
 )
@@ -455,6 +457,108 @@ fig.update_yaxes(
 fig.update_layout(yaxis2=dict(matches="y"))
 
 fig.show()
+
+
+# ---------------------------------------------------------------------------
+# Independent-toggle JS layer (mirrors basis.qmd's pattern).
+#
+# Plotly updatemenus are stateless — each click sets fixed args and the
+# default cross-clearing pattern hides the OTHER row's highlight. This
+# script keeps both rows' highlights independent: it pre-computes every
+# (year × mode) state's visibility mask, listens for plotly_buttonclicked
+# events, tracks combined state, and re-applies via Plotly.update on every
+# click — including re-asserting `active` on both menus.
+#
+# Menus are identified by button count (year=4, mode=2), a stable
+# property that survives Plotly's _fullLayout rebuilds (object-reference
+# equality does NOT — tested and burned during basis.qmd development).
+#
+# Falls back to the original cross-clearing behavior if the JS doesn't
+# load (button args still set complete state).
+
+import json
+from IPython.display import HTML, display
+
+_state_table = {}
+for _y in range(len(YEAR_WINDOWS)):
+    for _m in range(2):
+        _state_table[f"{_y}-{_m}"] = {"v": _visibility_for(_y, _m)}
+_js_state = json.dumps(_state_table)
+_js_y_titles = json.dumps({
+    "0": "Price, $/cwt (nominal)",
+    "1": f"Price, $/cwt (base = {cpi_basis_label})",
+})
+
+display(HTML(f"""
+<script>
+(function() {{
+    var STATE = {_js_state};
+    var Y_TITLES = {_js_y_titles};
+    var current = {{ year: 0, mode: 0 }};
+
+    function findChart() {{
+        var divs = document.querySelectorAll('.plotly-graph-div');
+        for (var i = divs.length - 1; i >= 0; i--) {{
+            var d = divs[i];
+            if (d && d._fullLayout && d._fullLayout.updatemenus
+                && d._fullLayout.updatemenus.length === 2
+                && !d.__pwToggleWired) {{
+                // Sanity-check the button counts match this page (year=4, mode=2)
+                var menus = d._fullLayout.updatemenus;
+                var btnCounts = [menus[0].buttons.length, menus[1].buttons.length].sort();
+                if (btnCounts[0] === 2 && btnCounts[1] === 4) return d;
+            }}
+        }}
+        return null;
+    }}
+
+    function applyState(gd) {{
+        var key = current.year + '-' + current.mode;
+        var s = STATE[key];
+        if (!s) return;
+        var yTitle = Y_TITLES[String(current.mode)];
+        Plotly.update(gd,
+            {{ visible: s.v }},
+            {{
+                'yaxis.title.text': yTitle,
+                'yaxis2.title.text': yTitle,
+                'updatemenus[0].active': current.year,
+                'updatemenus[1].active': current.mode,
+            }}
+        );
+    }}
+
+    function attach() {{
+        var gd = findChart();
+        if (!gd) {{ setTimeout(attach, 150); return; }}
+        gd.__pwToggleWired = true;
+
+        gd.on('plotly_buttonclicked', function(ev) {{
+            var nBtns = (ev.menu && ev.menu.buttons) ? ev.menu.buttons.length : 0;
+            var dim = (nBtns === 2) ? 'mode'
+                    : (nBtns === 4) ? 'year'
+                    : null;
+            if (!dim) return;
+            var btnIdx = ev.active;
+            if (typeof btnIdx !== 'number' || btnIdx < 0) {{
+                btnIdx = ev.menu.buttons.indexOf(ev.button);
+            }}
+            current[dim] = btnIdx;
+            // Defer one tick so Plotly's button-args update fires first
+            // (which momentarily clears the other row's active via the
+            // cross-clearing fallback args), then we override.
+            setTimeout(function() {{ applyState(gd); }}, 0);
+        }});
+    }}
+
+    if (document.readyState === 'loading') {{
+        document.addEventListener('DOMContentLoaded', attach);
+    }} else {{
+        attach();
+    }}
+}})();
+</script>
+"""))
 ```
 
 ## Download
