@@ -51,17 +51,13 @@ Thumbs.db
 DECISIONS_LOG.md
 PHASE1_PLAN.md
 
-# Third-party proprietary data — kept locally, never committed.
-# LMIC compilations (member-only); CME feeder-futures are proprietary.
-# The public repo sources Clovis data directly from USDA-AMS (public-domain)
-# and treats CME futures as link-out only. See LICENSE-DATA.md.
-Data_LMIC/
-
-# Local MARS API samples and scratch JSON. USDA-AMS data is public-domain
-# and redistributable, but raw one-off pulls belong in data/raw/clovis/
-# (also gitignored) under the pipeline's control; the top-level folder is
-# a research scratchpad and we don't want 60+ MB blobs in the repo.
-Data_USDA_AMS/
+# Local research-data scratch folders — never committed.
+# Glob covers any top-level `Data_<source>/` directory the user keeps for
+# their own working files (raw API pulls, third-party files licensed for
+# personal review only, etc.). The public repo sources Clovis directly
+# from USDA-AMS (public-domain) and treats CME futures as link-out only.
+# See LICENSE-DATA.md for the redistribution policy.
+Data_*/
 
 # Internal planning docs (Phase-0 Decision 7 — kept local until promotion)
 PLAN_*.md

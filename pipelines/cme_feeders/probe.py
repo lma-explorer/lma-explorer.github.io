@@ -143,7 +143,7 @@ def main() -> int:
     if fut_path is None:
         print(f"ERROR: {ENV_VAR} unset or file missing.\n"
               "Set it: export "
-              "CLOVIS_FUTURES_XLSX='.../Data_LMIC/feederfutures.xlsx'",
+              "CLOVIS_FUTURES_XLSX='/path/to/feederfutures.xlsx'",
               file=sys.stderr)
         return 2
 
