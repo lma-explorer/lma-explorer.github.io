@@ -1,0 +1,215 @@
+---
+title: "Clovis Auction · This Week"
+subtitle: "Producer reference card · Livestock Marketing Alternatives Explorer"
+format:
+  typst:
+    papersize: us-letter
+    margin:
+      top: 0.5in
+      bottom: 0.4in
+      left: 0.65in
+      right: 0.65in
+    fontsize: 9.5pt
+    section-numbering: ""
+toc: false
+execute:
+  freeze: false
+---
+
+```{python}
+#| echo: false
+#| label: load-and-shape
+
+# Reuse the cash-chart pages' loader — combined Era B + MARS Clovis
+# snapshot, M&L 1 grade only, 100-lb bins. By using the same loader
+# and the same filters we guarantee the producer card and the live
+# charts can never disagree about what "this week's M&L 1 prices" are.
+
+from pathlib import Path
+import sys
+import pandas as pd
+
+PROCESSED = Path("..") / "data" / "processed"
+sys.path.insert(0, str(Path("..").resolve()))
+from pipelines.clovis.load import load_clovis_combined  # noqa: E402
+
+_loaded = load_clovis_combined(PROCESSED)
+if _loaded is None:
+    raise RuntimeError(
+        "No Clovis snapshot found at ../data/processed/. "
+        "Run the Clovis pipeline before rendering the one-pager."
+    )
+df = _loaded.df
+
+slim = df[
+    (df["class"].isin(["Steers", "Heifers"]))
+    & (df["frame"] == "Medium and Large")
+    & (df["muscle_grade"] == "1")
+].copy()
+slim["auction_date"] = pd.to_datetime(slim["auction_date"])
+# Derive 100-lb bin from weight_break_low (preferred) or avg_weight (fallback
+# for the older MARS rows pre-2024 that lacked weight_break_low/high).
+wb = slim["weight_break_low"]
+aw = slim["avg_weight"]
+raw_weight = wb.fillna(aw)
+slim = slim[raw_weight.notna()].copy()
+slim["bin_lo"] = ((raw_weight[raw_weight.notna()] // 100) * 100).astype(int)
+slim = slim[(slim["bin_lo"] >= 300) & (slim["bin_lo"] <= 800)]
+# en-dash to match the chart pages' visual convention
+slim["weight_bin"] = slim["bin_lo"].apply(lambda lo: f"{lo}–{lo+99} lb")
+
+BIN_ORDER = [f"{lo}–{lo+99} lb" for lo in range(300, 900, 100)]
+
+# "This week" = latest auction_date in the snapshot. Anchoring on the data
+# rather than today() avoids an empty card on weeks where the BLS pipeline
+# is fresh but the Clovis pipeline hasn't published yet.
+latest_date = slim["auction_date"].max()
+this_week = slim[slim["auction_date"] == latest_date].copy()
+n_lots_this_week = int(this_week["head_count"].fillna(0).sum())
+```
+
+```{python}
+#| echo: false
+#| output: asis
+# Header — vintage stamp first so a reader skimming the printed card knows
+# at a glance how fresh the data is.
+from datetime import datetime, timezone
+
+print(f"### Auction date: **{latest_date.strftime('%A, %B %-d, %Y')}**\n")
+print(
+    f"This card summarizes the most recent Clovis Livestock Auction "
+    f"feeder-cattle report (USDA-AMS slug `AMS_1781`). All prices are "
+    f"Medium-and-Large frame, muscle grade 1, $/cwt, **nominal**. "
+    f"This week's reported lots in the M&L 1 sample: "
+    f"**{n_lots_this_week:,} head**. The full interactive site at "
+    f"[lma-explorer.github.io](https://lma-explorer.github.io) adds "
+    f"weight-bin × class × week-of-year history, CPI-deflated views, "
+    f"and basis to the CME GF feeder-cattle settle.\n"
+)
+```
+
+#### This week's prices ($/cwt, nominal)
+
+```{python}
+#| echo: false
+#| output: asis
+
+# Per (weight_bin, class), report the head-weighted mean price_avg across
+# all M&L 1 lots that cleared this auction. Multiple lots in the same bin
+# get weighted by head_count so a 200-head pen counts more than a 30-head
+# pen — this is the same convention the live charts' aggregation uses.
+table_lines = [
+    "| Weight bin | Steers (avg) | Heifers (avg) |",
+    "|---|---:|---:|",
+]
+for wb_label in BIN_ORDER:
+    row_cells = []
+    for cls in ("Steers", "Heifers"):
+        cell = this_week[
+            (this_week["class"] == cls)
+            & (this_week["weight_bin"] == wb_label)
+        ]
+        if cell.empty:
+            row_cells.append("—")
+            continue
+        # Head-weighted mean. Falls back to simple mean if head_count is
+        # missing for every lot in this bin (rare; would only happen for
+        # very old Era B rows without head_count parsed).
+        hc = cell["head_count"].fillna(0)
+        if hc.sum() > 0:
+            avg = (cell["price_avg"] * hc).sum() / hc.sum()
+        else:
+            avg = cell["price_avg"].mean()
+        row_cells.append(f"\\${avg:.2f}")
+    table_lines.append(f"| {wb_label} | {row_cells[0]} | {row_cells[1]} |")
+print("\n".join(table_lines))
+```
+
+#### Last 26 auction weeks
+
+```{python}
+#| echo: false
+#| label: mini-charts
+#| fig-width: 7.0
+#| fig-height: 2.2
+
+# Two side-by-side panels (Steers, Heifers), each with one line per
+# 100-lb weight bin (six bins). Same color palette as the seasonality and
+# weekly-trends pages so a reader who toggles between the live site and
+# the printed card sees consistent visual identity per weight class.
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+
+recent = slim[
+    slim["auction_date"] >= (latest_date - pd.Timedelta(weeks=26))
+].copy()
+agg = (
+    recent.groupby(["auction_date", "class", "weight_bin"], as_index=False)
+    ["price_avg"].mean()
+)
+
+COLOR_BY_BIN = {
+    "300–399 lb": "#6a3d9a",
+    "400–499 lb": "#000000",
+    "500–599 lb": "#2ca02c",
+    "600–699 lb": "#d17a00",
+    "700–799 lb": "#1f77b4",
+    "800–899 lb": "#8b0000",
+}
+
+fig, axes = plt.subplots(1, 2, figsize=(7.0, 2.2), sharey=True)
+for ax_idx, cls in enumerate(("Steers", "Heifers")):
+    ax = axes[ax_idx]
+    sub = agg[agg["class"] == cls]
+    for wb_label in BIN_ORDER:
+        b = sub[sub["weight_bin"] == wb_label].sort_values("auction_date")
+        if not b.empty:
+            ax.plot(
+                b["auction_date"], b["price_avg"],
+                marker=".", linewidth=1.0, markersize=3,
+                label=wb_label, color=COLOR_BY_BIN[wb_label],
+            )
+    ax.set_title(f"NM Clovis {cls}", fontsize=10)
+    if ax_idx == 0:
+        ax.set_ylabel("$/cwt", fontsize=9)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%b"))
+    ax.grid(alpha=0.3)
+    ax.tick_params(labelsize=8)
+
+# Single shared legend below the two panels keeps each panel as wide as
+# possible.
+handles, labels = axes[1].get_legend_handles_labels()
+fig.legend(
+    handles, labels, ncol=6, fontsize=7,
+    loc="lower center", bbox_to_anchor=(0.5, -0.05),
+    frameon=False,
+)
+plt.tight_layout()
+plt.show()
+```
+
+#### How to read this card
+
+- **Prices shown** are head-weighted averages for the latest reported auction date, M&L 1 grade only. "—" means no M&L 1 lots cleared in that weight bin this week.
+- **The 26-week mini-charts** plot one point per auction × bin × class for the past six months. Useful for *"is this week high, low, or middle vs. recent history?"*
+- **Out-of-bin lots** (frames other than M&L, muscle grades 2 or 1-2, weights below 300 or above 899 lb) are preserved in the underlying parquet but suppressed here for clarity.
+- **For seasonality and basis** (CME GF cash-vs-futures gap), see the live site — those views require the full interactive cross-year aggregation that doesn't fit a single sheet.
+
+#### Methodology and citation
+
+- **Live site**: [lma-explorer.github.io](https://lma-explorer.github.io)
+- **Methodology**: [lma-explorer.github.io/methodology](https://lma-explorer.github.io/methodology)
+- **Data source**: USDA-AMS Market News, slug `AMS_1781` via the [MARS API](https://mymarketnews.ams.usda.gov/mars-api). Public domain ([17 U.S.C. § 105](https://www.law.cornell.edu/uscode/text/17/105)).
+- **License**: Content CC-BY-4.0; code MIT.
+- **Citation**: see [CITATION.cff](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/CITATION.cff).
+
+```{python}
+#| echo: false
+#| output: asis
+# Footer with the snapshot vintage + render UTC. Lets a printed card
+# stand on its own as a citable artifact.
+print(
+    f"\n*Card generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}; "
+    f"data vintage anchored on auction date {latest_date.strftime('%Y-%m-%d')}.*\n"
+)
+```

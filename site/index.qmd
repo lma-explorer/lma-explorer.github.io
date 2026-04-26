@@ -76,6 +76,12 @@ The chart shelf decomposes weekly Clovis prices and CME-feeder basis along four 
 
 All four pages share the same year-window selector (All / Last 5 yrs / Last 3 yrs / latest year) and the same nominal-vs-real dollar toggle. The basis page adds a contract-month selector (May / November / Nearby) on top of those two; real-dollar basis is computed per row as `basis_nominal × deflator(month_of_auction)` because both cash and futures settle scale by the same monthly CPI factor.
 
+## Producer reference card (PDF)
+
+::: {.callout-tip appearance="simple"}
+**For producers heading to the sale or a banker meeting**: download the [**This Week at Clovis** producer reference card (PDF)](one-pager.pdf). One printable sheet with the latest auction's M&L 1 prices by weight bin × class, a 26-week mini-trend per class, and a vintage stamp. Refreshed every time the Clovis pipeline commits a new snapshot.
+:::
+
 ## Last refreshed
 
 ```{python}
