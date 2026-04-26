@@ -11,7 +11,7 @@ toc-depth: 2
 
 ## About this page
 
-This page shows weekly feeder-cattle pricing by weight class at the Clovis, NM auction, drawn from USDA-AMS Market News and refreshed automatically each week by the `clovis_refresh` GitHub Actions workflow. Prices can be viewed in nominal dollars or deflated to December 2025 dollars via the toggle above the chart. The chart is intentionally focused: a single auction, a single grade combination, with the producer's "what does a heavier calf bring this week vs. recent years?" question as the question it answers.
+This page shows weekly feeder-cattle pricing by weight class at the Clovis, NM auction, drawn from USDA-AMS Market News and refreshed automatically each week by the `clovis_refresh` GitHub Actions workflow. Two button rows above the chart let you pick a **year window** — All, Last 5 years, Last 3 years, or the latest calendar year — in either **nominal dollars** (top row) or **real December 2025 dollars** (bottom row). Only one button is highlighted at a time across both rows; clicking any button sets the chart to that combination. The chart is intentionally focused: a single auction, a single grade combination, with the producer's "what does a heavier calf bring this week vs. recent years?" question as the question it answers.
 
 ```{python}
 #| echo: false
@@ -207,7 +207,7 @@ else:
 
 ## Cash price–weight relationships
 
-Two panels, one per class — Steers on top, Heifers below — each showing the envelope of prices observed in the window. The gray band spans the Minimum and Maximum across the window; the black line is the Average. The toggle above the panels switches between nominal dollars and real (December-2025) dollars. Hover any point to see the exact values and the head count behind that weight class.
+Two panels, one per class — Steers on top, Heifers below — each showing the envelope of prices observed in the selected window. The gray band spans the Minimum and Maximum across the window; the black line is the Average. Two button rows above the panels let the reader pick the **year window** (All, Last 5 years, Last 3 years, or Latest calendar year) and the **dollar basis** (nominal or real Dec 2025); each click sets a new view, defaulting the other dimension to its baseline. Hover any point to see the exact values and the head count behind that weight class.
 
 ```{python}
 #| echo: false
@@ -215,10 +215,27 @@ Two panels, one per class — Steers on top, Heifers below — each showing the 
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-# Two aggregations from the same rows — nominal and real. Each aggregation
-# feeds one class × one subplot × 3 traces (min band base, max band fill,
-# average line). That's 6 traces per mode, 12 total; the updatemenus toggle
-# swaps which 6 are visible.
+# 4 year-windows × 2 modes = 8 view combinations × 6 traces per view (3 per
+# class × 2 classes) = 48 total traces. The user picks one combination at a
+# time via two button groups; each click resets visibility to the chosen
+# (year, mode) tuple. Switching one dimension resets the other to its
+# baseline (year=All, mode=nominal).
+
+# ---------- year windows ----------
+# Anchor on the data's most recent observation rather than today, so the
+# windows are stable on weeks where the auction is dark or the BLS pipeline
+# lags.
+_ad = pd.to_datetime(work["auction_date"]) if not data_is_placeholder else pd.to_datetime(work["auction_date"])
+_anchor = _ad.max()
+_anchor_year = int(_anchor.year)
+
+YEAR_WINDOWS = [
+    ("all",    "All",            _ad.min(),                                     _anchor),
+    ("5y",     "Last 5 years",   _anchor - pd.DateOffset(years=5),              _anchor),
+    ("3y",     "Last 3 years",   _anchor - pd.DateOffset(years=3),              _anchor),
+    ("latest", f"{_anchor_year}", pd.Timestamp(_anchor_year, 1, 1),             _anchor),
+]
+
 
 def _aggregate(work_df, low_col, avg_col, high_col):
     agg = (
@@ -238,13 +255,7 @@ def _aggregate(work_df, low_col, avg_col, high_col):
     return agg.sort_values(["class", "weight_bin"])
 
 
-agg_nominal = _aggregate(work, "price_low", "price_avg", "price_high")
-agg_real = _aggregate(work, "price_low_real", "price_avg_real", "price_high_real")
-
-# Two panels stacked vertically — Steers on top, Heifers below. Each panel
-# uses the full chart width; the shared x-axis puts the weight-class labels
-# only on the bottom panel. The y-axes are matched so the Steers/Heifers
-# comparison is visually honest across the two panels.
+# ---------- panels and trace styling ----------
 fig = make_subplots(
     rows=2, cols=1,
     shared_xaxes=True,
@@ -252,16 +263,9 @@ fig = make_subplots(
     subplot_titles=("NM Clovis — Steers", "NM Clovis — Heifers"),
 )
 
-# Layout convention:
-#   Traces for (mode, class, layer) ordered so the toggle visibility vector
-#   is predictable.  For each mode we add, in order:
-#       Steers-lower-base, Steers-upper-fill, Steers-avg-line,
-#       Heifers-lower-base, Heifers-upper-fill, Heifers-avg-line.
-#   Nominal traces (indexes 0..5) are visible initially; real traces (6..11)
-#   hidden until the toggle is clicked.
-BAND_FILL = "rgba(170,170,170,0.35)"   # gray shaded band between min and max
-BAND_EDGE = "rgba(170,170,170,0.0)"    # invisible line, used to anchor the fill
-AVG_LINE = "#1a1a1a"                    # near-black for the average
+BAND_FILL = "rgba(170,170,170,0.35)"
+BAND_EDGE = "rgba(170,170,170,0.0)"
+AVG_LINE = "#1a1a1a"
 HOVER_FMT = (
     "<b>%{x}</b><br>"
     "Min: $%{customdata[0]:.2f}<br>"
@@ -271,90 +275,164 @@ HOVER_FMT = (
 )
 
 
-def _add_class_traces(agg_df, cls, row, mode_label, visible):
+def _add_class_traces(agg_df, cls, row, name_suffix, visible):
     sub = agg_df[agg_df["class"] == cls]
     if sub.empty:
+        # Emit empty traces so visibility-mask indices stay predictable
+        for _ in range(3):
+            fig.add_trace(go.Scatter(x=[], y=[], mode="lines",
+                                     showlegend=False, hoverinfo="skip", visible=visible),
+                          row=row, col=1)
         return
     x = sub["weight_bin"].astype(str).tolist()
     lo, avg, hi = sub["price_low"].tolist(), sub["price_mean"].tolist(), sub["price_high"].tolist()
     cd = list(zip(lo, avg, hi, sub["head_count"].tolist()))
-    # 1) lower bound of the band (invisible line, no fill itself)
     fig.add_trace(
-        go.Scatter(
-            x=x, y=lo, mode="lines", line=dict(color=BAND_EDGE, width=0),
-            showlegend=False, hoverinfo="skip", visible=visible,
-            name=f"{cls} min ({mode_label})",
-        ),
+        go.Scatter(x=x, y=lo, mode="lines", line=dict(color=BAND_EDGE, width=0),
+                   showlegend=False, hoverinfo="skip", visible=visible,
+                   name=f"{cls} min ({name_suffix})"),
         row=row, col=1,
     )
-    # 2) upper bound — fills down to the previous trace (the min line) with gray
     fig.add_trace(
-        go.Scatter(
-            x=x, y=hi, mode="lines", line=dict(color=BAND_EDGE, width=0),
-            fill="tonexty", fillcolor=BAND_FILL,
-            showlegend=False, hoverinfo="skip", visible=visible,
-            name=f"{cls} max ({mode_label})",
-        ),
+        go.Scatter(x=x, y=hi, mode="lines", line=dict(color=BAND_EDGE, width=0),
+                   fill="tonexty", fillcolor=BAND_FILL,
+                   showlegend=False, hoverinfo="skip", visible=visible,
+                   name=f"{cls} max ({name_suffix})"),
         row=row, col=1,
     )
-    # 3) average line on top, with the full hover info attached
     fig.add_trace(
-        go.Scatter(
-            x=x, y=avg, mode="lines+markers",
-            line=dict(color=AVG_LINE, width=2),
-            marker=dict(color=AVG_LINE, size=6),
-            name=f"{cls} avg ({mode_label})",
-            showlegend=False,
-            visible=visible,
-            customdata=cd,
-            hovertemplate=HOVER_FMT,
-        ),
+        go.Scatter(x=x, y=avg, mode="lines+markers",
+                   line=dict(color=AVG_LINE, width=2),
+                   marker=dict(color=AVG_LINE, size=6),
+                   name=f"{cls} avg ({name_suffix})",
+                   showlegend=False, visible=visible,
+                   customdata=cd, hovertemplate=HOVER_FMT),
         row=row, col=1,
     )
 
 
-# Add nominal traces (visible) — 6 traces total.
-_add_class_traces(agg_nominal, "Steers",  row=1, mode_label="nominal", visible=True)
-_add_class_traces(agg_nominal, "Heifers", row=2, mode_label="nominal", visible=True)
-# Add real traces (hidden) — 6 more.
-_add_class_traces(agg_real, "Steers",  row=1, mode_label=f"real {cpi_basis_label}", visible=False)
-_add_class_traces(agg_real, "Heifers", row=2, mode_label=f"real {cpi_basis_label}", visible=False)
+# ---------- emit 8 trace groups, default visible = (All, Nominal) ----------
+# Trace order (so the visibility vector is predictable):
+#   For each year_window in YEAR_WINDOWS:
+#       For each mode in (nominal, real):
+#           Steers traces (3), then Heifers traces (3)  -> 6 traces per group
+# So group index g = year_idx * 2 + mode_idx; first trace at index g*6.
+N_TRACES_PER_GROUP = 6
+N_GROUPS = len(YEAR_WINDOWS) * 2  # 8
+N_TRACES = N_GROUPS * N_TRACES_PER_GROUP  # 48
 
-visible_nominal = [True]  * 6 + [False] * 6
-visible_real    = [False] * 6 + [True]  * 6
+for y_idx, (y_key, y_label, lo_d, hi_d) in enumerate(YEAR_WINDOWS):
+    sub = work[(pd.to_datetime(work["auction_date"]) >= lo_d)
+               & (pd.to_datetime(work["auction_date"]) <= hi_d)]
+    agg_n = _aggregate(sub, "price_low", "price_avg", "price_high")
+    agg_r = _aggregate(sub, "price_low_real", "price_avg_real", "price_high_real")
+    is_default = (y_idx == 0)  # only year=All & mode=nominal visible by default
+    _add_class_traces(agg_n, "Steers",  row=1, name_suffix=f"{y_label}, nominal",  visible=is_default)
+    _add_class_traces(agg_n, "Heifers", row=2, name_suffix=f"{y_label}, nominal",  visible=is_default)
+    _add_class_traces(agg_r, "Steers",  row=1, name_suffix=f"{y_label}, real",     visible=False)
+    _add_class_traces(agg_r, "Heifers", row=2, name_suffix=f"{y_label}, real",     visible=False)
+
+
+def _visibility_for(year_idx: int, mode_idx: int) -> list[bool]:
+    """Build a 48-long visibility mask for the chosen (year, mode) tuple."""
+    out = [False] * N_TRACES
+    group = year_idx * 2 + mode_idx
+    start = group * N_TRACES_PER_GROUP
+    for i in range(start, start + N_TRACES_PER_GROUP):
+        out[i] = True
+    return out
+
+
+# ---------- two button rows, one per dollar basis ----------
+# Each button is a complete (year, mode) selector. Clicking a button in
+# Row 0 (nominal) ALSO deactivates Row 1's highlight via
+# "updatemenus[1].active": -1, and vice versa — so at any moment, exactly
+# one button across both rows is highlighted, and the chart and the
+# highlight always agree. No dynamic caption needed (the active button
+# is the source of truth for the current view).
+
+NOMINAL_Y_TITLES = {
+    "yaxis.title.text": "Price, $/cwt (nominal)",
+    "yaxis2.title.text": "Price, $/cwt (nominal)",
+}
+REAL_Y_TITLES = {
+    "yaxis.title.text": f"Price, $/cwt (base = {cpi_basis_label})",
+    "yaxis2.title.text": f"Price, $/cwt (base = {cpi_basis_label})",
+}
+
+# Row 0 — nominal year buttons
+nominal_row_buttons = []
+for y_idx, (y_key, y_label, lo_d, hi_d) in enumerate(YEAR_WINDOWS):
+    nominal_row_buttons.append(dict(
+        label=y_label,
+        method="update",
+        args=[
+            {"visible": _visibility_for(y_idx, 0)},
+            {
+                **NOMINAL_Y_TITLES,
+                "updatemenus[1].active": -1,  # clear real-row highlight
+            },
+        ],
+    ))
+
+# Row 1 — real year buttons
+real_row_buttons = []
+for y_idx, (y_key, y_label, lo_d, hi_d) in enumerate(YEAR_WINDOWS):
+    real_row_buttons.append(dict(
+        label=y_label,
+        method="update",
+        args=[
+            {"visible": _visibility_for(y_idx, 1)},
+            {
+                **REAL_Y_TITLES,
+                "updatemenus[0].active": -1,  # clear nominal-row highlight
+            },
+        ],
+    ))
 
 fig.update_layout(
-    height=780,
-    margin=dict(t=90, b=60, l=80, r=30),
+    height=860,
+    # Top margin needs to accommodate two button rows + their labels above
+    # the subplot title (which sits near y=1.02 in paper coordinates).
+    # 200px / 860px = 0.233 paper fraction of vertical space above the
+    # plot area, leaving room for buttons at y up to ~1.22.
+    margin=dict(t=200, b=60, l=80, r=30),
     hovermode="x unified",
     paper_bgcolor="white",
     plot_bgcolor="white",
     font=dict(family="Helvetica, Arial, sans-serif", size=13, color="#222"),
-    updatemenus=[dict(
-        type="buttons",
-        direction="right",
-        active=0,
-        x=0.0, y=1.10,
-        xanchor="left", yanchor="top",
-        pad=dict(r=6, t=4, b=4),
-        showactive=True,
-        buttons=[
-            dict(label="Nominal $",
-                 method="update",
-                 args=[
-                     {"visible": visible_nominal},
-                     {"yaxis.title.text": "Price, $/cwt (nominal)",
-                      "yaxis2.title.text": "Price, $/cwt (nominal)"},
-                 ]),
-            dict(label=f"Real ({cpi_basis_label} $)",
-                 method="update",
-                 args=[
-                     {"visible": visible_real},
-                     {"yaxis.title.text": f"Price, $/cwt (base = {cpi_basis_label})",
-                      "yaxis2.title.text": f"Price, $/cwt (base = {cpi_basis_label})"},
-                 ]),
-        ],
-    )],
+    annotations=[
+        dict(text="<b>Nominal $</b>",
+             showarrow=False, xref="paper", yref="paper",
+             x=0.0, y=1.22, xanchor="left", yanchor="top",
+             font=dict(size=12, color="#222")),
+        dict(text=f"<b>Real ({cpi_basis_label} $)</b>",
+             showarrow=False, xref="paper", yref="paper",
+             x=0.0, y=1.10, xanchor="left", yanchor="top",
+             font=dict(size=12, color="#222")),
+    ],
+    updatemenus=[
+        dict(  # nominal row (index 0)
+            type="buttons",
+            direction="right",
+            active=0,  # default = All × Nominal
+            x=0.18, y=1.22,
+            xanchor="left", yanchor="top",
+            pad=dict(r=6, t=4, b=4),
+            showactive=True,
+            buttons=nominal_row_buttons,
+        ),
+        dict(  # real row (index 1)
+            type="buttons",
+            direction="right",
+            active=-1,  # no default highlight (nominal row owns it)
+            x=0.18, y=1.10,
+            xanchor="left", yanchor="top",
+            pad=dict(r=6, t=4, b=4),
+            showactive=True,
+            buttons=real_row_buttons,
+        ),
+    ],
 )
 
 # Axes. With shared_xaxes=True the x-axis title only displays on the bottom

@@ -21,7 +21,7 @@ A producer-facing, Extension-aligned platform that takes weekly USDA-AMS feeder-
 
 A handful of focused, mobile-friendly pages that answer the questions rural producers actually ask: *What did cattle bring last week at weight X?* *Is it better to sell now or retain?* *What does a slide contract cost me in a given market?*
 
-[Start with the price–weight explorer →](price-weight.qmd)
+[Start with weekly trends →](weekly-trends.qmd)
 :::
 
 ::: {.g-col-12 .g-col-md-4}
@@ -42,37 +42,33 @@ Raw snapshots are committed as Parquet and released annually as a Zenodo deposit
 
 :::
 
-## Featured figure
+## Three views of the same dataset
 
-A quick look at the price–weight explorer, built on archived Clovis, NM feeder-cattle auction data.
+The chart shelf decomposes weekly Clovis prices along three orthogonal axes — pick the page that matches the question you're asking.
 
-```{python}
-#| fig-cap: "Preview: feeder cattle price by weight class. Full explorer on the [Price–weight](price-weight.qmd) page."
-#| fig-width: 8
-#| fig-height: 4
-#| echo: false
+::: {.grid}
 
-# Placeholder figure. The Clovis weekly series (Era B + MARS) now ships
-# combined via pipelines/clovis/load.py — see the price-weight and seasonality
-# pages. A real preview-sized version of the price-weight chart is a Phase-2
-# polish item; the placeholder stays here so the home page renders standalone
-# without re-running the full chart pipeline at index build.
-import plotly.graph_objects as go
+::: {.g-col-12 .g-col-md-4}
+### [Price–weight explorer](price-weight.qmd)
 
-fig = go.Figure()
-fig.add_annotation(
-    text="Combined Clovis series (Oct 2017–present) ready on the Price–weight and Seasonality pages.",
-    x=0.5, y=0.5, xref="paper", yref="paper",
-    showarrow=False,
-)
-fig.update_layout(
-    height=300,
-    margin=dict(t=20, b=20, l=20, r=20),
-    xaxis=dict(visible=False),
-    yaxis=dict(visible=False),
-)
-fig.show()
-```
+*"What does each weight class fetch on average?"* Min/mean/max bands across the selected window, one panel for Steers and one for Heifers.
+:::
+
+::: {.g-col-12 .g-col-md-4}
+### [Weekly seasonality](seasonality.qmd)
+
+*"When in the year do these prices peak?"* All six weight classes overlaid on a 1–52 week-of-year axis; intra-year pattern net of trend.
+:::
+
+::: {.g-col-12 .g-col-md-4}
+### [Weekly trends](weekly-trends.qmd)
+
+*"Where are we now vs. recent history?"* Actual auction-week observations on a calendar timeline, October 2017 to present.
+:::
+
+:::
+
+All three pages share the same year-window selector (All / Last 5 yrs / Last 3 yrs / latest year) and the same nominal-vs-real dollar toggle, so a reader who learns the controls on one chart uses them identically on the other two.
 
 ## Last refreshed
 
