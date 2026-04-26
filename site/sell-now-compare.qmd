@@ -1,0 +1,754 @@
+---
+title: "Is this week's price high or low for this time of year?"
+subtitle: "Sell-now compare · Clovis, NM auction"
+toc: true
+toc-depth: 2
+---
+
+::: {.callout-tip appearance="simple"}
+**Caveat before scrolling.** *"Above the historical average for this week"* doesn't categorically mean *"sell now"* — carrying costs, basis to a futures hedge, available marketing channels, and your own risk tolerance all matter. The chart on this page answers the narrower question: *given how this week typically prices in past years, where does this week's actual price sit?* Use it as one input to a marketing decision, not as a recommendation.
+:::
+
+## About this page
+
+The chart shelf's other pages explore patterns across years (price–weight, seasonality, weekly-trends, basis). This page does the opposite — it pins to **this week** and asks: *given how prices have looked in this same calendar week of past years, is this week high, low, or middle?*
+
+For each weight bin × class combination (Steers, Heifers; six 100-lb bins from 300–399 lb to 800–899 lb), the chart shows:
+
+- The **historical range** for this same week-of-year (the gray vertical bar from past years' minimum to maximum).
+- The **historical average** for this week-of-year (a small horizontal tick within the gray bar).
+- **This week's actual price** (a colored dot), where the color encodes the percentile band: **green** = top 25% of past years for this week-of-year, **gray** = middle 50%, **red** = bottom 25%.
+
+Two button rows above the chart let you switch the **mode** (Nominal $ / Real December-2025 $) and the **comparison window** (All available years / Last 5 years / Last 3 years). Each row maintains its own selection independently — the chart at any moment reflects the combination of both highlighted choices.
+
+```{python}
+#| echo: false
+#| label: data-load
+
+# Same loader the cash chart pages use — combined Era B + MARS Clovis
+# snapshot, M&L 1 grade only, 100-lb bins.
+from pathlib import Path
+import sys
+import pandas as pd
+
+PROCESSED = Path("..") / "data" / "processed"
+CPI_PATH = PROCESSED / "cpi_latest.parquet"
+
+sys.path.insert(0, str(Path("..").resolve()))
+from pipelines.clovis.load import load_clovis_combined  # noqa: E402
+
+data_is_placeholder = False
+data_source_label = None
+
+_loaded = load_clovis_combined(PROCESSED)
+if _loaded is not None:
+    df = _loaded.df
+    data_source_label = _loaded.data_source_label
+else:
+    # Synthetic stand-in. Clearly labelled.
+    import numpy as np
+    rng = np.random.default_rng(seed=2026)
+    rows = []
+    bins = ["300–399 lb", "400–499 lb", "500–599 lb",
+            "600–699 lb", "700–799 lb", "800–899 lb"]
+    bin_starts = {b: 280 - i*15 for i, b in enumerate(bins)}
+    start = pd.Timestamp("2018-01-01")
+    for week_idx in range(0, 425):  # ~8 years
+        d = start + pd.Timedelta(weeks=week_idx)
+        for cl in ("Steers", "Heifers"):
+            for wb in bins:
+                base = bin_starts[wb]
+                trend = (week_idx / 425) * 60
+                seasonal = 8 * (1 - abs(d.isocalendar().week - 30) / 25)
+                noise = rng.normal(0, 8)
+                p = base + trend + seasonal + noise - (12 if cl == "Heifers" else 0)
+                rows.append({
+                    "auction_date": d,
+                    "class": cl,
+                    "frame": "Medium and Large",
+                    "muscle_grade": "1",
+                    "weight_break_low": int(wb[:3]),
+                    "weight_break_high": int(wb[:3]) + 99,
+                    "head_count": int(rng.integers(40, 400)),
+                    "price_low": round(p - 8, 2),
+                    "price_avg": round(p, 2),
+                    "price_high": round(p + 8, 2),
+                    "avg_weight": int(wb[:3]) + 50,
+                })
+    df = pd.DataFrame(rows)
+    data_is_placeholder = True
+    data_source_label = "synthetic stand-in (no live data available)"
+
+if data_is_placeholder:
+    print("SYNTHETIC STAND-IN DATA — for layout only. Not real prices.")
+```
+
+```{python}
+#| echo: false
+#| label: data-shape
+
+# Same filter as the other cash pages: Steers and Heifers, M&L 1, 100-lb
+# bins from weight_break_low (with avg_weight as a fallback for older
+# pre-2024 MARS rows).
+
+import pandas as pd
+
+slim = df[
+    (df["class"].isin(["Steers", "Heifers"]))
+    & (df["frame"] == "Medium and Large")
+    & (df["muscle_grade"] == "1")
+].copy()
+slim["auction_date"] = pd.to_datetime(slim["auction_date"])
+wb_low = slim["weight_break_low"]
+aw = slim["avg_weight"]
+raw_weight = wb_low.fillna(aw)
+slim = slim[raw_weight.notna()].copy()
+slim["bin_lo"] = ((raw_weight[raw_weight.notna()] // 100) * 100).astype(int)
+slim = slim[(slim["bin_lo"] >= 300) & (slim["bin_lo"] <= 800)]
+slim["weight_bin"] = slim["bin_lo"].apply(lambda lo: f"{lo}–{lo+99} lb")
+
+BIN_ORDER = [f"{lo}–{lo+99} lb" for lo in range(300, 900, 100)]
+
+# Anchor on the latest observed auction. Avoids an empty page on weeks
+# where the BLS pipeline is fresh but the Clovis pipeline lags.
+latest_date = slim["auction_date"].max()
+latest_iso_week = int(latest_date.isocalendar().week)
+# Collapse the rare ISO week 53 into 52 to match the seasonality page's
+# convention. This keeps the (week-of-year × bin × class) cells comparable.
+if latest_iso_week == 53:
+    latest_iso_week = 52
+latest_year = int(latest_date.year)
+
+# iso_week column on the full snapshot, with the same week-53 collapse.
+slim["iso_week"] = slim["auction_date"].dt.isocalendar().week.astype(int)
+slim.loc[slim["iso_week"] == 53, "iso_week"] = 52
+```
+
+```{python}
+#| echo: false
+#| label: deflate-to-dec-2025
+
+# Identical CPI deflation logic to the other cash pages — December 2025
+# basis month, per-month join, fall back to deflator=1.0 for the
+# trailing month or two where BLS hasn't yet published.
+
+import sys as _sys
+import pandas as pd
+
+BASIS_PERIOD = pd.Timestamp("2025-12-01")
+cpi_basis_label = "December 2025"
+
+deflation_available = False
+if CPI_PATH.exists():
+    cpi = pd.read_parquet(CPI_PATH)[["period", "cpi_u"]].copy()
+    cpi["period"] = pd.to_datetime(cpi["period"])
+    basis_rows = cpi[cpi["period"] == BASIS_PERIOD]
+    if not basis_rows.empty:
+        cpi_basis_value = float(basis_rows["cpi_u"].iloc[0])
+        deflation_available = True
+    else:
+        fallback = cpi.sort_values("period").iloc[-1]
+        cpi_basis_value = float(fallback["cpi_u"])
+        cpi_basis_label = pd.to_datetime(fallback["period"]).strftime("%B %Y")
+        deflation_available = True
+
+if deflation_available:
+    slim["period_month"] = slim["auction_date"].dt.to_period("M").dt.to_timestamp()
+    cpi_lookup = cpi.set_index("period")["cpi_u"]
+    slim["cpi_u_month"] = slim["period_month"].map(cpi_lookup)
+    slim["deflator"] = cpi_basis_value / slim["cpi_u_month"]
+    missing_cpi = int(slim["deflator"].isna().sum())
+    if missing_cpi:
+        print(
+            f"[deflate] {missing_cpi} observations lack a CPI month-match; "
+            "leaving nominal.", file=_sys.stderr,
+        )
+    slim["deflator"] = slim["deflator"].fillna(1.0)
+    slim["price_avg_real"] = slim["price_avg"] * slim["deflator"]
+else:
+    slim["price_avg_real"] = slim["price_avg"]
+```
+
+::: {.callout-important}
+**Data source**: `{python} data_source_label` ·
+**Anchored on**: auction date `{python} latest_date.strftime('%Y-%m-%d')` (ISO week `{python} latest_iso_week`) ·
+**Comparison**: prices in the same ISO week of past years, M&L 1 grade only ·
+**Deflation basis (real-$ mode)**: `{python} cpi_basis_label` CPI-U NSA (`CUUR0000SA0`).
+:::
+
+## This week vs. history
+
+```{python}
+#| echo: false
+
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import numpy as np
+
+# ---------- aggregation ---------------------------------------------------
+
+def _yearly_per_bin(work_df, price_col, year):
+    """For a given year, compute one head-weighted price per (class,
+    weight_bin) cell — collapses any multi-lot weeks within the year and
+    iso_week into a single observation per bin × class."""
+    sub = work_df[work_df["auction_date"].dt.year == year]
+    if sub.empty:
+        return pd.DataFrame(columns=["class", "weight_bin", "price"])
+    rows = []
+    for (cls, wb), grp in sub.groupby(["class", "weight_bin"]):
+        hc = grp["head_count"].fillna(0)
+        if hc.sum() > 0:
+            p = float((grp[price_col] * hc).sum() / hc.sum())
+        else:
+            p = float(grp[price_col].mean())
+        rows.append({"class": cls, "weight_bin": wb, "price": p})
+    return pd.DataFrame(rows)
+
+
+def _historical_stats(work_df, price_col, current_year):
+    """For each (class, weight_bin), compute the historical distribution
+    of prices in the latest_iso_week across past years (excluding
+    current_year). Returns one row per (class, weight_bin) with
+    hist_min, hist_avg, hist_max, n_years, and the full per-year sorted
+    list (used to compute the current week's percentile band)."""
+    week_obs = work_df[work_df["iso_week"] == latest_iso_week].copy()
+    historical = week_obs[week_obs["auction_date"].dt.year < current_year]
+    years_available = sorted(historical["auction_date"].dt.year.unique())
+    rows = []
+    for (cls, wb), _grp in historical.groupby(["class", "weight_bin"]):
+        # One observation per year for this cell — head-weighted within year.
+        per_year_prices = []
+        for y in years_available:
+            yr_grp = historical[
+                (historical["class"] == cls)
+                & (historical["weight_bin"] == wb)
+                & (historical["auction_date"].dt.year == y)
+            ]
+            if yr_grp.empty:
+                continue
+            hc = yr_grp["head_count"].fillna(0)
+            if hc.sum() > 0:
+                p = float((yr_grp[price_col] * hc).sum() / hc.sum())
+            else:
+                p = float(yr_grp[price_col].mean())
+            per_year_prices.append(p)
+        if not per_year_prices:
+            continue
+        per_year_sorted = sorted(per_year_prices)
+        rows.append({
+            "class": cls,
+            "weight_bin": wb,
+            "hist_min": min(per_year_sorted),
+            "hist_avg": sum(per_year_sorted) / len(per_year_sorted),
+            "hist_max": max(per_year_sorted),
+            "n_years": len(per_year_sorted),
+            "per_year": per_year_sorted,
+        })
+    return pd.DataFrame(rows)
+
+
+def _current_week(work_df, price_col):
+    """Head-weighted prices per (class, weight_bin) for the latest auction."""
+    cur = work_df[work_df["auction_date"] == latest_date]
+    rows = []
+    for (cls, wb), grp in cur.groupby(["class", "weight_bin"]):
+        hc = grp["head_count"].fillna(0)
+        if hc.sum() > 0:
+            p = float((grp[price_col] * hc).sum() / hc.sum())
+        else:
+            p = float(grp[price_col].mean())
+        rows.append({"class": cls, "weight_bin": wb, "price": p})
+    return pd.DataFrame(rows)
+
+
+def _percentile_band(current_price: float, historical: list[float]) -> str:
+    """Return 'top', 'mid', or 'bot' based on where current_price sits
+    among the sorted historical values. Top quartile / middle half /
+    bottom quartile. With small N the breakpoints are taken at 25th and
+    75th percentiles using numpy's linear-interpolation default."""
+    if not historical:
+        return "mid"
+    q25 = float(np.percentile(historical, 25))
+    q75 = float(np.percentile(historical, 75))
+    if current_price >= q75:
+        return "top"
+    if current_price <= q25:
+        return "bot"
+    return "mid"
+
+
+# Discrete colors for the three percentile bands. Producer-readable —
+# green/red is the standard "above-average / below-average" mental model;
+# gray is "middle, no strong signal".
+BAND_COLORS = {
+    "top": "#2ca02c",    # green
+    "mid": "#7d7d7d",    # neutral gray
+    "bot": "#d62728",    # red
+}
+
+
+# ---------- comparison-window definitions --------------------------------
+
+WINDOWS = [
+    ("all", "All",            None),  # no cutoff
+    ("5y",  "Last 5 years",   pd.DateOffset(years=5)),
+    ("3y",  "Last 3 years",   pd.DateOffset(years=3)),
+]
+MODES = [
+    ("nominal", "price_avg",      "Nominal $"),
+    ("real",    "price_avg_real", f"Real ({cpi_basis_label} $)"),
+]
+
+
+def _slim_for_window(offset):
+    if offset is None:
+        return slim
+    cutoff = latest_date - offset
+    return slim[slim["auction_date"] >= cutoff]
+
+
+# ---------- precompute every (window × mode) state -----------------------
+
+# We pre-build the per-state data so the JS layer below has a clean
+# lookup table. Each state's payload is a dict keyed by (class, weight_bin)
+# carrying current_price, hist_min/avg/max, n_years, percentile_band.
+
+state_payloads = {}
+for w_idx, (w_key, w_label, w_off) in enumerate(WINDOWS):
+    w_slim = _slim_for_window(w_off)
+    for m_idx, (m_key, m_col, m_label) in enumerate(MODES):
+        hist = _historical_stats(w_slim, m_col, latest_year)
+        cur = _current_week(w_slim, m_col)
+        if hist.empty:
+            state_payloads[(w_idx, m_idx)] = {}
+            continue
+        merged = hist.merge(cur, on=["class", "weight_bin"], how="left")
+        # Some bins may have no current-week price (no M&L 1 lot in that bin
+        # this auction). We keep them in the chart's historical band but the
+        # current-marker trace will skip them (None y).
+        merged["band"] = merged.apply(
+            lambda r: (
+                _percentile_band(r["price"], r["per_year"])
+                if pd.notna(r["price"]) else "mid"
+            ),
+            axis=1,
+        )
+        merged["color"] = merged["band"].map(BAND_COLORS)
+        state_payloads[(w_idx, m_idx)] = merged
+
+
+# ---------- chart construction ------------------------------------------
+
+# Two stacked panels (Steers, Heifers). For each panel × state, two traces:
+#  Trace A: error-bar trace at hist_avg with vertical bars min→max.
+#  Trace B: scatter at current_price with per-point colors (top/mid/bot).
+# Trace order per state: (Steers err, Steers cur, Heifers err, Heifers cur).
+# 6 states × 4 traces = 24 traces total.
+
+fig = make_subplots(
+    rows=2, cols=1,
+    shared_xaxes=True,
+    vertical_spacing=0.10,
+    subplot_titles=(
+        "NM Clovis Steers — this week vs. historical band",
+        "NM Clovis Heifers — this week vs. historical band",
+    ),
+)
+
+N_TRACES_PER_STATE = 4
+N_STATES = len(WINDOWS) * len(MODES)
+N_TRACES = N_STATES * N_TRACES_PER_STATE
+
+
+def _add_panel_traces(payload, cls, row, visible):
+    """Emit (err-bar, current-marker) trace pair for one class × state."""
+    sub = (payload[payload["class"] == cls] if not payload.empty else
+           pd.DataFrame(columns=["weight_bin", "hist_min", "hist_avg", "hist_max",
+                                 "n_years", "price", "band", "color"]))
+    # Maintain consistent x-order across panels even if some bins missing.
+    sub = sub.set_index("weight_bin").reindex(BIN_ORDER).reset_index()
+
+    x_vals = sub["weight_bin"].tolist()
+    avg_vals = sub["hist_avg"].tolist()
+    min_vals = sub["hist_min"].tolist()
+    max_vals = sub["hist_max"].tolist()
+    n_vals = sub["n_years"].tolist()
+    cur_vals = sub["price"].tolist()
+    bands = sub["band"].tolist()
+    colors = sub["color"].tolist()
+
+    # error_y arrays — array (upward error = max - avg), arrayminus
+    # (downward error = avg - min). Plotly draws a vertical line from
+    # avg-arrayminus to avg+array. Skip None values cleanly.
+    err_up = [
+        (mx - av) if (av is not None and mx is not None and not pd.isna(av) and not pd.isna(mx)) else 0.0
+        for av, mx in zip(avg_vals, max_vals)
+    ]
+    err_down = [
+        (av - mn) if (av is not None and mn is not None and not pd.isna(av) and not pd.isna(mn)) else 0.0
+        for av, mn in zip(avg_vals, min_vals)
+    ]
+
+    # Trace A: hist average + range bars
+    fig.add_trace(go.Scatter(
+        x=x_vals,
+        y=avg_vals,
+        mode="markers",
+        marker=dict(symbol="line-ew", size=20, line=dict(color="#555", width=2),
+                    color="#555"),
+        error_y=dict(type="data", symmetric=False, array=err_up,
+                     arrayminus=err_down, color="#aaaaaa", thickness=4, width=8),
+        name="Historical avg + range",
+        showlegend=False,
+        visible=visible,
+        customdata=list(zip(min_vals, avg_vals, max_vals, n_vals)),
+        hovertemplate=(
+            f"<b>%{{x}} · {cls}</b><br>"
+            "Historical avg: $%{customdata[1]:.2f}<br>"
+            "Range: $%{customdata[0]:.2f} → $%{customdata[2]:.2f}<br>"
+            "n = %{customdata[3]} year(s)<extra></extra>"
+        ),
+    ), row=row, col=1)
+
+    # Trace B: current week's prices with per-point colors
+    BAND_LABEL = {"top": "Top 25%", "mid": "Middle 50%", "bot": "Bottom 25%"}
+    cd = list(zip(
+        cur_vals,
+        [BAND_LABEL.get(b, "—") for b in bands],
+        n_vals,
+    ))
+    fig.add_trace(go.Scatter(
+        x=x_vals,
+        y=cur_vals,
+        mode="markers",
+        marker=dict(symbol="circle", size=14,
+                    color=colors,
+                    line=dict(color="#222", width=1.5)),
+        name="This week",
+        showlegend=False,
+        visible=visible,
+        customdata=cd,
+        hovertemplate=(
+            f"<b>%{{x}} · {cls}</b><br>"
+            "<b>This week: $%{y:.2f}</b><br>"
+            "Position vs. history: %{customdata[1]}<br>"
+            "n = %{customdata[2]} historical year(s)<extra></extra>"
+        ),
+    ), row=row, col=1)
+
+
+# Emit traces in lockstep order: for each (window, mode) state, emit
+# 4 traces. Default state visible: window=All × mode=Nominal (state 0).
+for w_idx, (w_key, w_label, w_off) in enumerate(WINDOWS):
+    for m_idx, (m_key, m_col, m_label) in enumerate(MODES):
+        is_default = (w_idx == 0 and m_idx == 0)
+        payload = state_payloads.get((w_idx, m_idx), pd.DataFrame())
+        _add_panel_traces(payload, "Steers", row=1, visible=is_default)
+        _add_panel_traces(payload, "Heifers", row=2, visible=is_default)
+
+
+def _visibility_for(window_idx: int, mode_idx: int) -> list[bool]:
+    out = [False] * N_TRACES
+    state = window_idx * len(MODES) + mode_idx
+    start = state * N_TRACES_PER_STATE
+    for i in range(start, start + N_TRACES_PER_STATE):
+        out[i] = True
+    return out
+
+
+# Y-range that holds across all states — Plotly's auto-range is fine
+# without explicit fills here, so we skip the per-state range pinning the
+# basis chart needed.
+
+# ---------- two button rows: Mode (2) + Window (3) ----------------------
+NOMINAL_Y_TITLES = {
+    "yaxis.title.text": "Price, $/cwt (nominal)",
+    "yaxis2.title.text": "Price, $/cwt (nominal)",
+}
+REAL_Y_TITLES = {
+    "yaxis.title.text": f"Price, $/cwt (base = {cpi_basis_label})",
+    "yaxis2.title.text": f"Price, $/cwt (base = {cpi_basis_label})",
+}
+MODE_Y_TITLES = {0: NOMINAL_Y_TITLES, 1: REAL_Y_TITLES}
+
+# Row 0 — Window buttons (3). Default = All.
+window_buttons = []
+for w_idx, (w_key, w_label, w_off) in enumerate(WINDOWS):
+    window_buttons.append(dict(
+        label=w_label,
+        method="update",
+        args=[
+            {"visible": _visibility_for(w_idx, 0)},
+            {
+                **NOMINAL_Y_TITLES,
+                "updatemenus[1].active": -1,  # clear mode row (fallback)
+            },
+        ],
+    ))
+
+# Row 1 — Mode buttons (2). Default = Nominal.
+mode_buttons = []
+for m_idx, (m_key, m_col, m_label) in enumerate(MODES):
+    mode_buttons.append(dict(
+        label=m_label,
+        method="update",
+        args=[
+            {"visible": _visibility_for(0, m_idx)},
+            {
+                **MODE_Y_TITLES[m_idx],
+                "updatemenus[0].active": -1,  # clear window row (fallback)
+            },
+        ],
+    ))
+
+
+fig.update_layout(
+    height=860,
+    margin=dict(t=240, b=60, l=80, r=30),
+    hovermode="x unified",
+    paper_bgcolor="white",
+    plot_bgcolor="white",
+    font=dict(family="Helvetica, Arial, sans-serif", size=13, color="#222"),
+    # APPEND to the make_subplots-generated subplot titles.
+    annotations=list(fig.layout.annotations) + [
+        dict(text="<b>Mode</b>",
+             showarrow=False, xref="paper", yref="paper",
+             x=0.0, y=1.32, xanchor="left", yanchor="top",
+             font=dict(size=12, color="#222")),
+        dict(text="<b>Comparison window</b>",
+             showarrow=False, xref="paper", yref="paper",
+             x=0.0, y=1.20, xanchor="left", yanchor="top",
+             font=dict(size=12, color="#222")),
+    ],
+    updatemenus=[
+        dict(  # window row (index 0) — All highlighted by default
+            type="buttons",
+            direction="right",
+            active=0,
+            x=0.22, y=1.20,
+            xanchor="left", yanchor="top",
+            pad=dict(r=6, t=4, b=4),
+            showactive=True,
+            buttons=window_buttons,
+        ),
+        dict(  # mode row (index 1) — Nominal highlighted by default
+            type="buttons",
+            direction="right",
+            active=0,
+            x=0.22, y=1.32,
+            xanchor="left", yanchor="top",
+            pad=dict(r=6, t=4, b=4),
+            showactive=True,
+            buttons=mode_buttons,
+        ),
+    ],
+)
+
+# Axes — categorical x (weight bins). matches="y" so both panels share scale.
+fig.update_xaxes(
+    showgrid=False, linecolor="#888", mirror=False, ticks="outside",
+    type="category",
+    categoryorder="array", categoryarray=BIN_ORDER,
+)
+fig.update_xaxes(title_text="Weight (pounds)", row=2, col=1)
+
+fig.update_yaxes(
+    showgrid=True, gridcolor="#e5e5e5",
+    tickprefix="$", linecolor="#888", mirror=False, ticks="outside",
+    title_text="Price, $/cwt (nominal)",
+)
+fig.update_layout(yaxis2=dict(matches="y"))
+
+fig.show()
+
+
+# ---------------------------------------------------------------------------
+# Independent-toggle JS layer — same pattern as basis.qmd / cash chart
+# pages. Menus identified by button count (window=3, mode=2).
+
+import json
+from IPython.display import HTML, display
+
+_state_table = {}
+for _w in range(len(WINDOWS)):
+    for _m in range(len(MODES)):
+        _state_table[f"{_w}-{_m}"] = {"v": _visibility_for(_w, _m)}
+_js_state = json.dumps(_state_table)
+_js_y_titles = json.dumps({
+    "0": "Price, $/cwt (nominal)",
+    "1": f"Price, $/cwt (base = {cpi_basis_label})",
+})
+
+display(HTML(f"""
+<script>
+(function() {{
+    var STATE = {_js_state};
+    var Y_TITLES = {_js_y_titles};
+    // Menu indices: 0=window, 1=mode (matches updatemenus order in Python)
+    var current = {{ window: 0, mode: 0 }};
+
+    function findChart() {{
+        var divs = document.querySelectorAll('.plotly-graph-div');
+        for (var i = divs.length - 1; i >= 0; i--) {{
+            var d = divs[i];
+            if (d && d._fullLayout && d._fullLayout.updatemenus
+                && d._fullLayout.updatemenus.length === 2
+                && !d.__snToggleWired) {{
+                var menus = d._fullLayout.updatemenus;
+                var btnCounts = [menus[0].buttons.length, menus[1].buttons.length].sort();
+                if (btnCounts[0] === 2 && btnCounts[1] === 3) return d;
+            }}
+        }}
+        return null;
+    }}
+
+    function applyState(gd) {{
+        var key = current.window + '-' + current.mode;
+        var s = STATE[key];
+        if (!s) return;
+        var yTitle = Y_TITLES[String(current.mode)];
+        Plotly.update(gd,
+            {{ visible: s.v }},
+            {{
+                'yaxis.title.text': yTitle,
+                'yaxis2.title.text': yTitle,
+                'updatemenus[0].active': current.window,
+                'updatemenus[1].active': current.mode,
+            }}
+        );
+    }}
+
+    function attach() {{
+        var gd = findChart();
+        if (!gd) {{ setTimeout(attach, 150); return; }}
+        gd.__snToggleWired = true;
+        gd.on('plotly_buttonclicked', function(ev) {{
+            var nBtns = (ev.menu && ev.menu.buttons) ? ev.menu.buttons.length : 0;
+            // Window row has 3 buttons, mode row has 2.
+            var dim = (nBtns === 2) ? 'mode'
+                    : (nBtns === 3) ? 'window'
+                    : null;
+            if (!dim) return;
+            var btnIdx = ev.active;
+            if (typeof btnIdx !== 'number' || btnIdx < 0) {{
+                btnIdx = ev.menu.buttons.indexOf(ev.button);
+            }}
+            current[dim] = btnIdx;
+            setTimeout(function() {{ applyState(gd); }}, 0);
+        }});
+    }}
+
+    if (document.readyState === 'loading') {{
+        document.addEventListener('DOMContentLoaded', attach);
+    }} else {{
+        attach();
+    }}
+}})();
+</script>
+"""))
+```
+
+## This week, in numbers
+
+The table below is the static "30-second answer" companion to the chart above. It's pinned to the **default state** (Comparison window = All available years, Mode = Nominal $) — the chart updates with the buttons; this table does not. Use the chart for the visual percentile-band signal across windows; use this table for exact dollars in the default view.
+
+```{python}
+#| echo: false
+#| output: asis
+
+# Default-state table: window=All, mode=Nominal. Same payload the chart's
+# default state uses, formatted as a markdown summary table the producer
+# can scan in 30 seconds.
+
+default_payload = state_payloads.get((0, 0), pd.DataFrame())
+if default_payload.empty:
+    print("_(No M&L 1 historical data available for this week-of-year.)_")
+else:
+    BAND_EMOJI = {"top": "🟢", "mid": "⚪", "bot": "🔴"}
+    BAND_LABEL = {
+        "top": "Top 25%",
+        "mid": "Middle 50%",
+        "bot": "Bottom 25%",
+    }
+    blocks = []
+    for cls in ("Steers", "Heifers"):
+        sub = default_payload[default_payload["class"] == cls].copy()
+        sub = sub.set_index("weight_bin").reindex(BIN_ORDER).reset_index()
+        lines = [
+            f"### {cls}",
+            "",
+            "| Weight bin | This week | Hist. avg (same week) | Δ from avg | Position |",
+            "|---|---:|---:|---:|---|",
+        ]
+        for _, row in sub.iterrows():
+            cur = row["price"]
+            avg = row["hist_avg"]
+            band = row["band"] if pd.notna(row.get("band", None)) else "mid"
+            n_yrs = row["n_years"] if pd.notna(row.get("n_years", None)) else 0
+            if pd.isna(cur):
+                cur_s = "—"
+                diff_s = "—"
+                pos_s = "—"
+            else:
+                cur_s = f"\\${cur:.2f}"
+                if pd.isna(avg):
+                    diff_s = "—"
+                    pos_s = "—"
+                else:
+                    diff = cur - avg
+                    sign = "+" if diff >= 0 else ""
+                    diff_s = f"{sign}\\${diff:.2f}"
+                    pos_s = (
+                        f"{BAND_EMOJI[band]} {BAND_LABEL[band]} "
+                        f"(of {int(n_yrs)} yr)"
+                    )
+            avg_s = f"\\${avg:.2f}" if pd.notna(avg) else "—"
+            lines.append(
+                f"| {row['weight_bin']} | {cur_s} | {avg_s} | {diff_s} | {pos_s} |"
+            )
+        blocks.append("\n".join(lines))
+    print("\n\n".join(blocks))
+```
+
+## How to read this card
+
+**Color encodes the percentile band, not a recommendation.** A green dot means this week's price for that bin × class sits in the **top 25%** of past years for the same week-of-year (within the chosen comparison window). Red is the bottom 25%, gray is the middle 50%. The bands are computed at the 25th and 75th percentiles of the per-year historical observations — for example, with 8 historical years available, "top 25%" is the top 2 years.
+
+**The chart is one input to a marketing decision, not a recommendation.** Above-average-for-this-week doesn't always mean *sell now* — feeding to a heavier weight class might still pencil out, basis to a futures hedge might lock in something better, or your operation may have non-price reasons to hold. Below-average doesn't always mean *don't sell* — sometimes the right call is taking the loss and moving on, especially if forage or carrying costs are cutting into margin.
+
+**Limited historical depth caveats.** With Comparison window = "All", the platform currently has at most ~8 years of historical observations for any given week (October 2017 forward). The 25th and 75th percentile breakpoints are computed across those 8 values. As historical depth grows (Phase 2 deeper-history workstream), the percentile bands stabilize. With Window = "Last 3 years", the breakpoints are computed across 3 values — which is honest but lumpy. The chart hover tooltip and the table report `n = X year(s)` so the reader can weight the signal appropriately.
+
+**The historical band excludes the current year.** When the chart compares this week to "past years", it means strictly *prior* calendar years — not earlier weeks of the current year. A producer reading the chart in week 17 of 2026 sees the historical band for week 17 across 2018–2025 (or fewer years per the chosen window). The current week's price is overlaid on that band, not folded into it.
+
+## Why this view exists alongside the other charts
+
+The chart shelf decomposes the same Clovis dataset along five orthogonal axes:
+
+| Page | Aggregates | Answers |
+|---|---|---|
+| [Price–weight explorer](price-weight.qmd) | across time, per (weight, class) | *what does each weight class fetch on average?* |
+| [Weekly seasonality](seasonality.qmd) | across years, per (week-of-year, weight, class) | *when in the year do these prices peak?* |
+| [Weekly trends](weekly-trends.qmd) | nothing — raw weekly observations | *how have prices moved week-by-week?* |
+| [Basis](basis.qmd) | across years, per (week-of-year, weight, class, contract) | *what's the typical hedge gap to the May / November / nearby contract?* |
+| Sell-now compare (this page) | across years, pinned to the latest week-of-year | *is this week's price high, low, or middle for this same calendar week?* |
+
+The other four pages are exploratory; this page is decision-anchored. A producer who has already explored the structural questions (price–weight, seasonality, weekly-trends, basis) lands here for the *"is this week good?"* answer.
+
+## Download
+
+- [Parquet snapshot](../data/processed/clovis_latest.parquet) — Clovis feeder-cattle archive, latest MARS vintage
+- [Vintage manifest](../data/processed/clovis_MANIFEST.json) — SHA-256 of every snapshot the pipeline has committed
+- [CPI deflator](../data/processed/cpi_latest.parquet) — BLS CPI-U NSA (`CUUR0000SA0`), the deflation basis
+
+## See also
+
+- [Methodology → Clovis pipeline](methodology/clovis.qmd) — every filter, bin, and edge case behind the snapshot this page reads from.
+- [Methodology → CPI deflation](methodology/cpi.qmd) — how the December-2025-basis deflator is computed.
+- [Producer reference card (PDF)](one-pager.pdf) — single-sheet printable version of this week's prices, suitable for taking to a sale or banker meeting.
+
+## What's next on this page
+
+- [ ] **Larger historical depth.** As the platform's pre-2017 historical reconstruction lands (Phase 2 candidate per the data catalog), the percentile bands stabilize and shorter comparison windows become more reliable.
+- [ ] **Dynamic summary table.** v1 renders the summary table only for the default state (All years × Nominal $). v2 would re-render the table client-side when the buttons change so the table tracks the chart.
+- [ ] **Drill-down by year.** Hover state could expose the per-year prices that compose the historical band — useful for spotting anomaly years (drought, COVID, post-2022 cash blowout) on the chart itself.
+- [ ] **LRP backtest integration.** Once the LRP backtest ships, link from this page to a producer-facing comparison: *"this week's price is Top 25% — but if you'd had LRP coverage at X, your realized price would have looked like Y over the past N years."*

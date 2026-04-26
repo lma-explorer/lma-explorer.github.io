@@ -30,6 +30,8 @@ website:
         href: weekly-trends.qmd
       - text: "Basis"
         href: basis.qmd
+      - text: "Sell-now compare"
+        href: sell-now-compare.qmd
       - text: "Methodology"
         href: methodology/index.qmd
       - text: "Data"
