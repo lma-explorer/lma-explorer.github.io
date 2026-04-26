@@ -1,0 +1,476 @@
+---
+title: "Where are feeder-cattle prices this week vs. recent history?"
+subtitle: "Weekly time series · Clovis, NM auction"
+toc: true
+toc-depth: 2
+---
+
+::: {.callout-tip appearance="simple"}
+**Caveat before scrolling.** This page shows actual reported weekly prices, not predictions. The chart answers *"where are we now compared with the last few months / years?"* — the trajectory itself, not a recommendation about what comes next. See [Methodology](methodology/index.qmd) for the data window, the deflation choice, and what the lines aggregate.
+:::
+
+## About this page
+
+The third view in the chart shelf. The [Price–weight explorer](price-weight.qmd) answers *"what does each weight class fetch on average?"* and the [Weekly seasonality](seasonality.qmd) page answers *"when in the year do these prices peak?"* This page answers a different question: *"how have prices moved week-by-week since October 2017?"* The chart shows actual auction-week observations on a calendar timeline, with one line per weight class so a producer can see at a glance whether this week sits high, low, or middle relative to recent history. Two button rows above the chart let you pick a **year window** — All, Last 5 years, Last 3 years, or the latest calendar year — in either **nominal dollars** (top row) or **real December 2025 dollars** (bottom row). Only one button is highlighted at a time across both rows; clicking any button sets the chart to that combination.
+
+```{python}
+#| echo: false
+#| label: data-load
+
+# Load via the shared Clovis loader — same as price-weight.qmd and
+# seasonality.qmd. Both eras (Era B TXT 2017-2019, Era A MARS 2019+)
+# read together as one combined weekly series.
+
+from pathlib import Path
+import sys
+import pandas as pd
+
+PROCESSED = Path("..") / "data" / "processed"
+CPI_PATH = PROCESSED / "cpi_latest.parquet"
+
+sys.path.insert(0, str(Path("..").resolve()))
+from pipelines.clovis.load import load_clovis_combined  # noqa: E402
+
+data_is_placeholder = False
+data_source_label = None
+
+_loaded = load_clovis_combined(PROCESSED)
+if _loaded is not None:
+    df = _loaded.df
+    data_source_label = _loaded.data_source_label
+else:
+    # Synthetic stand-in. Clearly labelled.
+    import numpy as np
+    rng = np.random.default_rng(seed=2026)
+    rows = []
+    bins = ["300–399 lb", "400–499 lb", "500–599 lb",
+            "600–699 lb", "700–799 lb", "800–899 lb"]
+    bin_starts = {b: 280 - i*15 for i, b in enumerate(bins)}
+    start = pd.Timestamp("2020-01-01")
+    for week_idx in range(0, 280):
+        d = start + pd.Timedelta(weeks=week_idx)
+        for cl in ("Steers", "Heifers"):
+            for wb in bins:
+                base = bin_starts[wb]
+                trend = (week_idx / 280) * 50  # general upward
+                seasonal = 8 * (1 - abs(d.isocalendar().week - 30) / 25)
+                noise = rng.normal(0, 6)
+                p = base + trend + seasonal + noise - (12 if cl == "Heifers" else 0)
+                rows.append({
+                    "auction_date": d,
+                    "weight_bin": wb,
+                    "class": cl,
+                    "head_count": int(rng.integers(40, 400)),
+                    "price_low": round(p - 8, 2),
+                    "price_avg": round(p, 2),
+                    "price_high": round(p + 8, 2),
+                })
+    df = pd.DataFrame(rows)
+    data_is_placeholder = True
+    data_source_label = "synthetic stand-in (no live data available)"
+
+if data_is_placeholder:
+    print("SYNTHETIC STAND-IN DATA — for layout only. Not real prices.")
+```
+
+```{python}
+#| echo: false
+#| label: data-shape
+
+# Same filter and bin-derivation as the other two chart pages: Steers and
+# Heifers, Medium and Large grade 1, collapsed to 100-lb bins from
+# weight_break_low (with avg_weight as a fallback for older rows).
+
+import pandas as pd
+
+if not data_is_placeholder:
+    slim = df[
+        (df["class"].isin(["Steers", "Heifers"]))
+        & (df["frame"] == "Medium and Large")
+        & (df["muscle_grade"] == "1")
+    ].copy()
+    wb = slim["weight_break_low"]
+    aw = slim["avg_weight"]
+    raw_weight = wb.fillna(aw)
+    slim = slim[raw_weight.notna()].copy()
+    slim["bin_lo"] = ((raw_weight[raw_weight.notna()] // 100) * 100).astype(int)
+    slim = slim[(slim["bin_lo"] >= 300) & (slim["bin_lo"] <= 800)]
+    slim["bin_hi"] = slim["bin_lo"] + 99
+    slim["weight_bin"] = slim.apply(
+        lambda r: f"{int(r['bin_lo'])}–{int(r['bin_hi'])} lb", axis=1
+    )
+    work = slim[
+        ["auction_date", "weight_bin", "class",
+         "price_low", "price_avg", "price_high"]
+    ].copy()
+else:
+    work = df.copy()
+    work["price_low"] = work["price_avg"]
+    work["price_high"] = work["price_avg"]
+
+# Window metadata for the caption
+work["auction_date"] = pd.to_datetime(work["auction_date"])
+date_min = work["auction_date"].min()
+date_max = work["auction_date"].max()
+n_weeks = work["auction_date"].dt.date.nunique()
+n_obs = len(work)
+```
+
+```{python}
+#| echo: false
+#| label: deflate-to-dec-2025
+
+# Same deflation logic as the other two chart pages — see
+# site/price-weight.qmd's deflate chunk for the full explanatory
+# comment block.
+
+import pandas as pd
+
+BASIS_PERIOD = pd.Timestamp("2025-12-01")
+cpi_basis_label = "December 2025"
+
+deflation_available = False
+if CPI_PATH.exists():
+    cpi = pd.read_parquet(CPI_PATH)[["period", "cpi_u"]].copy()
+    cpi["period"] = pd.to_datetime(cpi["period"])
+    basis_rows = cpi[cpi["period"] == BASIS_PERIOD]
+    if not basis_rows.empty:
+        cpi_basis_value = float(basis_rows["cpi_u"].iloc[0])
+        deflation_available = True
+    else:
+        fallback = cpi.sort_values("period").iloc[-1]
+        cpi_basis_value = float(fallback["cpi_u"])
+        cpi_basis_label = pd.to_datetime(fallback["period"]).strftime("%B %Y")
+        deflation_available = True
+
+if deflation_available:
+    work["period_month"] = work["auction_date"].dt.to_period("M").dt.to_timestamp()
+    cpi_lookup = cpi.set_index("period")["cpi_u"]
+    work["cpi_u_month"] = work["period_month"].map(cpi_lookup)
+    work["deflator"] = cpi_basis_value / work["cpi_u_month"]
+    import sys as _sys
+    missing_cpi = int(work["deflator"].isna().sum())
+    if missing_cpi:
+        print(
+            f"[deflate] {missing_cpi} observations lack a CPI month-match; "
+            "leaving nominal.", file=_sys.stderr,
+        )
+    work["deflator"] = work["deflator"].fillna(1.0)
+    work["price_avg_real"] = work["price_avg"] * work["deflator"]
+else:
+    work["price_avg_real"] = work["price_avg"]
+```
+
+::: {.callout-important}
+**Data source**: `{python} data_source_label` ·
+**Window**: `{python} date_min.strftime('%Y-%m-%d')` to `{python} date_max.strftime('%Y-%m-%d')` (`{python} n_weeks` distinct auction weeks) ·
+**Observations**: `{python} f"{n_obs:,}"` lots aggregated to one point per (week, class, bin) ·
+**Grade shown**: Medium and Large, muscle grade 1 ·
+**Deflation basis**: `{python} cpi_basis_label` CPI-U NSA (`CUUR0000SA0`).
+:::
+
+## Weekly trajectory
+
+Each line is the average price for one weight class at each auction week from October 2017 to the most recent published report. The top panel shows Steers; the bottom shows Heifers. Multiple lots within a single (week, class, weight bin) are simple-averaged so each line has one point per week. Hover any point to see the exact value and the count of lots behind it.
+
+```{python}
+#| echo: false
+
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+
+def _per_week(work_df, price_col):
+    """One point per (auction_date, class, weight_bin) — simple mean of
+    price across multiple lots within that group."""
+    agg = (
+        work_df.groupby(["class", "weight_bin", "auction_date"], as_index=False)
+               .agg(price=(price_col, "mean"), n=(price_col, "count"))
+    )
+    return agg
+
+
+# ---------- year windows ----------
+_ad = work["auction_date"]
+_anchor = _ad.max()
+_anchor_year = int(_anchor.year)
+YEAR_WINDOWS = [
+    ("all",    "All",            _ad.min(),                                    _anchor),
+    ("5y",     "Last 5 years",   _anchor - pd.DateOffset(years=5),             _anchor),
+    ("3y",     "Last 3 years",   _anchor - pd.DateOffset(years=3),             _anchor),
+    ("latest", f"{_anchor_year}", pd.Timestamp(_anchor_year, 1, 1),            _anchor),
+]
+
+# Color palette — same as seasonality.qmd so a reader switching between
+# the two pages sees consistent visual identity for each weight class.
+COLOR_BY_BIN = {
+    "300–399 lb": "#6a3d9a",
+    "400–499 lb": "#000000",
+    "500–599 lb": "#2ca02c",
+    "600–699 lb": "#d17a00",
+    "700–799 lb": "#1f77b4",
+    "800–899 lb": "#8b0000",
+}
+BIN_ORDER = [
+    "300–399 lb", "400–499 lb", "500–599 lb",
+    "600–699 lb", "700–799 lb", "800–899 lb",
+]
+
+fig = make_subplots(
+    rows=2, cols=1,
+    shared_xaxes=True,
+    vertical_spacing=0.10,
+    subplot_titles=(
+        "NM Clovis Steers — Weekly $/cwt",
+        "NM Clovis Heifers — Weekly $/cwt",
+    ),
+)
+
+
+def _add_class(agg_df, cls, row, visible, show_legend):
+    """Add 6 bin-traces for one class. Always emits 6 traces (empties for
+    bins with no data) so the visibility mask index stays predictable.
+
+    Date and price values are explicitly converted to ISO strings and
+    floats — pandas Timestamp objects don't serialize cleanly to Plotly's
+    JSON representation in Quarto's static-render path, which silently
+    yields empty traces.
+    """
+    for wb in BIN_ORDER:
+        sub = (
+            agg_df[(agg_df["class"] == cls) & (agg_df["weight_bin"] == wb)]
+            .sort_values("auction_date")
+        )
+        if sub.empty:
+            fig.add_trace(
+                go.Scatter(
+                    x=[], y=[], name=f"{wb}",
+                    legendgroup=wb, showlegend=False, visible=visible,
+                ),
+                row=row, col=1,
+            )
+            continue
+        x_iso = pd.to_datetime(sub["auction_date"]).dt.strftime("%Y-%m-%d").tolist()
+        y_float = pd.to_numeric(sub["price"], errors="coerce").astype(float).tolist()
+        n_int = pd.to_numeric(sub["n"], errors="coerce").astype("Int64").tolist()
+        fig.add_trace(
+            go.Scatter(
+                x=x_iso,
+                y=y_float,
+                mode="lines+markers",
+                name=wb,
+                legendgroup=wb,
+                showlegend=show_legend,
+                visible=visible,
+                line=dict(color=COLOR_BY_BIN[wb], width=1.5),
+                marker=dict(color=COLOR_BY_BIN[wb], size=4),
+                customdata=n_int,
+                hovertemplate=(
+                    f"<b>{wb} · {cls}</b><br>"
+                    "Week of %{x}<br>"
+                    "Avg price: $%{y:.2f}/cwt<br>"
+                    "n = %{customdata:,}<extra></extra>"
+                ),
+            ),
+            row=row, col=1,
+        )
+
+
+# Trace order:
+#   For each year_window in YEAR_WINDOWS:
+#       For each mode in (nominal, real):
+#           Steers (6 bin traces, legend on), Heifers (6, legend off)
+# 12 traces per (year, mode) group, 8 groups, 96 traces total.
+N_TRACES_PER_GROUP = 12
+N_GROUPS = len(YEAR_WINDOWS) * 2
+N_TRACES = N_GROUPS * N_TRACES_PER_GROUP
+
+for y_idx, (y_key, y_label, lo_d, hi_d) in enumerate(YEAR_WINDOWS):
+    sub = work[(_ad >= lo_d) & (_ad <= hi_d)]
+    series_n = _per_week(sub, "price_avg")
+    series_r = _per_week(sub, "price_avg_real")
+    is_default = (y_idx == 0)
+    _add_class(series_n, "Steers",  row=1, visible=is_default, show_legend=True)
+    _add_class(series_n, "Heifers", row=2, visible=is_default, show_legend=False)
+    _add_class(series_r, "Steers",  row=1, visible=False,      show_legend=True)
+    _add_class(series_r, "Heifers", row=2, visible=False,      show_legend=False)
+
+
+def _visibility_for(year_idx: int, mode_idx: int) -> list[bool]:
+    out = [False] * N_TRACES
+    group = year_idx * 2 + mode_idx
+    start = group * N_TRACES_PER_GROUP
+    for i in range(start, start + N_TRACES_PER_GROUP):
+        out[i] = True
+    return out
+
+
+# Per-year x-axis range so each window's chart focuses tightly on the
+# selected dates rather than always showing the full Oct 2017 → present
+# axis with empty space on the left for narrower windows. Range values
+# are ISO date strings to match the trace data and avoid pd.Timestamp
+# serialization quirks.
+def _xrange_for(year_idx: int) -> list:
+    _, _, lo_d, hi_d = YEAR_WINDOWS[year_idx]
+    return [lo_d.strftime("%Y-%m-%d"), hi_d.strftime("%Y-%m-%d")]
+
+
+# ---------- two button rows ----------
+NOMINAL_Y_TITLES = {
+    "yaxis.title.text": "Avg price, $/cwt (nominal)",
+    "yaxis2.title.text": "Avg price, $/cwt (nominal)",
+}
+REAL_Y_TITLES = {
+    "yaxis.title.text": f"Avg price, $/cwt (base = {cpi_basis_label})",
+    "yaxis2.title.text": f"Avg price, $/cwt (base = {cpi_basis_label})",
+}
+
+nominal_row_buttons = []
+for y_idx, (y_key, y_label, lo_d, hi_d) in enumerate(YEAR_WINDOWS):
+    nominal_row_buttons.append(dict(
+        label=y_label,
+        method="update",
+        args=[
+            {"visible": _visibility_for(y_idx, 0)},
+            {
+                **NOMINAL_Y_TITLES,
+                "xaxis.range": _xrange_for(y_idx),
+                "xaxis2.range": _xrange_for(y_idx),
+                "updatemenus[1].active": -1,
+            },
+        ],
+    ))
+
+real_row_buttons = []
+for y_idx, (y_key, y_label, lo_d, hi_d) in enumerate(YEAR_WINDOWS):
+    real_row_buttons.append(dict(
+        label=y_label,
+        method="update",
+        args=[
+            {"visible": _visibility_for(y_idx, 1)},
+            {
+                **REAL_Y_TITLES,
+                "xaxis.range": _xrange_for(y_idx),
+                "xaxis2.range": _xrange_for(y_idx),
+                "updatemenus[0].active": -1,
+            },
+        ],
+    ))
+
+fig.update_layout(
+    height=900,
+    margin=dict(t=230, b=60, l=80, r=30),
+    hovermode="x unified",
+    paper_bgcolor="white",
+    plot_bgcolor="white",
+    font=dict(family="Helvetica, Arial, sans-serif", size=13, color="#222"),
+    legend=dict(orientation="h", yanchor="bottom", y=1.035, xanchor="center", x=0.5),
+    annotations=[
+        dict(text="<b>Nominal $</b>",
+             showarrow=False, xref="paper", yref="paper",
+             x=0.0, y=1.32, xanchor="left", yanchor="top",
+             font=dict(size=12, color="#222")),
+        dict(text=f"<b>Real ({cpi_basis_label} $)</b>",
+             showarrow=False, xref="paper", yref="paper",
+             x=0.0, y=1.20, xanchor="left", yanchor="top",
+             font=dict(size=12, color="#222")),
+    ],
+    updatemenus=[
+        dict(
+            type="buttons",
+            direction="right",
+            active=0,
+            x=0.18, y=1.32,
+            xanchor="left", yanchor="top",
+            pad=dict(r=6, t=4, b=4),
+            showactive=True,
+            buttons=nominal_row_buttons,
+        ),
+        dict(
+            type="buttons",
+            direction="right",
+            active=-1,
+            x=0.18, y=1.20,
+            xanchor="left", yanchor="top",
+            pad=dict(r=6, t=4, b=4),
+            showactive=True,
+            buttons=real_row_buttons,
+        ),
+    ],
+)
+
+# X-axis: time. Default range = "All" window. Year buttons override via
+# args. The bottom panel carries the axis title so the shared x-axis
+# isn't double-labeled.
+fig.update_xaxes(
+    type="date",
+    showgrid=True, gridcolor="#e5e5e5",
+    linecolor="#888", mirror=False, ticks="outside",
+)
+fig.update_xaxes(title_text="Auction date", row=2, col=1)
+
+fig.update_yaxes(
+    showgrid=True, gridcolor="#e5e5e5",
+    tickprefix="$", linecolor="#888", mirror=False, ticks="outside",
+    title_text="Avg price, $/cwt (nominal)",
+)
+fig.update_layout(yaxis2=dict(matches="y"))
+
+with open("/tmp/wt-debug.txt", "w") as _dbg:
+    _dbg.write(f"work.shape: {work.shape}\n")
+    _dbg.write(f"auction_date dtype: {work['auction_date'].dtype}\n")
+    _dbg.write(f"auction_date min/max: {work['auction_date'].min()} / {work['auction_date'].max()}\n")
+    _dbg.write(f"price_avg sample: {work['price_avg'].head(3).tolist()}\n")
+    _dbg.write(f"price_avg has nulls: {work['price_avg'].isna().sum()} / {len(work)}\n")
+    _dbg.write(f"total traces: {len(fig.data)}\n")
+    _dbg.write(f"visible[0:12]: {[bool(t.visible) for t in fig.data[:12]]}\n")
+    _t0 = fig.data[0]
+    _dbg.write(f"trace[0].name: {_t0.name}\n")
+    _x = list(_t0.x) if _t0.x is not None else []
+    _y = list(_t0.y) if _t0.y is not None else []
+    _dbg.write(f"trace[0].x len: {len(_x)}\n")
+    _dbg.write(f"trace[0].y len: {len(_y)}\n")
+    if _x: _dbg.write(f"trace[0].x[0:3]: {_x[:3]}\n")
+    if _y: _dbg.write(f"trace[0].y[0:3]: {_y[:3]}\n")
+fig.write_html("/tmp/wt-standalone.html", include_plotlyjs="cdn")
+fig.show()
+```
+
+## How to read this
+
+**The trajectory is the answer, not a single point.** Producers reading this chart should look for the slope of the lines over the past few months — is the curve rising, flat, or falling? — rather than trying to extract a forecast from any individual week. Auction prices move on cattle availability, feed-cost expectations, and futures-market sentiment; the chart reports what the market already cleared, not what it will clear next.
+
+**The vertical spread between weight classes is the price slide.** At any given week, the gap between the 400–499 lb line and the 700–799 lb line is the price discount per cwt that heavier calves take. That gap widens and narrows over the cycle; a producer deciding whether to retain ownership and put more weight on calves can read off the historical trade-off at the right of the chart.
+
+**Real-dollar lines flatten the inflation effect.** Switch to the real (December 2025 $) view to see how prices have moved net of CPI. The 2021–2022 nominal run-up looks less dramatic in real dollars; the 2024 climb looks more so.
+
+## Why this view exists alongside the other two
+
+The chart shelf decomposes the same dataset along three orthogonal axes:
+
+| Page | Aggregates | Answers |
+|---|---|---|
+| [Price–weight explorer](price-weight.qmd) | across time, per (weight, class) | *what does each weight class fetch on average?* |
+| [Weekly seasonality](seasonality.qmd) | across years, per (week-of-year, weight, class) | *when in the year do these prices peak?* |
+| Weekly trends (this page) | nothing across time — raw weekly observations | *how have prices moved week-by-week?* |
+
+A producer looking at all three answers a different question on each: structure, intra-year pattern, and trajectory. Together they triangulate "where am I" without making any one chart carry the whole story.
+
+## Download
+
+- [Parquet snapshot](../data/processed/clovis_latest.parquet) — Clovis feeder-cattle archive, latest MARS vintage
+- [Vintage manifest](../data/processed/clovis_MANIFEST.json) — SHA-256 of every snapshot the pipeline has committed
+- [CPI deflator](../data/processed/cpi_latest.parquet) — BLS CPI-U NSA (`CUUR0000SA0`), the deflation basis
+
+## See also
+
+- [Price–weight explorer](price-weight.qmd) — the structure view.
+- [Weekly seasonality](seasonality.qmd) — the intra-year pattern view.
+- [Methodology → Clovis pipeline](methodology/clovis.qmd) — every filter, bin, and edge case behind the snapshot this page reads from.
+- [Methodology → CPI deflation](methodology/cpi.qmd) — how the December-2025-basis deflator is computed.
+
+## What's next on this page
+
+- [ ] Per-week head-weighted mean (not simple-average) for multi-lot weeks. The current chart simple-averages multiple lots within the same (week, class, bin); a head-weighted mean is more accurate. Methodology page documents the choice.
+- [ ] Mark the most recent observation per line with a labeled dot ("Latest week: $X.XX"). Bridge to a future *sell-now compare* widget.
+- [ ] Hover-band showing the 5-year range for the same week-of-year, so a reader can see at a glance whether the current week is high or low for its calendar position.

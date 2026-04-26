@@ -11,7 +11,7 @@ toc-depth: 2
 
 ## About this page
 
-The companion to the [Price–weight explorer](price-weight.qmd). That page answers *"what does a heavier calf bring?"*; this page answers *"when in the year does a given-weight calf bring the most?"* The chart shows all six 100-lb bins from 300 lb to 899 lb: **click a weight class in the legend to hide it; double-click to isolate it.** Three bins are emphasized in solid colors (400–499, 600–699, 700–799) — they bracket the typical marketing decision (calf-on-the-cow, background/grass-season exit, feedlot-ready) — and the other three are rendered in lighter accents so the chart reads cleanly when all six are visible.
+The companion to the [Price–weight explorer](price-weight.qmd). That page answers *"what does a heavier calf bring?"*; this page answers *"when in the year does a given-weight calf bring the most?"* The chart shows all six 100-lb bins from 300 lb to 899 lb: **click a weight class in the legend to hide it; double-click to isolate it.** Three bins are emphasized in solid colors (400–499, 600–699, 700–799) — they bracket the typical marketing decision (calf-on-the-cow, background/grass-season exit, feedlot-ready) — and the other three are rendered in lighter accents so the chart reads cleanly when all six are visible. Two button rows above the chart let you pick a **year window** — All, Last 5 years, Last 3 years, or the latest calendar year — in either **nominal dollars** (top row) or **real December 2025 dollars** (bottom row). Only one button is highlighted at a time across both rows; clicking any button sets the chart to that combination.
 
 ```{python}
 #| echo: false
@@ -179,7 +179,7 @@ else:
 
 ## Weekly price pattern
 
-Each line is the average price for a weight class at each week of the calendar year, averaged across every year in the window. The top panel shows Steers; the bottom shows Heifers. The toggle switches between nominal dollars and real (December-2025) dollars. Hover any point to see the exact value and the number of observations behind it.
+Each line is the average price for a weight class at each week of the calendar year, averaged across every year in the selected window. The top panel shows Steers; the bottom shows Heifers. Two button rows above the panels let the reader pick the **year window** (All, Last 5 years, Last 3 years, or the latest calendar year) and the **dollar basis** (nominal or real Dec 2025); each click sets a new view, defaulting the other dimension to its baseline. Hover any point to see the exact value and the number of observations behind it.
 
 ```{python}
 #| echo: false
@@ -187,11 +187,12 @@ Each line is the average price for a weight class at each week of the calendar y
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-# Aggregate weekly mean for each (class, bin) series. ISO-week 1-53; most years
-# have 52, a few have 53. We collapse week 53 into week 52 so the x-axis fits
-# a clean 1-52 grid without an orphan bar.
+# Aggregate weekly mean for each (class, bin) series. ISO-week 1-53; most
+# years have 52, a few have 53. We collapse week 53 into week 52 so the
+# x-axis fits a clean 1-52 grid without an orphan bar.
 work["iso_week"] = work["auction_date"].dt.isocalendar().week.astype(int)
 work.loc[work["iso_week"] == 53, "iso_week"] = 52
+
 
 def _weekly(work_df, price_col):
     agg = (
@@ -201,31 +202,35 @@ def _weekly(work_df, price_col):
     return agg
 
 
-seas_nominal = _weekly(work, "price_avg")
-seas_real = _weekly(work, "price_avg_real")
-
 # CI diagnostic — logged to stderr, invisible on the rendered page.
 import sys as _sys
 print(
-    f"[seasonality] work rows={len(work)}  "
-    f"seas_nominal rows={len(seas_nominal)}  "
-    f"seas_real rows={len(seas_real)}",
+    f"[seasonality] work rows={len(work)}",
     file=_sys.stderr,
 )
-for cls in ("Steers", "Heifers"):
-    counts = seas_nominal[seas_nominal["class"] == cls].groupby("weight_bin").size().to_dict()
-    print(f"[seasonality] nominal rows for {cls}: {counts}", file=_sys.stderr)
 
-# Six-class palette. The three article colors are preserved; the three
-# extras are picked for contrast against black/orange/blue and for
-# readability on a white background.
+# ---------- year windows ----------
+_ad = pd.to_datetime(work["auction_date"])
+_anchor = _ad.max()
+_anchor_year = int(_anchor.year)
+YEAR_WINDOWS = [
+    ("all",    "All",            _ad.min(),                                    _anchor),
+    ("5y",     "Last 5 years",   _anchor - pd.DateOffset(years=5),             _anchor),
+    ("3y",     "Last 3 years",   _anchor - pd.DateOffset(years=3),             _anchor),
+    ("latest", f"{_anchor_year}", pd.Timestamp(_anchor_year, 1, 1),            _anchor),
+]
+
+# Six-class palette. Three lines emphasized in solid colors — they bracket
+# the typical marketing decision (calf-on-the-cow / background-grass-season
+# / feedlot-ready). The other three are kept on the chart in lighter
+# accents for context.
 COLOR_BY_BIN = {
-    "300–399 lb": "#6a3d9a",   # purple
-    "400–499 lb": "#000000",   # black    (article)
-    "500–599 lb": "#2ca02c",   # green
-    "600–699 lb": "#d17a00",   # orange   (article)
-    "700–799 lb": "#1f77b4",   # blue     (article)
-    "800–899 lb": "#8b0000",   # dark red
+    "300–399 lb": "#6a3d9a",
+    "400–499 lb": "#000000",
+    "500–599 lb": "#2ca02c",
+    "600–699 lb": "#d17a00",
+    "700–799 lb": "#1f77b4",
+    "800–899 lb": "#8b0000",
 }
 BIN_ORDER = [
     "300–399 lb", "400–499 lb", "500–599 lb",
@@ -242,21 +247,20 @@ fig = make_subplots(
     ),
 )
 
-# 24 traces total: 6 bins × (Steers, Heifers) × (nominal, real). Nominal
-# traces (indices 0–11) visible initially; real traces (12–23) hidden.
-# The toggle flips the visibility mask wholesale. Individual legend clicks
-# don't persist across the toggle — the price-weight page has the same
-# behaviour, and showing one dollar-basis at a time keeps the chart
-# readable.
+# 4 year-windows × 2 modes = 8 view combinations × 12 traces per view (6
+# bins × 2 classes) = 96 total traces. Each click on a year or mode button
+# sets a new visibility mask. Switching one dimension resets the other to
+# its baseline (year=All, mode=nominal).
 
-def _add_class(agg_df, cls, row, mode_label, visible, show_legend):
+def _add_class(agg_df, cls, row, visible, show_legend):
+    """Add 6 bin-traces for one class. Always emits 6 traces (empties for
+    bins with no data) so the visibility mask index stays predictable."""
     for wb in BIN_ORDER:
         sub = (
             agg_df[(agg_df["class"] == cls) & (agg_df["weight_bin"] == wb)]
             .sort_values("iso_week")
         )
         if sub.empty:
-            # Emit a placeholder so the visibility mask index stays predictable.
             fig.add_trace(
                 go.Scatter(
                     x=[], y=[], name=f"{wb}",
@@ -288,58 +292,126 @@ def _add_class(agg_df, cls, row, mode_label, visible, show_legend):
         )
 
 
-# Nominal traces — visible initially. Legend entries come from the Steers row
-# only (legendgroup binds the Heifers traces so clicking toggles both panels).
-_add_class(seas_nominal, "Steers",  row=1, mode_label="nominal", visible=True, show_legend=True)
-_add_class(seas_nominal, "Heifers", row=2, mode_label="nominal", visible=True, show_legend=False)
-# Real traces — hidden until the toggle flips them on. Steers-row real traces
-# carry legend entries too, so when the user flips to Real the legend
-# reappears (Plotly auto-hides legend entries whose trace is visible=False).
-_add_class(seas_real,    "Steers",  row=1, mode_label=f"real {cpi_basis_label}", visible=False, show_legend=True)
-_add_class(seas_real,    "Heifers", row=2, mode_label=f"real {cpi_basis_label}", visible=False, show_legend=False)
+# Trace order:
+#   For each year_window in YEAR_WINDOWS:
+#       For each mode in (nominal, real):
+#           Steers-bins-1..6 (legend on), Heifers-bins-1..6 (legend off)
+# 12 traces per (year, mode) group, 8 groups, 96 traces total.
+N_TRACES_PER_GROUP = 12
+N_GROUPS = len(YEAR_WINDOWS) * 2
+N_TRACES = N_GROUPS * N_TRACES_PER_GROUP
 
-visible_nominal = [True]  * 12 + [False] * 12
-visible_real    = [False] * 12 + [True]  * 12
+for y_idx, (y_key, y_label, lo_d, hi_d) in enumerate(YEAR_WINDOWS):
+    sub = work[(_ad >= lo_d) & (_ad <= hi_d)]
+    seas_n = _weekly(sub, "price_avg")
+    seas_r = _weekly(sub, "price_avg_real")
+    is_default = (y_idx == 0)  # year=All & mode=nominal initially visible
+    # Legend entries only need to appear for the active group; we render
+    # them on EVERY group's nominal Steers row. Plotly auto-hides legend
+    # entries whose trace is visible=False, so the legend reflects the
+    # active view automatically.
+    _add_class(seas_n, "Steers",  row=1, visible=is_default, show_legend=True)
+    _add_class(seas_n, "Heifers", row=2, visible=is_default, show_legend=False)
+    _add_class(seas_r, "Steers",  row=1, visible=False,      show_legend=True)
+    _add_class(seas_r, "Heifers", row=2, visible=False,      show_legend=False)
+
+
+def _visibility_for(year_idx: int, mode_idx: int) -> list[bool]:
+    out = [False] * N_TRACES
+    group = year_idx * 2 + mode_idx
+    start = group * N_TRACES_PER_GROUP
+    for i in range(start, start + N_TRACES_PER_GROUP):
+        out[i] = True
+    return out
+
+
+# ---------- two button rows, one per dollar basis ----------
+# Each button is a complete (year, mode) selector. Clicking a button in
+# Row 0 (nominal) ALSO deactivates Row 1's highlight via
+# "updatemenus[1].active": -1, and vice versa — so at any moment, exactly
+# one button across both rows is highlighted, and the chart and the
+# highlight always agree.
+
+NOMINAL_Y_TITLES = {
+    "yaxis.title.text": "Avg price, $/cwt (nominal)",
+    "yaxis2.title.text": "Avg price, $/cwt (nominal)",
+}
+REAL_Y_TITLES = {
+    "yaxis.title.text": f"Avg price, $/cwt (base = {cpi_basis_label})",
+    "yaxis2.title.text": f"Avg price, $/cwt (base = {cpi_basis_label})",
+}
+
+nominal_row_buttons = []
+for y_idx, (y_key, y_label, lo_d, hi_d) in enumerate(YEAR_WINDOWS):
+    nominal_row_buttons.append(dict(
+        label=y_label,
+        method="update",
+        args=[
+            {"visible": _visibility_for(y_idx, 0)},
+            {
+                **NOMINAL_Y_TITLES,
+                "updatemenus[1].active": -1,
+            },
+        ],
+    ))
+
+real_row_buttons = []
+for y_idx, (y_key, y_label, lo_d, hi_d) in enumerate(YEAR_WINDOWS):
+    real_row_buttons.append(dict(
+        label=y_label,
+        method="update",
+        args=[
+            {"visible": _visibility_for(y_idx, 1)},
+            {
+                **REAL_Y_TITLES,
+                "updatemenus[0].active": -1,
+            },
+        ],
+    ))
 
 fig.update_layout(
-    height=780,
-    # Taller top margin so the buttons (higher) and the legend (lower) both
-    # have room without stacking on top of each other.
-    margin=dict(t=130, b=60, l=80, r=30),
+    height=900,
+    # Top margin needs to accommodate two button rows + labels + the
+    # six-entry horizontal legend below them. Buttons go at y=1.32 / 1.20,
+    # legend at y=1.035, leaving ~0.165 paper of space between them.
+    margin=dict(t=230, b=60, l=80, r=30),
     hovermode="x unified",
     paper_bgcolor="white",
     plot_bgcolor="white",
     font=dict(family="Helvetica, Arial, sans-serif", size=13, color="#222"),
-    # Legend sits between the buttons and the chart, centered horizontally,
-    # with room for all six bin entries.
     legend=dict(orientation="h", yanchor="bottom", y=1.035, xanchor="center", x=0.5),
-    updatemenus=[dict(
-        type="buttons",
-        direction="right",
-        active=0,
-        # Buttons sit above the legend — raising y keeps them clear of the
-        # six-entry horizontal legend below them.
-        x=0.0, y=1.18,
-        xanchor="left", yanchor="top",
-        pad=dict(r=6, t=4, b=4),
-        showactive=True,
-        buttons=[
-            dict(label="Nominal $",
-                 method="update",
-                 args=[
-                     {"visible": visible_nominal},
-                     {"yaxis.title.text": "Avg price, $/cwt (nominal)",
-                      "yaxis2.title.text": "Avg price, $/cwt (nominal)"},
-                 ]),
-            dict(label=f"Real ({cpi_basis_label} $)",
-                 method="update",
-                 args=[
-                     {"visible": visible_real},
-                     {"yaxis.title.text": f"Avg price, $/cwt (base = {cpi_basis_label})",
-                      "yaxis2.title.text": f"Avg price, $/cwt (base = {cpi_basis_label})"},
-                 ]),
-        ],
-    )],
+    annotations=[
+        dict(text="<b>Nominal $</b>",
+             showarrow=False, xref="paper", yref="paper",
+             x=0.0, y=1.32, xanchor="left", yanchor="top",
+             font=dict(size=12, color="#222")),
+        dict(text=f"<b>Real ({cpi_basis_label} $)</b>",
+             showarrow=False, xref="paper", yref="paper",
+             x=0.0, y=1.20, xanchor="left", yanchor="top",
+             font=dict(size=12, color="#222")),
+    ],
+    updatemenus=[
+        dict(  # nominal row (index 0)
+            type="buttons",
+            direction="right",
+            active=0,
+            x=0.18, y=1.32,
+            xanchor="left", yanchor="top",
+            pad=dict(r=6, t=4, b=4),
+            showactive=True,
+            buttons=nominal_row_buttons,
+        ),
+        dict(  # real row (index 1)
+            type="buttons",
+            direction="right",
+            active=-1,
+            x=0.18, y=1.20,
+            xanchor="left", yanchor="top",
+            pad=dict(r=6, t=4, b=4),
+            showactive=True,
+            buttons=real_row_buttons,
+        ),
+    ],
 )
 
 # Axes. Print every week number 1-52 under the bottom panel — a small font
