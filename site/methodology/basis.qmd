@@ -1,0 +1,97 @@
+---
+title: "Basis derivation"
+subtitle: "How the platform computes Clovis cash − CME GF feeder-cattle settle, and what conventions we follow."
+toc: true
+toc-depth: 2
+---
+
+## What is basis
+
+For a producer hedging feeder cattle (or reading futures as a forward-price reference), **basis** is the gap between the local cash price they would actually realize at sale and the relevant futures contract's settlement price on the same date:
+
+$$
+\text{basis}_t = \text{cash}_t - \text{settle}_t
+$$
+
+A short hedger — someone who sells a futures contract intending to offset it with a cash sale — realizes `settle + basis` when they close out. Knowing the *typical* basis for a given week-of-year, weight class, and contract month therefore gives the hedger a defensible expected price for that scenario.
+
+**Sign convention used on this site:** positive basis means cash above the futures settle (favorable for the seller of cash); negative basis means cash below settle. The chart's reference line at zero makes the sign visible.
+
+## What is being measured
+
+| Field | Source | Notes |
+|---|---|---|
+| **Cash** | USDA-AMS Market News, Clovis Livestock Auction (slug `AMS_1781`) | The same weighted-average $/cwt the [Price–weight](../price-weight.qmd) and [Weekly trends](../weekly-trends.qmd) charts use, head-weighted within each (auction-date, class, frame, muscle-grade, 100-lb-bin) cell. See [Methodology → Clovis pipeline](clovis.qmd). |
+| **Futures settle** | CME GF (Feeder Cattle) daily settle prices | Public-domain by U.S. statute on government-released economic data; CME's daily settles are also published openly on `cmegroup.com`. The platform sources them via a third-party-compiled Excel of daily settles for the bootstrap; a future Phase-2 pipeline will refresh from CME directly on schedule. |
+| **Basis** | Derived | `basis = cash − settle`, per (auction_date, class, frame, muscle_grade, weight_break_low/high, contract_month). |
+
+## The contract-month convention
+
+The CME GF Feeder Cattle futures contract trades **eight delivery months**: January, March, April, May, August, September, October, November. Producers selling cash at any time of year can hedge against any of these contracts — but two are particularly common:
+
+- **May contract** (CME ticker month code `K`) — the canonical spring-marketing hedge. A producer who plans to sell in spring locks in May futures, and at sale realizes `May settle + basis`. Tronstad (1994) treats this as the central case for spring marketing of weaned calves.
+- **November contract** (`X`) — the canonical fall-marketing hedge for stockers exiting grass and selling in October–November.
+- **Nearby contract** — a derived view that auto-rolls to whichever traded contract is closest to expiry on each date. Useful as a forward-price reference at any time of year, since it doesn't presuppose a specific marketing month.
+
+The chart on the basis page shows all three; the user picks via the **Contract** button row above the chart.
+
+**Other contract months** (March, September, etc.) can be added on demand — the basis parquet stores all eight, and the chart simply renders whichever subset is wired into the contract selector. If a producer's marketing decision is keyed to a different contract, surface that and we'll wire it in.
+
+## Date alignment
+
+Cash prices come from weekly Clovis auctions (typically Wednesday sales). CME GF futures trade daily Monday through Friday. To compute `cash − settle` on the same date:
+
+1. **Direct match**: look up the daily settle for the auction date.
+2. **Prior-trading-day fallback**: if the auction fell on a weekend, holiday, or otherwise has no settle on that exact date, walk back up to **5 calendar days** to the most recent trading day where the relevant contract has a non-null settle.
+3. **Drop**: if no settle is found within the 5-day window, the row is left with a null basis. Typical cause is the relevant contract having just expired and the next contract not yet actively quoted; runs about 0.1% of rows.
+
+The 5-day window covers normal weekend gaps, federal holidays, and the rare multi-day exchange closure. A wider window risks pulling in stale settles that no longer reflect the trading environment of the auction date.
+
+## Aggregation choice on the chart
+
+The basis chart (`/basis.html`) groups across years to expose the **week-of-year pattern**. For each (class, weight bin, contract month, ISO week 1–52) cell, the chart computes:
+
+- **Average** — the solid line; the central tendency across all available years
+- **Min** and **Max** — the worst-and-best basis observed across years for that calendar week; rendered as the shaded band around the line
+
+In a year with 50+ auction weeks (2018 forward), each (class, bin, contract, week-of-year) cell has up to 8–9 years of observations from the platform's October-2017 floor. With sample sizes that small, **min/max** is a more honest signal than smoothed percentiles — a single anomaly year (the 2024–2025 cash blowout, the 2020 COVID disruption) shows up as an extreme on the band edge, which is the truthful answer.
+
+A future iteration can add **interquartile range (25th–75th percentile)** layered behind the min-max band, once the platform accumulates enough years for the percentile estimate to stabilize. Bands and percentile choice are documented per-page; the source data is the same.
+
+## Nominal vs. real basis
+
+The chart's **Mode** button row offers a Nominal $ view (the default — basis as cash and futures actually traded) and a Real (December 2025 $) view. Because basis is the difference of two prices observed in the same period, the deflation identity collapses to a single multiplication:
+
+$$
+\text{basis}_{\text{real},M} = \text{cash}_{\text{real},M} - \text{settle}_{\text{real},M}
+              = (\text{cash}_{\text{nominal},M} - \text{settle}_{\text{nominal},M}) \times d_M
+              = \text{basis}_{\text{nominal},M} \times d_M
+$$
+
+where $d_M = \text{CPI}_{\text{Dec 2025}} / \text{CPI}_M$ is the monthly deflator already used by the cash-side charts. The implementation joins each per-(auction-date, contract, bin) basis row to its month's CPI value via the same `pipelines/bls/` snapshot, multiplies, and re-aggregates min/mean/max across years for the chosen week-of-year.
+
+Two reasons a reader might prefer one mode over the other. **Nominal** is what a hedger would actually realize when they offset a futures position with a cash sale today, and what the live ticker on the relevant CME contract reports — use this for any decision involving a check that will be written in 2026 dollars. **Real (Dec 2025 $)** lets the reader compare 2018 basis against 2025 basis without inflation muddying the picture — use this for cross-cycle reasoning, e.g., "is the 2024–2025 cash blowout different from past cycle peaks once you net out CPI?"
+
+CPI deflation is not the universal convention in basis analysis (most published basis tables — including the REDACTED compilations and the Tronstad 1994 figure that motivated the May/November contract choice — are nominal-only), so the default view is nominal. The real-dollar mode is a deliberate addition for readers who want it.
+
+## What basis is *not*
+
+- **Not a forecast.** The chart shows historical basis; future basis can and does drift, particularly in cycle-bottom and cycle-top years. Any expected basis a producer plans around carries the disclaimer that the underlying cash and futures markets may move outside historical norms.
+- **Not a hedge recommendation.** A producer deciding whether to hedge weighs basis predictability, market-volatility expectations, transaction costs, and their own risk tolerance. The chart is one input.
+- **Not local — yet.** "Basis" on this page means **Clovis cash minus CME settle**. A producer in a different region calculates their own basis against their local auction, with the same CME side. Phase-2 work to add other regional auctions (Willcox AZ, etc.) would extend this concept.
+
+## What is deliberately left out
+
+- **Per-contract basis at non-canonical months.** The eight CME contract months other than May/November/Nearby are stored in the basis parquet but not currently surfaced in the chart's contract selector. Add on demand.
+- **Intra-week basis.** A producer selling on Tuesday vs. the auction Wednesday faces a slightly different basis if the futures market moved overnight. The chart uses the auction-day settle (with prior-trading-day fallback for weekend auctions) — a single point per auction week. Daily basis is a Phase-2 candidate if there's demand.
+- **Transaction costs.** The chart shows raw `cash − settle`; commissions, slippage, and the bid-ask spread on the futures side are not subtracted. Producers running real hedges should net those out.
+
+## Code
+
+- Basis derivation: [`pipelines/clovis/basis.py`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/clovis/basis.py)
+- CME settle ingestion: [`pipelines/cme_feeders/`](https://github.com/lma-explorer/lma-explorer.github.io/tree/main/pipelines/cme_feeders)
+- Chart page source: [`site/basis.qmd`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/site/basis.qmd)
+
+## Contact
+
+Spotted an error or a methodological disagreement? Open a [new issue](https://github.com/lma-explorer/lma-explorer.github.io/issues/new/choose) with the `methodology` label.

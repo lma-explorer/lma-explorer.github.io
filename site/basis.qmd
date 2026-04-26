@@ -1,0 +1,740 @@
+---
+title: "What basis should I expect against the May or November feeder contract?"
+subtitle: "Weekly basis · Clovis, NM cash − CME GF feeder-cattle settle"
+toc: true
+toc-depth: 2
+---
+
+::: {.callout-tip appearance="simple"}
+**Caveat before scrolling.** Basis is the gap between local cash and the relevant futures contract. It varies week-to-week and year-to-year — sometimes by $10–$20/cwt around its average — and is what a hedger actually realizes when they offset a futures position with a cash sale. The chart shows historical basis; it is not a forecast. See [Methodology](methodology/index.qmd) for the contract-month convention, the date-alignment rule, and what the bands aggregate.
+:::
+
+## About this page
+
+A producer who hedges feeder cattle on the CME — or a producer who reads futures as a forward-price reference — needs to know the **basis**: the typical gap between local Clovis cash and the relevant futures contract on the same date. Lock in futures + sell cash gives you `settle + basis`, so a producer who knows their typical basis at week 22 for 600-lb steers selling against the May contract has a defensible expected price for that scenario.
+
+This chart shows **basis = Clovis cash − CME GF feeder-cattle settle** for three contract conventions: the **May contract** (the canonical spring-marketing hedge), the **November contract** (the canonical fall-marketing hedge), and the **Nearby contract** (whichever traded contract is closest to expiry on each auction date). Each line is the average basis across all years in the selected window, computed per week of the calendar year (1–52). The shaded band behind each line is the **min/max range** — the worst and best basis observed for that week-of-year across the available years.
+
+Three button rows above the chart let you switch the **mode** (top: Nominal $ / Real December-2025 $), the **contract month** (middle: May / November / Nearby), and the **year window** (bottom: All / Last 5 years / Last 3 years / latest calendar year). Each row maintains its own selection independently — at any moment, the chart shows the combination of all three highlighted choices. Real-dollar basis is computed per row as `basis_nominal × deflator(month_of_auction)` because both cash and futures settle scale by the same monthly CPI factor; see [Methodology → Basis derivation](methodology/basis.qmd) for the derivation.
+
+```{python}
+#| echo: false
+#| label: data-load
+
+from pathlib import Path
+import pandas as pd
+
+PROCESSED = Path("..") / "data" / "processed"
+CPI_PATH = PROCESSED / "cpi_latest.parquet"
+BASIS_PARQUET = PROCESSED / "clovis_basis_latest.parquet"
+BASIS_CSV = PROCESSED / "clovis_basis_latest.csv"
+
+basis_is_placeholder = False
+data_source_label = None
+
+if BASIS_PARQUET.exists():
+    try:
+        df = pd.read_parquet(BASIS_PARQUET)
+        data_source_label = "Clovis cash − CME GF settle (combined Era B + MARS)"
+    except Exception:
+        df = None
+else:
+    df = None
+
+if df is None and BASIS_CSV.exists():
+    df = pd.read_csv(BASIS_CSV)
+    data_source_label = "Clovis cash − CME GF settle (CSV fallback)"
+
+if df is None:
+    # Synthetic stand-in
+    import numpy as np
+    rng = np.random.default_rng(seed=2026)
+    rows = []
+    bins = [(300, 400), (400, 500), (500, 600),
+            (600, 700), (700, 800), (800, 900)]
+    for year in range(2018, 2027):
+        for week in range(1, 53):
+            for cl in ("Steers", "Heifers"):
+                for lo, hi in bins:
+                    for c in ("MAY", "NOV", "NEARBY"):
+                        d = pd.Timestamp(f"{year}-01-01") + pd.Timedelta(weeks=week-1)
+                        rows.append({
+                            "auction_date": d,
+                            "class": cl,
+                            "frame": "Medium and Large",
+                            "muscle_grade": "1",
+                            "weight_break_low": lo,
+                            "weight_break_high": hi,
+                            "price_avg_cash": 200 + rng.normal(0, 10),
+                            "n_lots": 5,
+                            "contract_month": c,
+                            "settle": 205 + rng.normal(0, 10),
+                            "settle_date": d,
+                            "basis": rng.normal(-5 if c == "NOV" else -3, 8),
+                            "vintage": pd.Timestamp("2026-04-25"),
+                        })
+    df = pd.DataFrame(rows)
+    basis_is_placeholder = True
+    data_source_label = "synthetic stand-in (no live basis data available)"
+    print("SYNTHETIC STAND-IN BASIS DATA — for layout only.")
+```
+
+```{python}
+#| echo: false
+#| label: data-shape
+
+# Filter to the chart's standard population: grade-1 Medium-and-Large
+# Steers and Heifers, 300-899 lb, with non-null basis. Add iso-week
+# of the auction date for the per-week-of-year aggregation.
+
+import pandas as pd
+
+work = df[
+    (df["class"].isin(["Steers", "Heifers"]))
+    & (df["frame"] == "Medium and Large")
+    & (df["muscle_grade"] == "1")
+    & (df["basis"].notna())
+].copy()
+work["auction_date"] = pd.to_datetime(work["auction_date"])
+work = work[
+    (work["weight_break_low"] >= 300)
+    & (work["weight_break_low"] < 900)
+].copy()
+
+work["iso_week"] = work["auction_date"].dt.isocalendar().week.astype(int)
+work.loc[work["iso_week"] == 53, "iso_week"] = 52
+work["weight_bin"] = work.apply(
+    lambda r: f"{int(r['weight_break_low'])}–{int(r['weight_break_low']) + 99} lb",
+    axis=1,
+)
+
+date_min = work["auction_date"].min()
+date_max = work["auction_date"].max()
+n_weeks = work["auction_date"].dt.date.nunique()
+n_obs = len(work)
+```
+
+```{python}
+#| echo: false
+#| label: deflate-basis
+
+# CPI deflation for basis. Because basis is a difference of two prices
+# observed in the same period, both sides deflate by the same monthly
+# CPI factor:
+#
+#     cash_real_M    = cash_nominal_M    * deflator_M
+#     settle_real_M  = settle_nominal_M  * deflator_M
+#     basis_real_M   = cash_real_M - settle_real_M
+#                    = (cash_nominal_M - settle_nominal_M) * deflator_M
+#                    = basis_nominal_M * deflator_M
+#
+# So the per-row deflation is just basis × deflator(month_of_auction_date).
+# Basis nominal is the original; basis_real adds the row-level multiplier.
+# Same December 2025 basis month and same fallback-to-1.0 behavior as the
+# cash charts.
+
+import sys as _sys
+
+BASIS_PERIOD = pd.Timestamp("2025-12-01")
+cpi_basis_label = "December 2025"
+
+deflation_available = False
+if CPI_PATH.exists():
+    cpi = pd.read_parquet(CPI_PATH)[["period", "cpi_u"]].copy()
+    cpi["period"] = pd.to_datetime(cpi["period"])
+    basis_rows_cpi = cpi[cpi["period"] == BASIS_PERIOD]
+    if not basis_rows_cpi.empty:
+        cpi_basis_value = float(basis_rows_cpi["cpi_u"].iloc[0])
+        deflation_available = True
+    else:
+        fallback = cpi.sort_values("period").iloc[-1]
+        cpi_basis_value = float(fallback["cpi_u"])
+        cpi_basis_label = pd.to_datetime(fallback["period"]).strftime("%B %Y")
+        deflation_available = True
+
+if deflation_available:
+    work["period_month"] = work["auction_date"].dt.to_period("M").dt.to_timestamp()
+    cpi_lookup = cpi.set_index("period")["cpi_u"]
+    work["cpi_u_month"] = work["period_month"].map(cpi_lookup)
+    work["deflator"] = cpi_basis_value / work["cpi_u_month"]
+    missing_cpi = int(work["deflator"].isna().sum())
+    if missing_cpi:
+        print(
+            f"[deflate-basis] {missing_cpi} basis rows lack a CPI month-match; "
+            "leaving nominal.", file=_sys.stderr,
+        )
+    work["deflator"] = work["deflator"].fillna(1.0)
+    work["basis_real"] = work["basis"] * work["deflator"]
+else:
+    # No CPI available — fall back so the toggle is harmless.
+    work["basis_real"] = work["basis"]
+```
+
+::: {.callout-important}
+**Data source**: `{python} data_source_label` ·
+**Window**: `{python} date_min.strftime('%Y-%m-%d')` to `{python} date_max.strftime('%Y-%m-%d')` (`{python} n_weeks` distinct auction weeks) ·
+**Observations**: `{python} f"{n_obs:,}"` per-week-bin-class basis rows across three contract conventions ·
+**Grade shown**: Medium and Large, muscle grade 1 ·
+**Basis convention**: cash − settle on auction date (prior-trading-day fallback for weekend auctions, up to 5 days) ·
+**Deflation basis (real-$ view)**: `{python} cpi_basis_label` CPI-U NSA (`CUUR0000SA0`).
+:::
+
+## Weekly basis pattern
+
+Each line is the **average basis** for one weight class at each week of the calendar year, averaged across every year in the selected window. The shaded band behind each line is the **min/max range** observed across years for that week-of-year — the worst and best basis seen at that calendar position. Where the line sits inside a wide band, basis at that week is volatile year-over-year; where the band is tight, the historical pattern is reliable.
+
+```{python}
+#| echo: false
+
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+
+def _agg_weekly(work_df, contract, basis_col):
+    """Per (class, weight_bin, iso_week): min / mean / max of the chosen
+    basis column (``basis`` for nominal, ``basis_real`` for CPI-deflated)."""
+    s = work_df[work_df["contract_month"] == contract]
+    if s.empty:
+        return pd.DataFrame(columns=[
+            "class", "weight_bin", "iso_week",
+            "basis_min", "basis_avg", "basis_max", "n",
+        ])
+    return (
+        s.groupby(["class", "weight_bin", "iso_week"], as_index=False)
+         .agg(
+             basis_min=(basis_col, "min"),
+             basis_avg=(basis_col, "mean"),
+             basis_max=(basis_col, "max"),
+             n=(basis_col, "count"),
+         )
+    )
+
+
+# Year windows — same vocabulary as the other chart pages.
+_anchor = work["auction_date"].max()
+_anchor_year = int(_anchor.year)
+YEAR_WINDOWS = [
+    ("all",    "All",            work["auction_date"].min(),                   _anchor),
+    ("5y",     "Last 5 years",   _anchor - pd.DateOffset(years=5),             _anchor),
+    ("3y",     "Last 3 years",   _anchor - pd.DateOffset(years=3),             _anchor),
+    ("latest", f"{_anchor_year}", pd.Timestamp(_anchor_year, 1, 1),            _anchor),
+]
+CONTRACTS = ["MAY", "NOV", "NEARBY"]
+
+# Match the other chart pages' bin colors so a producer switching pages sees
+# consistent visual identity.
+COLOR_BY_BIN = {
+    "300–399 lb": "#6a3d9a",
+    "400–499 lb": "#000000",
+    "500–599 lb": "#2ca02c",
+    "600–699 lb": "#d17a00",
+    "700–799 lb": "#1f77b4",
+    "800–899 lb": "#8b0000",
+}
+BIN_ORDER = [
+    "300–399 lb", "400–499 lb", "500–599 lb",
+    "600–699 lb", "700–799 lb", "800–899 lb",
+]
+
+# Semi-transparent versions of each bin color for the min-max band fill.
+def _alpha(hex_or_rgb: str, a: float) -> str:
+    h = hex_or_rgb.lstrip("#")
+    if len(h) == 6:
+        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+        return f"rgba({r},{g},{b},{a})"
+    return hex_or_rgb
+BAND_BY_BIN = {wb: _alpha(c, 0.12) for wb, c in COLOR_BY_BIN.items()}
+INVISIBLE = "rgba(0,0,0,0)"
+
+fig = make_subplots(
+    rows=2, cols=1,
+    shared_xaxes=True,
+    vertical_spacing=0.10,
+    subplot_titles=(
+        "NM Clovis Steers — Basis to selected contract ($/cwt)",
+        "NM Clovis Heifers — Basis to selected contract ($/cwt)",
+    ),
+)
+
+
+def _add_bin(agg_df, cls, wb, row, visible, show_legend):
+    """Three traces per (class, bin): invisible min-line, max-line that
+    fills 'tonexty' to create the band, then the average line on top."""
+    sub = (
+        agg_df[(agg_df["class"] == cls) & (agg_df["weight_bin"] == wb)]
+        .sort_values("iso_week")
+    )
+    if sub.empty:
+        # Three placeholder traces so visibility-mask indices stay aligned
+        for _ in range(3):
+            fig.add_trace(go.Scatter(x=[], y=[], showlegend=False, visible=visible),
+                          row=row, col=1)
+        return
+    x = sub["iso_week"].astype(int).tolist()
+    ymin = pd.to_numeric(sub["basis_min"], errors="coerce").astype(float).tolist()
+    ymax = pd.to_numeric(sub["basis_max"], errors="coerce").astype(float).tolist()
+    yavg = pd.to_numeric(sub["basis_avg"], errors="coerce").astype(float).tolist()
+    n = pd.to_numeric(sub["n"], errors="coerce").astype("Int64").tolist()
+    color = COLOR_BY_BIN[wb]
+    band = BAND_BY_BIN[wb]
+
+    # 1. min line — invisible, anchors the band's lower edge
+    fig.add_trace(go.Scatter(
+        x=x, y=ymin, mode="lines",
+        line=dict(color=INVISIBLE, width=0),
+        showlegend=False, hoverinfo="skip", visible=visible,
+        name=f"{wb} min",
+    ), row=row, col=1)
+    # 2. max line — fills 'tonexty' down to min, semi-transparent band
+    fig.add_trace(go.Scatter(
+        x=x, y=ymax, mode="lines",
+        line=dict(color=INVISIBLE, width=0),
+        fill="tonexty", fillcolor=band,
+        showlegend=False, hoverinfo="skip", visible=visible,
+        name=f"{wb} max",
+    ), row=row, col=1)
+    # 3. avg line — solid, with full hover info
+    fig.add_trace(go.Scatter(
+        x=x, y=yavg, mode="lines+markers",
+        line=dict(color=color, width=2),
+        marker=dict(color=color, size=4),
+        name=wb, legendgroup=wb,
+        showlegend=show_legend, visible=visible,
+        customdata=list(zip(ymin, ymax, n)),
+        hovertemplate=(
+            f"<b>{wb} · {cls}</b><br>"
+            "Week %{x}<br>"
+            "Avg basis: $%{y:.2f}/cwt<br>"
+            "Range: $%{customdata[0]:.2f} → $%{customdata[1]:.2f}<br>"
+            "n years: %{customdata[2]:,}<extra></extra>"
+        ),
+    ), row=row, col=1)
+
+
+# Three-dimensional view space:
+#   year (4) × contract (3) × mode (2 = Nominal, Real) = 24 view-states.
+# Per state: 6 bins × 2 classes × 3 traces = 36 traces.
+# Total: 24 × 36 = 864 traces.
+#
+# Trace emission order is locked so visibility-mask indices are predictable:
+#   for year_idx in range(4):
+#       for contract_idx in range(3):
+#           for mode_idx in range(2):       # 0 = nominal, 1 = real
+#               for cls in (Steers, Heifers):
+#                   for wb in BIN_ORDER:    # 6 bins
+#                       (3 traces: min-anchor, max+band, avg)
+# Group index g = year_idx * 6 + contract_idx * 2 + mode_idx
+# First trace of group g is at fig.data[g * 36].
+MODES = ["nominal", "real"]
+MODE_BASIS_COL = {"nominal": "basis", "real": "basis_real"}
+N_TRACES_PER_GROUP = 36
+N_CONTRACTS = len(CONTRACTS)
+N_MODES = len(MODES)
+N_GROUPS = len(YEAR_WINDOWS) * N_CONTRACTS * N_MODES
+N_TRACES = N_GROUPS * N_TRACES_PER_GROUP
+
+for y_idx, (y_key, y_label, lo_d, hi_d) in enumerate(YEAR_WINDOWS):
+    sub_year = work[(work["auction_date"] >= lo_d) & (work["auction_date"] <= hi_d)]
+    for c_idx, contract in enumerate(CONTRACTS):
+        for m_idx, mode in enumerate(MODES):
+            basis_col = MODE_BASIS_COL[mode]
+            agg = _agg_weekly(sub_year, contract, basis_col)
+            is_default = (y_idx == 0 and c_idx == 0 and m_idx == 0)
+            for cls, panel_row in (("Steers", 1), ("Heifers", 2)):
+                for bin_idx, wb in enumerate(BIN_ORDER):
+                    # Show legend on every Steers-row avg trace across all
+                    # year×contract×mode groups. Plotly auto-hides legend
+                    # entries for invisible traces, so the legend always
+                    # reflects whichever group is currently visible.
+                    show_legend = (cls == "Steers")
+                    _add_bin(agg, cls, wb, row=panel_row,
+                             visible=is_default, show_legend=show_legend)
+
+
+def _group_idx(year_idx: int, contract_idx: int, mode_idx: int) -> int:
+    return year_idx * (N_CONTRACTS * N_MODES) + contract_idx * N_MODES + mode_idx
+
+
+def _visibility_for(year_idx: int, contract_idx: int, mode_idx: int) -> list[bool]:
+    out = [False] * N_TRACES
+    start = _group_idx(year_idx, contract_idx, mode_idx) * N_TRACES_PER_GROUP
+    for i in range(start, start + N_TRACES_PER_GROUP):
+        out[i] = True
+    return out
+
+
+def _yrange_for_state(year_idx: int, contract_idx: int, mode_idx: int) -> list[float]:
+    """Compute the y-axis range from the visible (year, contract, mode)
+    data.
+
+    Plotly's auto-range fails when many traces use ``fill="tonexty"``
+    bands — it defaults to its empty range $-1 to $4 even though the
+    visible traces have real values spanning much wider. Setting the
+    range explicitly per state restores the correct view.
+    """
+    _, _, lo_d, hi_d = YEAR_WINDOWS[year_idx]
+    contract = CONTRACTS[contract_idx]
+    basis_col = MODE_BASIS_COL[MODES[mode_idx]]
+    sub = work[
+        (work["auction_date"] >= lo_d)
+        & (work["auction_date"] <= hi_d)
+        & (work["contract_month"] == contract)
+    ]
+    if sub.empty or sub[basis_col].dropna().empty:
+        return [-50.0, 50.0]
+    y_min = float(sub[basis_col].min())
+    y_max = float(sub[basis_col].max())
+    pad = max((y_max - y_min) * 0.05, 1.0)
+    return [y_min - pad, y_max + pad]
+
+
+# Three button rows; per the cross-clearing pattern used on the cash
+# chart pages, clicking any button sets a complete (year, contract, mode)
+# state and clears the highlights on the other two rows. Each button
+# represents the chosen dimension's value combined with the other two
+# dimensions' BASELINE (year=All, contract=MAY, mode=Nominal).
+
+NOMINAL_Y_TITLES = {
+    "yaxis.title.text": "Basis, $/cwt (nominal)",
+    "yaxis2.title.text": "Basis, $/cwt (nominal)",
+}
+REAL_Y_TITLES = {
+    "yaxis.title.text": f"Basis, $/cwt (base = {cpi_basis_label})",
+    "yaxis2.title.text": f"Basis, $/cwt (base = {cpi_basis_label})",
+}
+MODE_Y_TITLES = {0: NOMINAL_Y_TITLES, 1: REAL_Y_TITLES}
+
+# Row 0 — contract buttons. Each = (All × contract × Nominal). Default = MAY.
+contract_buttons = []
+for c_idx, contract in enumerate(CONTRACTS):
+    label = {"MAY": "May contract", "NOV": "November contract",
+             "NEARBY": "Nearby contract"}[contract]
+    yr = _yrange_for_state(0, c_idx, 0)
+    contract_buttons.append(dict(
+        label=label,
+        method="update",
+        args=[
+            {"visible": _visibility_for(0, c_idx, 0)},
+            {
+                **NOMINAL_Y_TITLES,
+                "updatemenus[1].active": -1,  # clear year row
+                "updatemenus[2].active": -1,  # clear mode row
+                "yaxis.range": yr,
+                "yaxis2.range": yr,
+            },
+        ],
+    ))
+
+# Row 1 — year window buttons. Each = (year × MAY × Nominal).
+year_buttons = []
+for y_idx, (y_key, y_label, lo_d, hi_d) in enumerate(YEAR_WINDOWS):
+    yr = _yrange_for_state(y_idx, 0, 0)
+    year_buttons.append(dict(
+        label=y_label,
+        method="update",
+        args=[
+            {"visible": _visibility_for(y_idx, 0, 0)},
+            {
+                **NOMINAL_Y_TITLES,
+                "updatemenus[0].active": -1,  # clear contract row
+                "updatemenus[2].active": -1,  # clear mode row
+                "yaxis.range": yr,
+                "yaxis2.range": yr,
+            },
+        ],
+    ))
+
+# Row 2 — mode buttons. Each = (All × MAY × mode).
+mode_buttons = []
+for m_idx, mode in enumerate(MODES):
+    label = "Nominal $" if mode == "nominal" else f"Real ({cpi_basis_label} $)"
+    yr = _yrange_for_state(0, 0, m_idx)
+    mode_buttons.append(dict(
+        label=label,
+        method="update",
+        args=[
+            {"visible": _visibility_for(0, 0, m_idx)},
+            {
+                **MODE_Y_TITLES[m_idx],
+                "updatemenus[0].active": -1,  # clear contract row
+                "updatemenus[1].active": -1,  # clear year row
+                "yaxis.range": yr,
+                "yaxis2.range": yr,
+            },
+        ],
+    ))
+
+
+# Initial y-range matches the default-active button (year=0, contract=0, mode=0)
+_initial_yrange = _yrange_for_state(0, 0, 0)
+
+fig.update_layout(
+    height=980,
+    # Top margin needs to clear: subplot title (just above each panel),
+    # legend (above subplot title), and THREE button rows (above legend):
+    #   y=1.44 — Mode (Nominal $ / Real $)
+    #   y=1.32 — Contract (May / November / Nearby)
+    #   y=1.20 — Year window (All / Last 5y / Last 3y / latest)
+    # Legend sits at y=1.035; subplot titles between legend and panels.
+    margin=dict(t=290, b=60, l=80, r=30),
+    hovermode="x unified",
+    paper_bgcolor="white",
+    plot_bgcolor="white",
+    font=dict(family="Helvetica, Arial, sans-serif", size=13, color="#222"),
+    legend=dict(orientation="h", yanchor="bottom", y=1.035, xanchor="center", x=0.5),
+    # Preserve subplot_titles (auto-added by make_subplots as layout
+    # annotations) by appending our row-label annotations rather than
+    # replacing the list.
+    annotations=list(fig.layout.annotations) + [
+        dict(text="<b>Mode</b>",
+             showarrow=False, xref="paper", yref="paper",
+             x=0.0, y=1.44, xanchor="left", yanchor="top",
+             font=dict(size=12, color="#222")),
+        dict(text="<b>Contract</b>",
+             showarrow=False, xref="paper", yref="paper",
+             x=0.0, y=1.32, xanchor="left", yanchor="top",
+             font=dict(size=12, color="#222")),
+        dict(text="<b>Year window</b>",
+             showarrow=False, xref="paper", yref="paper",
+             x=0.0, y=1.20, xanchor="left", yanchor="top",
+             font=dict(size=12, color="#222")),
+    ],
+    updatemenus=[
+        dict(  # contract row (index 0)
+            type="buttons",
+            direction="right",
+            active=0,
+            x=0.18, y=1.32,
+            xanchor="left", yanchor="top",
+            pad=dict(r=6, t=4, b=4),
+            showactive=True,
+            buttons=contract_buttons,
+        ),
+        dict(  # year row (index 1) — All highlighted by default
+            type="buttons",
+            direction="right",
+            active=0,
+            x=0.18, y=1.20,
+            xanchor="left", yanchor="top",
+            pad=dict(r=6, t=4, b=4),
+            showactive=True,
+            buttons=year_buttons,
+        ),
+        dict(  # mode row (index 2) — Nominal highlighted by default
+            type="buttons",
+            direction="right",
+            active=0,
+            x=0.18, y=1.44,
+            xanchor="left", yanchor="top",
+            pad=dict(r=6, t=4, b=4),
+            showactive=True,
+            buttons=mode_buttons,
+        ),
+    ],
+)
+
+# X-axis = ISO week 1-52
+fig.update_xaxes(
+    tickmode="linear", tick0=1, dtick=1,
+    tickfont=dict(size=9),
+    showgrid=False, linecolor="#888", mirror=False, ticks="outside",
+    range=[0.5, 52.5],
+)
+fig.update_xaxes(title_text="Week of calendar year", row=2, col=1)
+
+# Y-axis = basis $/cwt; reference line at zero so positive/negative basis
+# is visually obvious. Range is set explicitly because Plotly's auto-range
+# defaults to its empty range when many traces use fill="tonexty" bands —
+# bug we hit on weekly-trends with date axes, here it bites bands too.
+fig.update_yaxes(
+    showgrid=True, gridcolor="#e5e5e5",
+    tickprefix="$", linecolor="#888", mirror=False, ticks="outside",
+    title_text="Basis, $/cwt (nominal)",
+    zeroline=True, zerolinewidth=1, zerolinecolor="#888",
+    range=_initial_yrange,
+)
+fig.update_layout(yaxis2=dict(matches="y"))
+
+fig.show()
+
+
+# ---------------------------------------------------------------------------
+# Independent-toggle JS layer.
+#
+# Plotly updatemenus are stateless — each button click sets fixed args, so
+# the only built-in way to keep three button rows visually consistent is the
+# cross-clearing pattern (clicking row N clears the highlights on rows
+# !=N). The user reasonably finds that confusing because the chart is
+# always showing the COMBINED state (year, contract, mode), but only the
+# most-recently-clicked dimension's row appears highlighted.
+#
+# This script post-process the rendered chart to keep all three rows
+# independently highlighted. It pre-computes every (year × contract ×
+# mode) state's visibility mask + y-range as a JSON lookup table, then
+# listens for ``plotly_buttonclicked`` events and re-applies the combined
+# state via ``Plotly.update`` — including re-asserting ``active`` on all
+# three menus so each row keeps its last selection.
+#
+# Falls back gracefully: if the JS doesn't load, the buttons still work
+# in the existing cross-clearing mode (their args are unchanged).
+
+import json
+from IPython.display import HTML, display
+
+_state_table = {}
+for _y in range(len(YEAR_WINDOWS)):
+    for _c in range(N_CONTRACTS):
+        for _m in range(N_MODES):
+            _state_table[f"{_y}-{_c}-{_m}"] = {
+                "v": _visibility_for(_y, _c, _m),
+                "r": _yrange_for_state(_y, _c, _m),
+            }
+_js_state = json.dumps(_state_table)
+_js_y_titles = json.dumps({
+    "0": "Basis, $/cwt (nominal)",
+    "1": f"Basis, $/cwt (base = {cpi_basis_label})",
+})
+
+display(HTML(f"""
+<script>
+(function() {{
+    var STATE = {_js_state};
+    var Y_TITLES = {_js_y_titles};
+    // Menu indices: 0=contract, 1=year, 2=mode (matches updatemenus order)
+    var current = {{ contract: 0, year: 0, mode: 0 }};
+
+    function findChart() {{
+        // Look for a Plotly div on the page that has exactly three
+        // updatemenus (our basis chart's signature) and hasn't been wired
+        // by this script yet.
+        var divs = document.querySelectorAll('.plotly-graph-div');
+        for (var i = divs.length - 1; i >= 0; i--) {{
+            var d = divs[i];
+            if (d && d._fullLayout && d._fullLayout.updatemenus
+                && d._fullLayout.updatemenus.length === 3
+                && !d.__basisToggleWired) {{
+                return d;
+            }}
+        }}
+        return null;
+    }}
+
+    function applyState(gd) {{
+        var key = current.year + '-' + current.contract + '-' + current.mode;
+        var s = STATE[key];
+        if (!s) return;
+        var yTitle = Y_TITLES[String(current.mode)];
+        Plotly.update(gd,
+            {{ visible: s.v }},
+            {{
+                'yaxis.range': s.r,
+                'yaxis2.range': s.r,
+                'yaxis.title.text': yTitle,
+                'yaxis2.title.text': yTitle,
+                'updatemenus[0].active': current.contract,
+                'updatemenus[1].active': current.year,
+                'updatemenus[2].active': current.mode,
+            }}
+        );
+    }}
+
+    function attach() {{
+        var gd = findChart();
+        if (!gd) {{ setTimeout(attach, 150); return; }}
+        gd.__basisToggleWired = true;
+
+        gd.on('plotly_buttonclicked', function(ev) {{
+            // Identify which menu was clicked by its button count — a
+            // stable property that survives Plotly's _fullLayout rebuilds.
+            // Reference comparison against gd._fullLayout.updatemenus[i]
+            // does NOT work here: every Plotly.update we trigger rebuilds
+            // _fullLayout with new menu objects, so ev.menu (captured at
+            // button-bind time) drifts out of identity equality with the
+            // current full-layout references. Using button count also
+            // survives any future re-ordering of the rows in Python.
+            //   mode row     -> 2 buttons (Nominal, Real)
+            //   contract row -> 3 buttons (May, November, Nearby)
+            //   year row     -> 4 buttons (All, 5y, 3y, latest)
+            var nBtns = (ev.menu && ev.menu.buttons) ? ev.menu.buttons.length : 0;
+            var dim = (nBtns === 2) ? 'mode'
+                    : (nBtns === 3) ? 'contract'
+                    : (nBtns === 4) ? 'year'
+                    : null;
+            if (!dim) return;
+            // Active button index after the click. ev.active is supplied
+            // by Plotly; fall back to indexOf for robustness.
+            var btnIdx = ev.active;
+            if (typeof btnIdx !== 'number' || btnIdx < 0) {{
+                btnIdx = ev.menu.buttons.indexOf(ev.button);
+            }}
+            current[dim] = btnIdx;
+
+            // Defer one tick so Plotly's own button-args update fires
+            // first (which momentarily clears other rows' actives via
+            // the cross-clearing args), then we override with the
+            // combined state.
+            setTimeout(function() {{ applyState(gd); }}, 0);
+        }});
+
+        // NOTE: we deliberately do NOT call applyState(gd) on init.
+        // The Python-side fig.update_layout already sets the correct
+        // default visibility (year=0, contract=0, mode=0) and active
+        // states. Calling Plotly.update here would rebuild _fullLayout
+        // before the user's first click — that itself is fine, but it
+        // also costs a render and contributes nothing to the visible
+        // state.
+    }}
+
+    if (document.readyState === 'loading') {{
+        document.addEventListener('DOMContentLoaded', attach);
+    }} else {{
+        attach();
+    }}
+}})();
+</script>
+"""))
+```
+
+## How to read this
+
+**Negative basis = cash below futures.** When the line sits below the zero reference, Clovis cash for that week-of-year typically clears below the relevant CME settle. A short hedger (sold futures, plans to sell cash) realizes `settle + basis` — so a $-10/cwt basis means the hedger receives $10 less than the futures price. Producers who would normally hedge plan around this expected discount.
+
+**Positive basis = cash above futures.** When the line sits above zero, Clovis cash clears above CME — historically rare for the May contract, more common for the November and nearby contracts in fall delivery weeks. The 2024–2026 cash run-up has pushed many of these basis lines positive at week-of-year positions where they have historically been negative.
+
+**The shaded band is the worst-and-best year**, not a typical year. A producer expecting "the average basis" should plan around the solid line; the band's edges are extremes seen once across the available years. Tight bands mean reliable basis; wide bands mean one or two anomaly years (drought, COVID, post-2022 cash blowout) stretched the historical range.
+
+**The Nearby contract is the simplest hedge reference.** It auto-rolls to whichever contract is closest to expiry, so it's a forward-price reference no matter what time of year a producer is selling. The May and November lines answer the more specific *"what basis should I expect against the spring/fall contract a producer might already have on the books?"*
+
+## Why this view exists alongside the other charts
+
+The chart shelf now decomposes the same Clovis-plus-CME dataset along four orthogonal axes:
+
+| Page | Aggregates | Answers |
+|---|---|---|
+| [Price–weight explorer](price-weight.qmd) | across time, per (weight, class) | *what does each weight class fetch on average?* |
+| [Weekly seasonality](seasonality.qmd) | across years, per (week-of-year, weight, class) | *when in the year do these prices peak?* |
+| [Weekly trends](weekly-trends.qmd) | nothing — raw weekly observations | *how have prices moved week-by-week?* |
+| Basis (this page) | across years, per (week-of-year, weight, class, contract) | *what's the typical hedge gap to the May / November / nearby contract?* |
+
+A producer who hedges, or who reads futures as a forward-price reference, gets the basis answer that the cash-only views can't give. Together they triangulate "where am I" and "where am I likely to land if I lock in a hedge".
+
+## Download
+
+- [Basis parquet](../data/processed/clovis_basis_latest.parquet) — long-format: one row per (auction_date, class, frame, muscle_grade, weight_break_low/high, contract_month, settle, basis).
+- [CME settles parquet](../data/processed/cme_feeders_latest.parquet) — long-format: one row per (date, contract_month, settle).
+- [Basis manifest](../data/processed/clovis_basis_MANIFEST.json) — vintage stamps and SHAs for each derived basis snapshot.
+- [CME settles manifest](../data/processed/cme_feeders_MANIFEST.json) — vintage stamps for the underlying futures snapshot.
+
+## See also
+
+- [Methodology → CPI deflation](methodology/cpi.qmd) — the deflator the cash-price charts use; the same CPI series powers the basis page's real-dollar mode.
+- [Methodology → Clovis pipeline](methodology/clovis.qmd) — the cash side of the basis calculation.
+- [Methodology → Basis derivation](methodology/basis.qmd) — the contract-month convention, date-alignment rule, and the per-row deflation identity used by the real-dollar mode.
+
+## What's next on this page
+
+- [ ] **Contract-cycle aligned x-axis.** The May contract expires in late May; a producer reading basis to May cares most about the run-up *to* expiry. Tronstad (1994) shows the May figure starting at week 22 (when the next May becomes the active reference) and wrapping through week 21 of the following year. Same logic for November (start at week 48). The current chart shows a calendar 1–52 axis for all three contracts, which is informative but not aligned to the contract cycle. Add as v2.
+- [ ] **IQR (25–75 percentile) band** layered behind the min-max band — tighter "typical year" reference inside the extreme range. Activate once 5+ years of complete data have stabilized the percentile estimates.
+- [ ] **Bin-isolate mode** — clicking a legend entry hides every bin except the chosen one and reveals its full band detail (per-bin focus view), without the noise of all six overlaid bands.
+- [ ] **Other contract months** (March / September / January / April / August) on demand — the data is already in the basis parquet; this is just adding more buttons to the contract row if a producer's marketing decision is keyed to a different contract.
+- [ ] **A "current week marker"** showing where this week's basis sits against the historical average for the same week — bridge to a future *sell-now compare* widget.

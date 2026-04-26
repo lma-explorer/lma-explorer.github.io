@@ -30,6 +30,9 @@ PROCESSED = Path("..") / "data" / "processed"
 MANIFESTS = [
     ("BLS CPI-U (monthly refresh)", PROCESSED / "MANIFEST.json"),
     ("USDA-AMS Clovis auction (weekly refresh)", PROCESSED / "clovis_MANIFEST.json"),
+    ("Clovis Era B historical (one-time)", PROCESSED / "clovis_historical_MANIFEST.json"),
+    ("CME GF feeder settles (one-time bootstrap)", PROCESSED / "cme_feeders_MANIFEST.json"),
+    ("Clovis basis (derived, refreshed on ingest)", PROCESSED / "clovis_basis_MANIFEST.json"),
 ]
 
 def _row(label, path):
@@ -65,7 +68,7 @@ Markdown(header + "\n" + body)
 | USDA-AMS | Clovis Livestock Auction feeder-cattle report (`AMS_1781`) via MARS API | [`pipelines/clovis/`](https://github.com/lma-explorer/lma-explorer.github.io/tree/main/pipelines/clovis) | Weekly, Thursday 18:00 UTC | **Live** |
 | USDA-AMS | Additional Market News reports (other auctions, other commodities) | Not yet built | — | *Phase 2 candidate* |
 | USDA NASS | QuickStats — state/county crop and livestock statistics | Not yet built | — | *Phase 2 candidate* |
-| CME | Feeder-cattle and live-cattle futures | Link-out only; derived statistics may be published | — | *Proprietary source* |
+| CME GF | Feeder-cattle daily futures settles (8 contract months + Nearby) | [`pipelines/cme_feeders/`](https://github.com/lma-explorer/lma-explorer.github.io/tree/main/pipelines/cme_feeders); basis derivation [`pipelines/clovis/basis.py`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/clovis/basis.py) | One-time bootstrap from a third-party settle workbook; Phase-2 follow-on refreshes from CME directly | **Live (derived basis only)** |
 
 The Clovis weekly series extends back to October 2017 — the floor of USDA-AMS Market News's per-slug archive for this report. The October 2017 → April 2019 portion was a one-time historical reconstruction (read-only after ingest); from April 2019 forward the live MARS pipeline keeps the series current.
 
@@ -73,6 +76,7 @@ The Clovis weekly series extends back to October 2017 — the floor of USDA-AMS 
 
 - [CPI deflation and the release-basis vintage](cpi.qmd)
 - [Clovis auction pipeline: slug `AMS_1781`, filters, and schema](clovis.qmd)
+- [Basis derivation: Clovis cash − CME GF settle](basis.qmd)
 
 ## What a methodology page contains
 

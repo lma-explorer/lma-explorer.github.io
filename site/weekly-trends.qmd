@@ -365,7 +365,11 @@ fig.update_layout(
     plot_bgcolor="white",
     font=dict(family="Helvetica, Arial, sans-serif", size=13, color="#222"),
     legend=dict(orientation="h", yanchor="bottom", y=1.035, xanchor="center", x=0.5),
-    annotations=[
+    # APPEND to the make_subplots-generated subplot titles ("NM Clovis Steers
+    # — Weekly $/cwt", "NM Clovis Heifers — Weekly $/cwt"); a bare
+    # `annotations=[...]` would REPLACE them and the panel headers would
+    # silently disappear.
+    annotations=list(fig.layout.annotations) + [
         dict(text="<b>Nominal $</b>",
              showarrow=False, xref="paper", yref="paper",
              x=0.0, y=1.32, xanchor="left", yanchor="top",

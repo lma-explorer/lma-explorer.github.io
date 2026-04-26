@@ -28,6 +28,8 @@ website:
         href: seasonality.qmd
       - text: "Weekly trends"
         href: weekly-trends.qmd
+      - text: "Basis"
+        href: basis.qmd
       - text: "Methodology"
         href: methodology/index.qmd
       - text: "Data"

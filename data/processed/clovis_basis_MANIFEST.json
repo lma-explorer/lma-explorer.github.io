@@ -1,0 +1,39 @@
+{
+  "slug": "CLOVIS_BASIS",
+  "entries": [
+    {
+      "vintage": "2026-04-25",
+      "file": "data/processed/clovis_basis_2026-04-25.parquet",
+      "sha256": "5fcea79428f275ef6523d2c6ddceb19b44e083a1cd2a9a2ad01050bc7cde9dd1",
+      "rows": 47055,
+      "written_at_utc": "2026-04-26T03:01:13.645396+00:00",
+      "latest_path": "data/processed/clovis_basis_latest.parquet",
+      "rows_with_basis": 46999,
+      "rows_missing_settle": 56,
+      "auction_week_count": 387,
+      "coverage": "2017-10-04..2026-04-22",
+      "contract_months": [
+        "MAY",
+        "NEARBY",
+        "NOV"
+      ]
+    },
+    {
+      "vintage": "2026-04-26",
+      "file": "data/processed/clovis_basis_2026-04-26.csv",
+      "sha256": "5198f7d53cf8616898bd27aa245c5900d4f4f0d3e457b157002fe6621fe02450",
+      "rows": 8212,
+      "written_at_utc": "2026-04-26T02:58:05.402087+00:00",
+      "latest_path": "data/processed/clovis_basis_latest.csv",
+      "rows_with_basis": 8212,
+      "rows_missing_settle": 0,
+      "auction_week_count": 74,
+      "coverage": "2017-10-04..2019-04-10",
+      "contract_months": [
+        "MAY",
+        "NEARBY",
+        "NOV"
+      ]
+    }
+  ]
+}
