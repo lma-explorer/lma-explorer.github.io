@@ -1,0 +1,49 @@
+{
+  "slug": "CME_GF_FEEDERS",
+  "entries": [
+    {
+      "vintage": "2026-04-25",
+      "file": "data/processed/cme_feeders_2026-04-25.parquet",
+      "sha256": "ee2256a52e20d1bff9c0d73344c5d9a3955d50f43bfd7c0f83fc8ba8fb148be5",
+      "rows": 80391,
+      "written_at_utc": "2026-04-26T02:56:33.999750+00:00",
+      "source_kind": "third-party-compiled CME daily settle workbook",
+      "latest_path": "data/processed/cme_feeders_latest.parquet",
+      "coverage": "1989-10-30..2026-04-10",
+      "contract_months": [
+        "APR",
+        "AUG",
+        "JAN",
+        "MAR",
+        "MAY",
+        "NEARBY",
+        "NOV",
+        "OCT",
+        "SEP"
+      ],
+      "trading_days": 9181
+    },
+    {
+      "vintage": "2026-04-26",
+      "file": "data/processed/cme_feeders_2026-04-26.csv",
+      "sha256": "f1823dc8148f721ad27b936fde3b26a0daccc0718de4619054657d961c36537c",
+      "rows": 80391,
+      "written_at_utc": "2026-04-26T02:55:40.132309+00:00",
+      "source_kind": "third-party-compiled CME daily settle workbook",
+      "latest_path": "data/processed/cme_feeders_latest.csv",
+      "coverage": "1989-10-30..2026-04-10",
+      "contract_months": [
+        "APR",
+        "AUG",
+        "JAN",
+        "MAR",
+        "MAY",
+        "NEARBY",
+        "NOV",
+        "OCT",
+        "SEP"
+      ],
+      "trading_days": 9181
+    }
+  ]
+}

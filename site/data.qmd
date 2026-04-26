@@ -62,6 +62,26 @@ CATALOG = [
         "methodology_url": "methodology/clovis.qmd",
         "description": "USDA-AMS Market News per-slug archive (CV_LS750 fixed-width TXT). Oct 2017 – Apr 2019. Read-only after one-time ingest; chart pages read this together with the rolling MARS-era parquet via pipelines/clovis/load.py.",
     },
+    {
+        "title": "CME GF feeder-cattle daily settles (one-time bootstrap)",
+        "parquet": "cme_feeders_latest.parquet",
+        "vintage_column": "date",
+        "manifest": "cme_feeders_MANIFEST.json",
+        "pipeline_url": "https://github.com/lma-explorer/lma-explorer.github.io/tree/main/pipelines/cme_feeders",
+        "workflow_url": "https://github.com/lma-explorer/lma-explorer.github.io/blob/main/.github/workflows/clovis_refresh.yml",
+        "methodology_url": "methodology/basis.qmd",
+        "description": "CME GF (Feeder Cattle) daily settle prices for eight contract months (JAN/MAR/APR/MAY/AUG/SEP/OCT/NOV) plus an auto-rolled Nearby column. Long-format (one row per date × contract_month). Bootstrap source is a third-party settle workbook; Phase-2 follow-on refreshes from CME directly.",
+    },
+    {
+        "title": "Clovis basis (derived: Clovis cash − CME settle)",
+        "parquet": "clovis_basis_latest.parquet",
+        "vintage_column": "auction_date",
+        "manifest": "clovis_basis_MANIFEST.json",
+        "pipeline_url": "https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/clovis/basis.py",
+        "workflow_url": "https://github.com/lma-explorer/lma-explorer.github.io/blob/main/.github/workflows/clovis_refresh.yml",
+        "methodology_url": "methodology/basis.qmd",
+        "description": "Per-(auction_date, class, frame, muscle_grade, weight_break, contract_month) basis = head-weighted Clovis cash − CME settle. Three contract conventions surfaced: May, November, Nearby. Powers the Basis chart page.",
+    },
 ]
 
 
