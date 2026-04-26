@@ -7,15 +7,15 @@ toc-depth: 2
 
 ## What is being measured
 
-When a figure on this site says it shows **real dollars**, it means nominal prices have been divided by a Consumer Price Index value to remove the effect of general price-level change. The CPI series used is the **CPI-U, All Items, U.S. City Average, Not Seasonally Adjusted** (BLS series `CUUR0000SA0`).
+When a figure on this site says it shows **real dollars**, it means nominal prices have been divided by a Consumer Price Index value to remove the effect of general price-level change. The CPI series used is the **CPI-U, All Items, U.S. City Average, Not Seasonally Adjusted** ([BLS series `CUUR0000SA0`](https://data.bls.gov/timeseries/CUUR0000SA0); see also the [BLS Handbook of Methods, CPI chapter](https://www.bls.gov/opub/hom/cpi/home.htm) for the underlying construction).
 
 NSA is used rather than seasonally adjusted CPI because seasonal-adjustment patterns reflect a general consumer basket and do not cleanly transfer to livestock prices; the actual price level a producer faced in a given month is what NSA reports.
 
 ## Where the data comes from
 
-- **Series**: `CUUR0000SA0`
-- **Publisher**: U.S. Bureau of Labor Statistics, public v2 API
-- **License**: U.S. public domain (17 U.S.C. § 105)
+- **Series**: [`CUUR0000SA0`](https://data.bls.gov/timeseries/CUUR0000SA0)
+- **Publisher**: U.S. Bureau of Labor Statistics, [public v2 API](https://www.bls.gov/developers/api_signature_v2.htm)
+- **License**: U.S. public domain ([17 U.S.C. § 105](https://www.law.cornell.edu/uscode/text/17/105))
 - **Pipeline**: [`pipelines/bls/`](https://github.com/lma-explorer/lma-explorer.github.io/tree/main/pipelines/bls)
 - **Schedule**: 16th of each month, 14:00 UTC ([`bls_cpi_refresh.yml`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/.github/workflows/bls_cpi_refresh.yml))
 
@@ -141,8 +141,8 @@ If you are reproducing a figure locally and BLS has since revised the December 2
 
 ## What is deliberately left out
 
-- **Regional CPIs** (e.g., CPI for the Mountain Census region) are not used. A producer in New Mexico might prefer a regional deflator; the site keeps CPI-U U.S. City Average because it is the standard agricultural-economics deflator and has the deepest continuous history. Regional alternatives are a Phase 2 candidate.
-- **Chained CPI-U (C-CPI-U)** is not used. The standard CPI-U is the conventional deflator in livestock-price analysis and what most published agricultural-economics work compares against.
+- **Regional CPIs** (e.g., CPI for the Mountain Census region) are not used. A producer in New Mexico might prefer a regional deflator; the site keeps CPI-U U.S. City Average because it has the deepest continuous monthly history of any BLS price index, is the index BLS itself flags as the headline All-Items series, and is widely used as a deflator across producer-facing economic reporting. Regional alternatives are a Phase 2 candidate.
+- **Chained CPI-U (C-CPI-U)** is not used. CPI-U has the longer continuous history (the chained series begins in December 1999) and is the more common reference in producer-facing livestock-price reporting.
 - **Producer Price Index (PPI)** is not used for livestock-price deflation here. A separate Phase 2 methodology page will introduce PPI for feed-cost figures where it is more appropriate.
 - **Seasonal-adjustment** (the SA variant of CPI-U) is not used — see the opening paragraph.
 

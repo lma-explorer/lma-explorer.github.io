@@ -22,15 +22,15 @@ A short hedger — someone who sells a futures contract intending to offset it w
 | Field | Source | Notes |
 |---|---|---|
 | **Cash** | USDA-AMS Market News, Clovis Livestock Auction (slug `AMS_1781`) | The same weighted-average $/cwt the [Price–weight](../price-weight.qmd) and [Weekly trends](../weekly-trends.qmd) charts use, head-weighted within each (auction-date, class, frame, muscle-grade, 100-lb-bin) cell. See [Methodology → Clovis pipeline](clovis.qmd). |
-| **Futures settle** | CME GF (Feeder Cattle) daily settle prices | Public-domain by U.S. statute on government-released economic data; CME's daily settles are also published openly on `cmegroup.com`. The platform sources them via a third-party-compiled Excel of daily settles for the bootstrap; a future Phase-2 pipeline will refresh from CME directly on schedule. |
+| **Futures settle** | CME GF (Feeder Cattle) daily settle prices | CME's daily settles are published openly on `cmegroup.com`; the [feeder-cattle contract specifications](https://www.cmegroup.com/markets/agriculture/livestock/feeder-cattle.contractSpecs.html) document tick size, contract size, last-trade-date conventions, and settlement source. The platform sources them via a third-party-compiled Excel of daily settles for the bootstrap; a future Phase-2 pipeline will refresh from CME directly on schedule. |
 | **Basis** | Derived | `basis = cash − settle`, per (auction_date, class, frame, muscle_grade, weight_break_low/high, contract_month). |
 
 ## The contract-month convention
 
-The CME GF Feeder Cattle futures contract trades **eight delivery months**: January, March, April, May, August, September, October, November. Producers selling cash at any time of year can hedge against any of these contracts — but two are particularly common:
+The CME GF Feeder Cattle futures contract trades **eight delivery months**: January, March, April, May, August, September, October, November (see the [CME contract specifications](https://www.cmegroup.com/markets/agriculture/livestock/feeder-cattle.contractSpecs.html) for tick size, contract size, and last-trade-date rules). Producers selling cash at any time of year can hedge against any of these contracts — but two are particularly common in producer-facing hedging guides for the four-corners region:
 
-- **May contract** (CME ticker month code `K`) — the canonical spring-marketing hedge. A producer who plans to sell in spring locks in May futures, and at sale realizes `May settle + basis`. Tronstad (1994) treats this as the central case for spring marketing of weaned calves.
-- **November contract** (`X`) — the canonical fall-marketing hedge for stockers exiting grass and selling in October–November.
+- **May contract** (CME ticker month code `K`) — a common spring-marketing hedge. A producer who plans to sell in spring locks in May futures, and at sale realizes `May settle + basis`. The May contract is the most commonly cited reference in the Extension literature on spring-marketing of weaned calves; see Tronstad (1994) for one such treatment.
+- **November contract** (`X`) — a common fall-marketing hedge for stockers exiting grass and selling in October–November.
 - **Nearby contract** — a derived view that auto-rolls to whichever traded contract is closest to expiry on each date. Useful as a forward-price reference at any time of year, since it doesn't presuppose a specific marketing month.
 
 The chart on the basis page shows all three; the user picks via the **Contract** button row above the chart.
@@ -72,7 +72,7 @@ where $d_M = \text{CPI}_{\text{Dec 2025}} / \text{CPI}_M$ is the monthly deflato
 
 Two reasons a reader might prefer one mode over the other. **Nominal** is what a hedger would actually realize when they offset a futures position with a cash sale today, and what the live ticker on the relevant CME contract reports — use this for any decision involving a check that will be written in 2026 dollars. **Real (Dec 2025 $)** lets the reader compare 2018 basis against 2025 basis without inflation muddying the picture — use this for cross-cycle reasoning, e.g., "is the 2024–2025 cash blowout different from past cycle peaks once you net out CPI?"
 
-CPI deflation is not the universal convention in basis analysis (most published basis tables — including the LMIC compilations and the Tronstad 1994 figure that motivated the May/November contract choice — are nominal-only), so the default view is nominal. The real-dollar mode is a deliberate addition for readers who want it.
+CPI deflation is not the universal convention in basis analysis — most published basis tables in the agricultural-economics and Extension literature are nominal-only, since basis is already a difference-of-prices statistic interpreted in the trading-period dollars where the hedge is offset. So the default view here is nominal; the real-dollar mode is a deliberate addition for readers who want to compare basis levels across cycles after netting out CPI.
 
 ## What basis is *not*
 

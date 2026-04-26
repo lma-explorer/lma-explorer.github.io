@@ -11,11 +11,11 @@ The [Price–weight explorer](../price-weight.qmd) and [Weekly seasonality](../s
 
 ## Where the data comes from
 
-- **Report**: *Clovis Livestock Auction - Clovis, NM* — a weekly AMS Market News report covering Wednesday sales.
+- **Report**: *Clovis Livestock Auction - Clovis, NM* — a weekly [USDA-AMS Market News](https://www.ams.usda.gov/market-news/livestock-poultry-grain) report covering Wednesday sales.
 - **MARS slug**: `AMS_1781` (numeric `slug_id` = `1781`)
 - **Office**: Portales, NM (USDA-AMS reporting office for Clovis)
 - **Publisher**: USDA-AMS Market News via the [MARS API](https://mymarketnews.ams.usda.gov/mars-api) (requires a free API key)
-- **License**: U.S. public domain (17 U.S.C. § 105)
+- **License**: U.S. public domain ([17 U.S.C. § 105](https://www.law.cornell.edu/uscode/text/17/105))
 - **Pipeline**: [`pipelines/clovis/`](https://github.com/lma-explorer/lma-explorer.github.io/tree/main/pipelines/clovis)
 - **Schedule**: weekly, Thursday 18:00 UTC, via [`clovis_refresh.yml`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/.github/workflows/clovis_refresh.yml). Thursday 18:00 UTC is ~1:00 PM U.S. Central, giving AMS time to publish the Wednesday auction report.
 
@@ -83,7 +83,7 @@ The tolerance for anomalous rows is capped at 0.1% of all feeder $/cwt rows. If 
 
 ## Weight-class binning
 
-The chart pages aggregate prices to **100-lb bins** (300-399, 400-499, 500-599, 600-699, 700-799, 800-899 lb). 100-lb bins are the conventional aggregation in USDA-AMS Market News and producer-facing livestock publications, the granularity at which buyers and sellers actually negotiate, and the standard reporting window in agricultural-economics analyses of feeder-cattle price-weight behavior. The MARS feed publishes prices in **50-lb bins** (300-349, 350-399, 400-449, …) starting in 2024; earlier rows have no explicit bin field, only an `avg_weight` for the observed pen.
+The chart pages aggregate prices to **100-lb bins** (300-399, 400-499, 500-599, 600-699, 700-799, 800-899 lb). 100-lb bins are the most common aggregation in the public USDA-AMS Market News auction-report templates (the templates that summarize feeder-cattle sales typically present `300-400 lb`, `400-500 lb`, etc. as their headline rows), and they map closely to how feeder-cattle pens are described in producer-facing publications and ranch sale reports. The MARS feed publishes prices in **50-lb bins** (300-349, 350-399, 400-449, …) starting in 2024; earlier rows have no explicit bin field, only an `avg_weight` for the observed pen.
 
 Both chart pages collapse the native MARS binning into the 100-lb scheme:
 
@@ -94,7 +94,14 @@ Observations below 300 lb or above 899 lb are excluded from the charts because t
 
 ## Grade filter on the chart
 
-The two chart pages show only the **Medium and Large frame, muscle grade 1** subset — the dominant grade combination by volume at Clovis and across the four-corners region, and the cleanest population for price-weight comparison: M&L 1 is the standard reference grade in USDA-AMS feeder-cattle reporting and in agricultural-economics analyses of price-slide behavior, so restricting to it keeps the comparison apples-to-apples week over week. All other frame-and-grade combinations (`Medium`, `Large`, `Small and Medium`, muscle grades 2 and 1-2, etc.) are preserved in the snapshot but filtered out in the site's chart code rather than in the pipeline. Adding those as reader-selectable filters is a Phase 2 enhancement.
+The two chart pages show only the **Medium and Large frame, muscle grade 1** (M&L 1) subset. Frame and muscle-grade categories follow the [USDA Federal Standards for Grades of Feeder Cattle](https://www.ams.usda.gov/grades-standards/feeder-cattle-grades-and-standards) — a published USDA-AMS standard that defines `Large`, `Medium and Large`, `Medium`, and `Small and Medium` frame classes and muscle grades 1, 1-2, and 2.
+
+Two reasons to restrict the chart to M&L 1:
+
+- **It is the most common grade combination by volume in the Clovis snapshots committed to this repo.** The `MARS-era` parquet, by head-count, is dominated by M&L 1 rows; other frame and muscle-grade combinations make up a much smaller share. Restricting to it keeps each (week, weight-bin) cell statistically meaningful instead of mixing in low-count outliers.
+- **It is the cleanest population for price-weight comparison week over week.** Mixing M&L 1 with `Medium 2` or `Small and Medium 2` rows in the same chart line would average across visibly different cattle types, blurring the price-weight relationship the chart is built to show.
+
+All other frame-and-grade combinations (`Medium`, `Large`, `Small and Medium`, muscle grades 2 and 1-2, etc.) are preserved in the snapshot but filtered out in the site's chart code rather than in the pipeline. Adding those as reader-selectable filters is a Phase 2 enhancement.
 
 ## The schema-hash validator
 
