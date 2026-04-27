@@ -1,0 +1,391 @@
+{
+  "slug": "LRP_PUBFS",
+  "entries": [
+    {
+      "vintage": "2026-04-27",
+      "file": "data/processed/lrp_premiums_2026-04-27.parquet",
+      "sha256": "5595a6c5c67c3d7e41fdf1e836c1855bc208d49143b340544443d602f7dd9935",
+      "rows": 210375,
+      "written_at_utc": "2026-04-27T22:19:30+00:00",
+      "annual_breakdown": [
+        {
+          "reinsurance_year": 2003,
+          "rows": 31,
+          "unique_states_excl_xx": 0,
+          "rows_xx": 31,
+          "rows_nm": 0,
+          "type_code_counts": {
+            "810": 31
+          }
+        },
+        {
+          "reinsurance_year": 2004,
+          "rows": 362,
+          "unique_states_excl_xx": 5,
+          "rows_xx": 221,
+          "rows_nm": 0,
+          "type_code_counts": {
+            "810": 362
+          }
+        },
+        {
+          "reinsurance_year": 2005,
+          "rows": 1308,
+          "unique_states_excl_xx": 9,
+          "rows_xx": 639,
+          "rows_nm": 0,
+          "type_code_counts": {
+            "810": 618,
+            "812": 325,
+            "809": 201,
+            "811": 144,
+            "816": 12,
+            "815": 8
+          }
+        },
+        {
+          "reinsurance_year": 2006,
+          "rows": 1590,
+          "unique_states_excl_xx": 10,
+          "rows_xx": 612,
+          "rows_nm": 0,
+          "type_code_counts": {
+            "810": 814,
+            "812": 442,
+            "809": 164,
+            "811": 136,
+            "816": 17,
+            "815": 16,
+            "814": 1
+          }
+        },
+        {
+          "reinsurance_year": 2007,
+          "rows": 752,
+          "unique_states_excl_xx": 10,
+          "rows_xx": 319,
+          "rows_nm": 0,
+          "type_code_counts": {
+            "810": 372,
+            "812": 168,
+            "809": 99,
+            "811": 93,
+            "816": 11,
+            "815": 6,
+            "814": 2,
+            "813": 1
+          }
+        },
+        {
+          "reinsurance_year": 2008,
+          "rows": 1157,
+          "unique_states_excl_xx": 14,
+          "rows_xx": 411,
+          "rows_nm": 0,
+          "type_code_counts": {
+            "810": 469,
+            "809": 272,
+            "812": 212,
+            "811": 182,
+            "816": 14,
+            "815": 8
+          }
+        },
+        {
+          "reinsurance_year": 2009,
+          "rows": 611,
+          "unique_states_excl_xx": 12,
+          "rows_xx": 208,
+          "rows_nm": 0,
+          "type_code_counts": {
+            "810": 244,
+            "809": 144,
+            "812": 113,
+            "811": 103,
+            "816": 5,
+            "815": 2
+          }
+        },
+        {
+          "reinsurance_year": 2010,
+          "rows": 1227,
+          "unique_states_excl_xx": 13,
+          "rows_xx": 400,
+          "rows_nm": 0,
+          "type_code_counts": {
+            "810": 456,
+            "809": 356,
+            "811": 227,
+            "812": 178,
+            "816": 10
+          }
+        },
+        {
+          "reinsurance_year": 2011,
+          "rows": 2444,
+          "unique_states_excl_xx": 18,
+          "rows_xx": 538,
+          "rows_nm": 11,
+          "type_code_counts": {
+            "810": 888,
+            "809": 655,
+            "812": 441,
+            "811": 436,
+            "816": 12,
+            "815": 12
+          }
+        },
+        {
+          "reinsurance_year": 2012,
+          "rows": 2098,
+          "unique_states_excl_xx": 18,
+          "rows_xx": 588,
+          "rows_nm": 0,
+          "type_code_counts": {
+            "810": 943,
+            "809": 468,
+            "812": 405,
+            "811": 247,
+            "816": 28,
+            "815": 6,
+            "813": 1
+          }
+        },
+        {
+          "reinsurance_year": 2013,
+          "rows": 1386,
+          "unique_states_excl_xx": 17,
+          "rows_xx": 476,
+          "rows_nm": 13,
+          "type_code_counts": {
+            "810": 642,
+            "809": 268,
+            "812": 256,
+            "811": 175,
+            "816": 27,
+            "815": 18
+          }
+        },
+        {
+          "reinsurance_year": 2014,
+          "rows": 3505,
+          "unique_states_excl_xx": 19,
+          "rows_xx": 873,
+          "rows_nm": 19,
+          "type_code_counts": {
+            "810": 1681,
+            "809": 693,
+            "812": 671,
+            "811": 398,
+            "816": 35,
+            "815": 27
+          }
+        },
+        {
+          "reinsurance_year": 2015,
+          "rows": 2549,
+          "unique_states_excl_xx": 19,
+          "rows_xx": 807,
+          "rows_nm": 14,
+          "type_code_counts": {
+            "810": 1475,
+            "812": 559,
+            "809": 266,
+            "811": 169,
+            "816": 48,
+            "815": 31,
+            "814": 1
+          }
+        },
+        {
+          "reinsurance_year": 2016,
+          "rows": 1715,
+          "unique_states_excl_xx": 15,
+          "rows_xx": 643,
+          "rows_nm": 10,
+          "type_code_counts": {
+            "810": 859,
+            "812": 335,
+            "809": 284,
+            "811": 165,
+            "816": 48,
+            "815": 24
+          }
+        },
+        {
+          "reinsurance_year": 2017,
+          "rows": 2252,
+          "unique_states_excl_xx": 19,
+          "rows_xx": 670,
+          "rows_nm": 0,
+          "type_code_counts": {
+            "810": 897,
+            "809": 590,
+            "811": 366,
+            "812": 347,
+            "816": 33,
+            "815": 17,
+            "814": 1,
+            "813": 1
+          }
+        },
+        {
+          "reinsurance_year": 2018,
+          "rows": 1264,
+          "unique_states_excl_xx": 15,
+          "rows_xx": 490,
+          "rows_nm": 0,
+          "type_code_counts": {
+            "810": 637,
+            "812": 306,
+            "809": 175,
+            "811": 122,
+            "816": 13,
+            "815": 11
+          }
+        },
+        {
+          "reinsurance_year": 2019,
+          "rows": 1017,
+          "unique_states_excl_xx": 14,
+          "rows_xx": 393,
+          "rows_nm": 0,
+          "type_code_counts": {
+            "810": 502,
+            "812": 261,
+            "809": 160,
+            "811": 85,
+            "815": 5,
+            "816": 4
+          }
+        },
+        {
+          "reinsurance_year": 2020,
+          "rows": 814,
+          "unique_states_excl_xx": 13,
+          "rows_xx": 409,
+          "rows_nm": 0,
+          "type_code_counts": {
+            "810": 476,
+            "812": 201,
+            "809": 83,
+            "811": 52,
+            "816": 2
+          }
+        },
+        {
+          "reinsurance_year": 2021,
+          "rows": 6395,
+          "unique_states_excl_xx": 25,
+          "rows_xx": 1531,
+          "rows_nm": 85,
+          "type_code_counts": {
+            "810": 3195,
+            "812": 1340,
+            "809": 1031,
+            "811": 709,
+            "817": 104,
+            "816": 12,
+            "815": 3,
+            "814": 1
+          }
+        },
+        {
+          "reinsurance_year": 2022,
+          "rows": 12892,
+          "unique_states_excl_xx": 30,
+          "rows_xx": 2156,
+          "rows_nm": 257,
+          "type_code_counts": {
+            "810": 7142,
+            "812": 2959,
+            "809": 1245,
+            "811": 1104,
+            "817": 418,
+            "816": 14,
+            "815": 8,
+            "814": 2
+          }
+        },
+        {
+          "reinsurance_year": 2023,
+          "rows": 28511,
+          "unique_states_excl_xx": 32,
+          "rows_xx": 4068,
+          "rows_nm": 501,
+          "type_code_counts": {
+            "810": 14421,
+            "812": 6820,
+            "809": 3371,
+            "811": 2639,
+            "817": 1195,
+            "816": 46,
+            "815": 17,
+            "814": 1,
+            "813": 1
+          }
+        },
+        {
+          "reinsurance_year": 2024,
+          "rows": 37493,
+          "unique_states_excl_xx": 36,
+          "rows_xx": 5029,
+          "rows_nm": 693,
+          "type_code_counts": {
+            "810": 17997,
+            "812": 9348,
+            "809": 3799,
+            "811": 3203,
+            "817": 2758,
+            "816": 286,
+            "815": 49,
+            "819": 43,
+            "813": 4,
+            "814": 3,
+            "818": 3
+          }
+        },
+        {
+          "reinsurance_year": 2025,
+          "rows": 54363,
+          "unique_states_excl_xx": 35,
+          "rows_xx": 6212,
+          "rows_nm": 691,
+          "type_code_counts": {
+            "810": 23431,
+            "812": 12466,
+            "809": 6698,
+            "817": 6099,
+            "811": 5264,
+            "816": 282,
+            "815": 98,
+            "819": 17,
+            "813": 6,
+            "814": 2
+          }
+        },
+        {
+          "reinsurance_year": 2026,
+          "rows": 44639,
+          "unique_states_excl_xx": 38,
+          "rows_xx": 6405,
+          "rows_nm": 578,
+          "type_code_counts": {
+            "810": 17440,
+            "812": 8773,
+            "823": 7468,
+            "817": 3843,
+            "809": 3805,
+            "811": 3101,
+            "816": 121,
+            "815": 56,
+            "819": 25,
+            "813": 5,
+            "818": 1,
+            "814": 1
+          }
+        }
+      ]
+    }
+  ]
+}
