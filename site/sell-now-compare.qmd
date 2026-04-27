@@ -742,6 +742,7 @@ The other four pages are exploratory; this page is decision-anchored. A producer
 
 ## See also
 
+- [Methodology → Sell-now compare](methodology/sell-now-compare.qmd) — the percentile-band design choice (vs. dollar-based and SD-based alternatives), the "exclude current year" rule, the small-n caveat for short comparison windows, and the producer-decision framing in the broader Extension literature.
 - [Methodology → Clovis pipeline](methodology/clovis.qmd) — every filter, bin, and edge case behind the snapshot this page reads from.
 - [Methodology → CPI deflation](methodology/cpi.qmd) — how the December-2025-basis deflator is computed.
 - [Producer reference card (PDF)](one-pager.pdf) — single-sheet printable version of this week's prices, suitable for taking to a sale or banker meeting.
