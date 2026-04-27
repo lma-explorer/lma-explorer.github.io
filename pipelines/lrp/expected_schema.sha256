@@ -1,11 +1,11 @@
 # LRP COLUMNS schema-hash baseline.
 #
-# Placeholder until 4.LRP-b ingests its first real data and we baseline
-# the hash with `python -m pipelines.lrp.validate --rebaseline`.
+# Last rebaselined: 2026-04-27 (UTC)
 #
-# This file is read by pipelines.lrp.validate.schema_hash() and compared
-# against the live hash of the COLUMNS list in pipelines/lrp/parse.py. A
-# mismatch causes the validator to exit non-zero. The placeholder value
-# below is intentionally invalid (all zeros) so a forgotten rebaseline is
-# loud rather than silent.
-0000000000000000000000000000000000000000000000000000000000000000
+# Regenerated via `python -m pipelines.lrp.validate --rebaseline`.
+# Compared at validate-time against the live hash of the COLUMNS
+# list in pipelines/lrp/parse.py. A mismatch causes the validator
+# to exit non-zero (the pipeline's signal that the upstream RMA
+# schema may have drifted and downstream consumers need a review
+# pass before promoting a new snapshot).
+14aef97fbb77b82896fdc5faa22c42d1b28611a29ddeda793833c3456dac819b

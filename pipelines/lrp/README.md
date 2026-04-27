@@ -133,9 +133,11 @@ For an NM-specific Clovis-cash backtest, the meaningful data window is **2021+**
 - 2005-2020 stable set: `{809, 810, 811, 812, 815, 816, 820, 997}` (8 codes).
 - 2021 added: 814 (Brahman Weight 2), 817 (Unborn Steers & Heifers), 821.
 - 2024 added: 818 (Unborn Brahman), 819 (Unborn Dairy).
-- 2026 added: 823.
+- 2026 added: **823 (Unborn Calves)** — see pricing-unit caveat below.
 
 Type names also drifted (e.g., 810 went from "STEERS" in 2003 to "Steers Weight 2" in 2024). The platform stores the type name as-published per row; do not assume a stable mapping across years.
+
+**Type 823 uses $/head pricing, not $/cwt.** All other 11 feeder-cattle type codes (including the other "Unborn" variants 817/818/819) quote `coverage_price`, `expected_end_value`, and `cost_per_cwt` in $/cwt. Type 823 quotes the same columns in $/head — observed median `coverage_price` is ~$1,358 (the value of one calf), and observed median `cost_per_cwt` is ~$90 (the per-head premium). The column names are unchanged but the unit is different. The validator scopes its $/cwt plausibility bounds to the backtest subset `{809, 810, 811, 812}` to avoid false positives on type 823. Future analytical layers consuming type 823 must be aware of the unit shift.
 
 **Coverage prices reflect the cattle cycle.** 2003 coverage prices were $25-$82/cwt (median $36); 2024 was $62-$310/cwt (median $238). Real-vs-nominal deflation will be relevant if the chart wants cycle-comparable views — see the BLS pipeline's CPI-deflation pattern for precedent.
 
