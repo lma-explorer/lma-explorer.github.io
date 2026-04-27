@@ -80,7 +80,7 @@ CATALOG = [
         "pipeline_url": "https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/clovis/basis.py",
         "workflow_url": "https://github.com/lma-explorer/lma-explorer.github.io/blob/main/.github/workflows/clovis_refresh.yml",
         "methodology_url": "methodology/basis.qmd",
-        "description": "Per-(auction_date, class, frame, muscle_grade, weight_break, contract_month) basis = head-weighted Clovis cash − CME settle. Three contract conventions surfaced: May, November, Nearby. Powers the Basis chart page.",
+        "description": "Per-(auction_date, class, frame, muscle_grade, weight_break, contract_month) `basis = head-weighted Clovis cash − CME settle`. Field name is `basis` for compactness, but only the (Steers × 700–799 lb) rows constitute strict basis under the CME GF futures contract specification — the other (class, weight_break) combinations are weight-class cash–futures spreads. See methodology/basis.qmd for the formal distinction. Three contract conventions surfaced: May, November, Nearby. Powers the Basis chart page.",
     },
 ]
 

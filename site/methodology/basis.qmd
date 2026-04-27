@@ -1,21 +1,53 @@
 ---
 title: "Basis derivation"
-subtitle: "How the platform computes Clovis cash − CME GF feeder-cattle settle, and what conventions we follow."
+subtitle: "How the platform computes Clovis cash − CME GF feeder-cattle settle, what is and isn't strict basis, and the conventions we follow."
 toc: true
 toc-depth: 2
 ---
 
-## What is basis
+## What is basis (strict definition)
 
-For a producer hedging feeder cattle (or reading futures as a forward-price reference), **basis** is the gap between the local cash price they would actually realize at sale and the relevant futures contract's settlement price on the same date:
+For a producer hedging feeder cattle (or reading futures as a forward-price reference), **basis** in the strict hedging sense is the gap between the local cash price for the *same population the futures contract specifies* and the futures settlement price on the same date:
 
 $$
-\text{basis}_t = \text{cash}_t - \text{settle}_t
+\text{basis}_t = \text{cash}_{\text{(target weight × class)},t} - \text{settle}_t
 $$
 
-A short hedger — someone who sells a futures contract intending to offset it with a cash sale — realizes `settle + basis` when they close out. Knowing the *typical* basis for a given week-of-year, weight class, and contract month therefore gives the hedger a defensible expected price for that scenario.
+A short hedger — someone who sells a futures contract intending to offset it with a cash sale — realizes `settle + basis` when they close out, *provided they are hedging a population that matches the futures contract specification*. Knowing the typical basis for a given week-of-year, weight class, and contract month gives the hedger a defensible expected price for that scenario.
 
 **Sign convention used on this site:** positive basis means cash above the futures settle (favorable for the seller of cash); negative basis means cash below settle. The chart's reference line at zero makes the sign visible.
+
+## What population the CME GF futures contract tracks
+
+The [CME GF Feeder Cattle futures contract](https://www.cmegroup.com/markets/agriculture/livestock/feeder-cattle.contractSpecs.html) is cash-settled to the **CME Feeder Cattle Index**, a 7-day rolling weighted average of cash trades for a specific population:
+
+- **Weight**: 700–899 lb basis weight (with delivery latitude). The index's effective center is around 750 lb.
+- **Class**: Steers only (heifers are not part of the index).
+- **Frame and muscle grade**: Medium and Large Frame, #1 and #1-2 muscle thickness (i.e., the M&L 1 grade combination this platform's chart shelf focuses on).
+- **Geographic scope**: a multi-state region covering the major U.S. feeder-cattle marketing areas, including New Mexico.
+
+For Clovis cash to constitute *strict basis* against this futures contract, it must come from the **700–799 lb Steers** weight bin × class combination on this platform. Any other (cash, futures) pair shown on the chart is not strict basis but rather a **weight-class cash–futures spread**.
+
+## What the chart actually shows: strict basis vs. weight-class spreads
+
+The basis chart page surfaces `cash − settle` for **every weight bin × class combination** in the Clovis snapshot (six 100-lb bins × Steers and Heifers = 12 panels conceptually, displayed as two stacked panels with six lines each). Only **one** of those lines — **700–799 lb in the Steers panel** — is strict basis in the contract-spec sense above.
+
+The other 11 lines are real, useful, but *different* statistics:
+
+| Lines on the chart | What they show | What they let a producer infer |
+|---|---|---|
+| **700–799 lb Steers** (blue line, top panel) | Strict basis — Clovis cash for the futures-target population minus the futures settle | The hedge basis a producer realizes if they hedge their actual 700–799 lb Steers with a CME GF futures position |
+| **800–899 lb Steers** (red line, top panel) | Cash–futures spread; cash population (heavier than the index target) typically sits at a discount to the index | Approximate basis for a heavier cross-hedge; tighter than lighter-bin spreads but with a small structural negative bias |
+| **300–699 lb Steers** (purple, black, green, orange in top panel) | Cash–futures spread; calf-weight cash sits structurally above the 750-lb-feeder index | Calf-feeder price-cycle context; a positive value is the *price slide* between calves and feeders, not a directly-hedgeable basis |
+| **All weight bins, Heifers** (bottom panel, all colors) | Cash–futures spread; heifer cash sits structurally below steer cash by the steer-heifer discount, and the futures track only steers | The combined effect of (steer-heifer discount + weight-class spread); useful for understanding heifer-side cycle dynamics, not a directly-hedgeable basis even at 700-lb weights |
+
+The arithmetic is the same — `cash − settle` — for all 12 lines. The interpretation is not.
+
+## What this means operationally
+
+A producer who has 700–799 lb Steers and wants to hedge them with a CME GF futures position reads the **blue line in the Steers panel** as their expected basis. A producer with a different weight or class reads the relevant panel as a *price-relationship reference* — informative for cattle-cycle and forward-price thinking, but **not** a basis they can directly hedge.
+
+A short hedger with a non-target population is doing a **cross-hedge**: using a futures contract that doesn't exactly match their cash. Cross-hedges have higher realized variance than direct hedges, and the historical mean of the cash-futures spread for the cross-population is a noisier estimate of expected hedge-realized basis than the strict-basis number is. The min/max bands on the chart visualize this — non-target panels typically have wider bands than the 700–799 Steers panel.
 
 ## What is being measured
 
@@ -23,7 +55,7 @@ A short hedger — someone who sells a futures contract intending to offset it w
 |---|---|---|
 | **Cash** | USDA-AMS Market News, Clovis Livestock Auction (slug `AMS_1781`) | The same weighted-average $/cwt the [Price–weight](../price-weight.qmd) and [Weekly trends](../weekly-trends.qmd) charts use, head-weighted within each (auction-date, class, frame, muscle-grade, 100-lb-bin) cell. See [Methodology → Clovis pipeline](clovis.qmd). |
 | **Futures settle** | CME GF (Feeder Cattle) daily settle prices | CME's daily settles are published openly on `cmegroup.com`; the [feeder-cattle contract specifications](https://www.cmegroup.com/markets/agriculture/livestock/feeder-cattle.contractSpecs.html) document tick size, contract size, last-trade-date conventions, and settlement source. The platform sources them via a third-party-compiled Excel of daily settles for the bootstrap; a future Phase-2 pipeline will refresh from CME directly on schedule. |
-| **Basis** | Derived | `basis = cash − settle`, per (auction_date, class, frame, muscle_grade, weight_break_low/high, contract_month). |
+| **`basis` field in the parquet** | Derived | `basis = cash − settle`, per (auction_date, class, frame, muscle_grade, weight_break_low/high, contract_month). The field is named `basis` for compactness; the table above defines which (class, weight_break) combinations qualify as strict basis vs. weight-class spread. |
 
 ## The contract-month convention
 
@@ -76,15 +108,28 @@ CPI deflation is not the universal convention in basis analysis — most publish
 
 ## What basis is *not*
 
-- **Not a forecast.** The chart shows historical basis; future basis can and does drift, particularly in cycle-bottom and cycle-top years. Any expected basis a producer plans around carries the disclaimer that the underlying cash and futures markets may move outside historical norms.
-- **Not a hedge recommendation.** A producer deciding whether to hedge weighs basis predictability, market-volatility expectations, transaction costs, and their own risk tolerance. The chart is one input.
-- **Not local — yet.** "Basis" on this page means **Clovis cash minus CME settle**. A producer in a different region calculates their own basis against their local auction, with the same CME side. Phase-2 work to add other regional auctions (Willcox AZ, etc.) would extend this concept.
+- **Not strict basis for non-target weights or non-steer classes.** The 700–799 lb Steers panel is the only one of the chart's 12 lines that is strict basis under the CME GF futures contract specification. The other 11 lines are cash–futures spreads — informative for cycle and cross-hedge thinking, but not directly hedgeable. See "What the chart actually shows" above.
+- **Not a forecast.** The chart shows historical values; future basis and future weight-class spreads can and do drift, particularly in cycle-bottom and cycle-top years. Any expected value a producer plans around carries the disclaimer that the underlying cash and futures markets may move outside historical norms.
+- **Not a hedge recommendation.** A producer deciding whether to hedge weighs strict-basis predictability, market-volatility expectations, transaction costs, cross-hedge variance (when the cash population doesn't match the contract spec), and their own risk tolerance. The chart is one input.
+- **Not local — yet for non-Clovis cash.** Clovis is one auction. A producer in a different region calculates their own basis against their local auction, with the same CME side. Phase-2 work to add other regional auctions (Willcox AZ, etc.) would extend this concept.
 
 ## What is deliberately left out
 
 - **Per-contract basis at non-canonical months.** The eight CME contract months other than May/November/Nearby are stored in the basis parquet but not currently surfaced in the chart's contract selector. Add on demand.
 - **Intra-week basis.** A producer selling on Tuesday vs. the auction Wednesday faces a slightly different basis if the futures market moved overnight. The chart uses the auction-day settle (with prior-trading-day fallback for weekend auctions) — a single point per auction week. Daily basis is a Phase-2 candidate if there's demand.
 - **Transaction costs.** The chart shows raw `cash − settle`; commissions, slippage, and the bid-ask spread on the futures side are not subtracted. Producers running real hedges should net those out.
+
+## Precedent in the literature
+
+The convention of computing `cash − futures` across multiple weight classes (rather than restricting to the strict-hedging weight) is widespread in the agricultural-economics and Extension literature on feeder-cattle marketing — published treatments typically present a panel grid covering several weight bins and both classes, with prose noting that the futures-target weight band is the "narrow" basis the contract actually tracks. Tronstad (1994) is one published example of the convention.
+
+This page extends that convention by being **more explicit about the distinction in the chart itself**, rather than relying on prose qualification alone:
+
+- The "What the chart actually shows" table above names every line as either *strict basis* or *weight-class spread*, with the operational implication for each spelled out.
+- The "What basis is *not*" section leads with the strict-basis / spread distinction.
+- The chart page's prose calls out the 700–799 lb Steers panel as the strict-basis line by name, and frames the others as price-relationship references rather than directly-hedgeable basis.
+
+A future iteration of the chart will add a visual emphasis (a thicker line, an annotation arrow, or a "show strict basis only" toggle) so a producer scanning the chart can identify the strict-basis line without first reading the prose.
 
 ## Code
 

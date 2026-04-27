@@ -75,9 +75,9 @@ The chart shelf decomposes weekly Clovis prices and CME-feeder basis along four 
 :::
 
 ::: {.g-col-12 .g-col-md-3}
-### [Basis](basis.qmd)
+### [Basis & weight-class spreads](basis.qmd)
 
-*"What hedge gap should I expect against the May or November feeder contract?"* Clovis cash − CME settle, by week-of-year, with min/max bands.
+*"What's my hedge basis to the May / November / Nearby feeder contract — and what about non-target weight classes?"* Strict basis for 700–799 lb Steers; cash–futures spreads for the other weight bins and Heifers as cycle context.
 :::
 
 :::

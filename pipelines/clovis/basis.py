@@ -1,5 +1,12 @@
-"""Derive basis (cash − futures settle) per Clovis auction-week × weight bin
-× contract month.
+"""Derive cash−futures values per Clovis auction-week × weight bin × class
+× contract month. The output ``basis`` field is named for compactness, but
+only the (class=Steers, weight_break_low=700) rows constitute strict basis
+under the CME GF Feeder Cattle futures contract specification (700–799 lb
+Medium-and-Large #1 Steers per the cmegroup.com contract page). Other
+(class, weight_break) combinations are weight-class cash−futures spreads,
+not directly hedgeable basis. See site/methodology/basis.qmd "What the
+chart actually shows" for the formal distinction; the chart page surfaces
+the strict-basis vs. spread distinction explicitly to a producer audience.
 
 Joins:
   - Clovis combined parquet (Era B + MARS, via pipelines.clovis.load)
@@ -27,6 +34,9 @@ Output (long-format, ~16k rows for the current 8.6-year span):
     settle_date      date    (actual settle date — prior trading day if auction
                               fell on a weekend / holiday)
     basis            float   ($/cwt, = price_avg_cash − settle)
+                             NOTE: strict hedging basis only for (class=Steers,
+                             weight_break_low=700). Other rows are weight-class
+                             cash−futures spreads — see methodology/basis.qmd.
     vintage          date
 
 Output paths:

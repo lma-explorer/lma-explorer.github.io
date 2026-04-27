@@ -76,7 +76,7 @@ The Clovis weekly series extends back to October 2017 — the floor of USDA-AMS 
 
 - [CPI deflation and the release-basis vintage](cpi.qmd)
 - [Clovis auction pipeline: slug `AMS_1781`, filters, and schema](clovis.qmd)
-- [Basis derivation: Clovis cash − CME GF settle](basis.qmd)
+- [Basis derivation: strict basis vs. weight-class cash–futures spreads](basis.qmd)
 
 ## What a methodology page contains
 

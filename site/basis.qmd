@@ -1,21 +1,27 @@
 ---
-title: "What basis should I expect against the May or November feeder contract?"
-subtitle: "Weekly basis · Clovis, NM cash − CME GF feeder-cattle settle"
+title: "Basis and weight-class spreads to CME GF feeder futures"
+subtitle: "Weekly Clovis cash − CME GF feeder-cattle settle · 700–799 lb Steers is the strict-hedging basis the futures contract tracks"
 toc: true
 toc-depth: 2
 ---
 
+::: {.callout-important appearance="simple"}
+**Read this first — what the chart shows by default.** The chart **defaults to strict basis only**: the single line that is *basis* in the strict hedging sense — Clovis cash for **700–799 lb Steers** minus the CME GF settle. That's the population the [CME GF Feeder Cattle futures contract specification](https://www.cmegroup.com/markets/agriculture/livestock/feeder-cattle.contractSpecs.html) tracks (Medium-and-Large Frame #1 and #1-2 muscle thickness Steers, 700–899 lb). Click the **Show: All weights & classes** button to expose the full 12-line view: lighter-weight Steers (calf-feeder spread), Heifers (steer-heifer-discount + weight spread), and 800–899 lb Steers (slight discount to the index target). The wider view is informative for cattle-cycle and cross-hedge thinking, but only the strict-basis line is directly hedgeable. See [Methodology → Basis derivation](methodology/basis.qmd) for the formal distinction.
+:::
+
 ::: {.callout-tip appearance="simple"}
-**Caveat before scrolling.** Basis is the gap between local cash and the relevant futures contract. It varies week-to-week and year-to-year — sometimes by $10–$20/cwt around its average — and is what a hedger actually realizes when they offset a futures position with a cash sale. The chart shows historical basis; it is not a forecast. See [Methodology](methodology/index.qmd) for the contract-month convention, the date-alignment rule, and what the bands aggregate.
+**Caveat before scrolling.** Strict basis (700–799 lb Steers) is the gap between local cash and the relevant futures contract for the **same animal type the contract specifies** — what a producer hedging actual 700-lb steers realizes when they offset a futures position with a cash sale. The wider weight-class spreads on this chart are price-level relationships between calves or heavier feeders and the 750-lb-feeder futures benchmark — useful for understanding the cattle cycle and for cross-hedge thinking, but with much higher year-to-year variance than strict basis. The chart shows the historical record; it is not a forecast.
 :::
 
 ## About this page
 
-A producer who hedges feeder cattle on the CME — or a producer who reads futures as a forward-price reference — needs to know the **basis**: the typical gap between local Clovis cash and the relevant futures contract on the same date. Lock in futures + sell cash gives you `settle + basis`, so a producer who knows their typical basis at week 22 for 600-lb steers selling against the May contract has a defensible expected price for that scenario.
+A producer who hedges 700–799 lb feeder steers on the CME — or a producer who reads futures as a forward-price reference for the same population — needs to know the **strict basis**: the typical gap between local Clovis cash for that weight-and-class combination and the futures settle on the same date. Lock in futures + sell cash gives you `settle + basis`, and a producer who knows their typical basis at week 22 for 700–799 lb Steers selling against the May contract has a defensible expected price for that scenario. The default chart view answers exactly that question — single line, single bin, strict basis.
 
-This chart shows **basis = Clovis cash − CME GF feeder-cattle settle** for three contract conventions: the **May contract** (the canonical spring-marketing hedge), the **November contract** (the canonical fall-marketing hedge), and the **Nearby contract** (whichever traded contract is closest to expiry on each auction date). Each line is the average basis across all years in the selected window, computed per week of the calendar year (1–52). The shaded band behind each line is the **min/max range** — the worst and best basis observed for that week-of-year across the available years.
+For producers and Extension peers wanting a fuller picture of price-level relationships across the feeder-cattle cycle, the **Show: All weights & classes** toggle exposes the 11 additional cross-weight cash–futures spreads (5 lighter Steers bins, 5 Heifers bins, plus the 800–899 lb Steers heavier-than-index bin). Those values are real and informative — they reveal how calf-feeder and steer-heifer spreads move through the cycle — but they are *not* directly hedgeable basis, because the futures contract specification doesn't cover those populations.
 
-Three button rows above the chart let you switch the **mode** (top: Nominal $ / Real December-2025 $), the **contract month** (middle: May / November / Nearby), and the **year window** (bottom: All / Last 5 years / Last 3 years / latest calendar year). Each row maintains its own selection independently — at any moment, the chart shows the combination of all three highlighted choices. Real-dollar basis is computed per row as `basis_nominal × deflator(month_of_auction)` because both cash and futures settle scale by the same monthly CPI factor; see [Methodology → Basis derivation](methodology/basis.qmd) for the derivation.
+The chart shows `cash − CME GF feeder-cattle settle` for three contract conventions: the **May contract** (the canonical spring reference, frequently used by spring-marketing producers), the **November contract** (the canonical fall reference, frequently used by stockers exiting grass), and the **Nearby contract** (whichever traded contract is closest to expiry on each auction date). Each line is the average across all years in the selected window, computed per week of the calendar year (1–52). The shaded band behind each line is the **min/max range** — the worst and best value observed for that week-of-year across the available years.
+
+Four button rows above the chart let you switch the **show selector** (top: Strict basis only / All weights & classes), the **mode** (Nominal $ / Real December-2025 $), the **contract month** (May / November / Nearby), and the **year window** (bottom: All / Last 5 years / Last 3 years / latest calendar year). Each row maintains its own selection independently — at any moment, the chart shows the combination of all four highlighted choices. Real-dollar basis is computed per row as `basis_nominal × deflator(month_of_auction)` because both cash and futures settle scale by the same monthly CPI factor; see [Methodology → Basis derivation](methodology/basis.qmd) for the derivation.
 
 ```{python}
 #| echo: false
@@ -327,6 +333,17 @@ def _add_bin(agg_df, cls, wb, row, visible, show_legend):
 # First trace of group g is at fig.data[g * 36].
 MODES = ["nominal", "real"]
 MODE_BASIS_COL = {"nominal": "basis", "real": "basis_real"}
+# Show dimension — filters which (class, weight_bin) traces are visible
+# WITHIN an active (year, contract, mode) group. "strict" surfaces only
+# the canonical 700–799 lb Steers traces (3: min-anchor, max+band, avg);
+# "all" surfaces every trace in the group (36 = 6 bins × 2 classes × 3).
+SHOW_OPTIONS = ["strict", "all"]
+N_SHOWS = len(SHOW_OPTIONS)
+# Trace local-indices within a (year, contract, mode) group, per Show value:
+#   strict → 700–799 lb is BIN_ORDER[4], Steers (cls_idx=0).
+#            Local indices: 4*3 + 0, 4*3 + 1, 4*3 + 2 = 12, 13, 14.
+#   all    → all 36 local indices.
+STRICT_LOCAL_INDICES = [12, 13, 14]
 N_TRACES_PER_GROUP = 36
 N_CONTRACTS = len(CONTRACTS)
 N_MODES = len(MODES)
@@ -355,22 +372,39 @@ def _group_idx(year_idx: int, contract_idx: int, mode_idx: int) -> int:
     return year_idx * (N_CONTRACTS * N_MODES) + contract_idx * N_MODES + mode_idx
 
 
-def _visibility_for(year_idx: int, contract_idx: int, mode_idx: int) -> list[bool]:
+def _visibility_for(year_idx: int, contract_idx: int, mode_idx: int,
+                    show_idx: int = 0) -> list[bool]:
+    """Build a 864-trace visibility mask for the given 4-D state.
+
+    show_idx 0 (strict) restricts visibility to the 700-799 lb Steers
+    traces only — strict basis under the CME GF contract spec. show_idx
+    1 (all) surfaces every (class, weight_bin) trace in the active
+    (year, contract, mode) group.
+    """
     out = [False] * N_TRACES
     start = _group_idx(year_idx, contract_idx, mode_idx) * N_TRACES_PER_GROUP
-    for i in range(start, start + N_TRACES_PER_GROUP):
-        out[i] = True
+    if show_idx == 0:  # strict basis only
+        for li in STRICT_LOCAL_INDICES:
+            out[start + li] = True
+    else:  # all weight classes
+        for i in range(start, start + N_TRACES_PER_GROUP):
+            out[i] = True
     return out
 
 
-def _yrange_for_state(year_idx: int, contract_idx: int, mode_idx: int) -> list[float]:
-    """Compute the y-axis range from the visible (year, contract, mode)
-    data.
+def _yrange_for_state(year_idx: int, contract_idx: int, mode_idx: int,
+                      show_idx: int = 0) -> list[float]:
+    """Compute the y-axis range from the visible (year, contract, mode,
+    show) data.
 
     Plotly's auto-range fails when many traces use ``fill="tonexty"``
     bands — it defaults to its empty range $-1 to $4 even though the
     visible traces have real values spanning much wider. Setting the
     range explicitly per state restores the correct view.
+
+    For show=strict the range is computed from the strict-basis subset
+    (Steers × 700-799 lb only), giving a much tighter y-axis (~ -$30 to
+    +$10) that doesn't waste vertical space on the non-strict spreads.
     """
     _, _, lo_d, hi_d = YEAR_WINDOWS[year_idx]
     contract = CONTRACTS[contract_idx]
@@ -380,19 +414,32 @@ def _yrange_for_state(year_idx: int, contract_idx: int, mode_idx: int) -> list[f
         & (work["auction_date"] <= hi_d)
         & (work["contract_month"] == contract)
     ]
+    if show_idx == 0:  # strict basis only — filter to Steers × 700-799 lb
+        sub = sub[
+            (sub["class"] == "Steers")
+            & (sub["weight_break_low"] == 700)
+        ]
     if sub.empty or sub[basis_col].dropna().empty:
-        return [-50.0, 50.0]
+        return [-30.0, 10.0] if show_idx == 0 else [-50.0, 50.0]
     y_min = float(sub[basis_col].min())
     y_max = float(sub[basis_col].max())
     pad = max((y_max - y_min) * 0.05, 1.0)
     return [y_min - pad, y_max + pad]
 
 
-# Three button rows; per the cross-clearing pattern used on the cash
-# chart pages, clicking any button sets a complete (year, contract, mode)
-# state and clears the highlights on the other two rows. Each button
-# represents the chosen dimension's value combined with the other two
-# dimensions' BASELINE (year=All, contract=MAY, mode=Nominal).
+# Four button rows; per the cross-clearing pattern used on the cash
+# chart pages, clicking any button sets a complete (year, contract,
+# mode, show) state and clears the highlights on the other three rows.
+# Each button represents the chosen dimension's value combined with the
+# other three dimensions' BASELINE (year=All, contract=MAY, mode=Nominal,
+# show=strict). The independent-toggle JS layer below restores the
+# multi-row highlighting after each click.
+#
+# Updatemenus indices in the args dicts:
+#   updatemenus[0] → contract row
+#   updatemenus[1] → year row
+#   updatemenus[2] → mode row
+#   updatemenus[3] → show row
 
 NOMINAL_Y_TITLES = {
     "yaxis.title.text": "Basis, $/cwt (nominal)",
@@ -404,39 +451,85 @@ REAL_Y_TITLES = {
 }
 MODE_Y_TITLES = {0: NOMINAL_Y_TITLES, 1: REAL_Y_TITLES}
 
-# Row 0 — contract buttons. Each = (All × contract × Nominal). Default = MAY.
+# Row 0 — contract buttons. Default state baseline includes show=strict.
 contract_buttons = []
 for c_idx, contract in enumerate(CONTRACTS):
     label = {"MAY": "May contract", "NOV": "November contract",
              "NEARBY": "Nearby contract"}[contract]
-    yr = _yrange_for_state(0, c_idx, 0)
+    yr = _yrange_for_state(0, c_idx, 0, 0)
     contract_buttons.append(dict(
         label=label,
         method="update",
         args=[
-            {"visible": _visibility_for(0, c_idx, 0)},
+            {"visible": _visibility_for(0, c_idx, 0, 0)},
             {
                 **NOMINAL_Y_TITLES,
                 "updatemenus[1].active": -1,  # clear year row
                 "updatemenus[2].active": -1,  # clear mode row
+                "updatemenus[3].active": -1,  # clear show row
                 "yaxis.range": yr,
                 "yaxis2.range": yr,
             },
         ],
     ))
 
-# Row 1 — year window buttons. Each = (year × MAY × Nominal).
+# Row 1 — year window buttons. Default state baseline includes show=strict.
 year_buttons = []
 for y_idx, (y_key, y_label, lo_d, hi_d) in enumerate(YEAR_WINDOWS):
-    yr = _yrange_for_state(y_idx, 0, 0)
+    yr = _yrange_for_state(y_idx, 0, 0, 0)
     year_buttons.append(dict(
         label=y_label,
         method="update",
         args=[
-            {"visible": _visibility_for(y_idx, 0, 0)},
+            {"visible": _visibility_for(y_idx, 0, 0, 0)},
             {
                 **NOMINAL_Y_TITLES,
                 "updatemenus[0].active": -1,  # clear contract row
+                "updatemenus[2].active": -1,  # clear mode row
+                "updatemenus[3].active": -1,  # clear show row
+                "yaxis.range": yr,
+                "yaxis2.range": yr,
+            },
+        ],
+    ))
+
+# Row 2 — mode buttons. Default state baseline includes show=strict.
+mode_buttons = []
+for m_idx, mode in enumerate(MODES):
+    label = "Nominal $" if mode == "nominal" else f"Real ({cpi_basis_label} $)"
+    yr = _yrange_for_state(0, 0, m_idx, 0)
+    mode_buttons.append(dict(
+        label=label,
+        method="update",
+        args=[
+            {"visible": _visibility_for(0, 0, m_idx, 0)},
+            {
+                **MODE_Y_TITLES[m_idx],
+                "updatemenus[0].active": -1,  # clear contract row
+                "updatemenus[1].active": -1,  # clear year row
+                "updatemenus[3].active": -1,  # clear show row
+                "yaxis.range": yr,
+                "yaxis2.range": yr,
+            },
+        ],
+    ))
+
+# Row 3 — show buttons. Default = Strict basis only.
+# These two labels are intentionally distinguishable from the Mode row's
+# labels (which all contain "$") — the JS layer disambiguates the two
+# 2-button rows by label content.
+show_buttons = []
+for s_idx, s_label in enumerate(("Strict basis only", "All weights & classes")):
+    yr = _yrange_for_state(0, 0, 0, s_idx)
+    show_buttons.append(dict(
+        label=s_label,
+        method="update",
+        args=[
+            {"visible": _visibility_for(0, 0, 0, s_idx)},
+            {
+                **NOMINAL_Y_TITLES,
+                "updatemenus[0].active": -1,  # clear contract row
+                "updatemenus[1].active": -1,  # clear year row
                 "updatemenus[2].active": -1,  # clear mode row
                 "yaxis.range": yr,
                 "yaxis2.range": yr,
@@ -444,39 +537,23 @@ for y_idx, (y_key, y_label, lo_d, hi_d) in enumerate(YEAR_WINDOWS):
         ],
     ))
 
-# Row 2 — mode buttons. Each = (All × MAY × mode).
-mode_buttons = []
-for m_idx, mode in enumerate(MODES):
-    label = "Nominal $" if mode == "nominal" else f"Real ({cpi_basis_label} $)"
-    yr = _yrange_for_state(0, 0, m_idx)
-    mode_buttons.append(dict(
-        label=label,
-        method="update",
-        args=[
-            {"visible": _visibility_for(0, 0, m_idx)},
-            {
-                **MODE_Y_TITLES[m_idx],
-                "updatemenus[0].active": -1,  # clear contract row
-                "updatemenus[1].active": -1,  # clear year row
-                "yaxis.range": yr,
-                "yaxis2.range": yr,
-            },
-        ],
-    ))
 
-
-# Initial y-range matches the default-active button (year=0, contract=0, mode=0)
-_initial_yrange = _yrange_for_state(0, 0, 0)
+# Initial y-range matches the default-active state (year=0, contract=0,
+# mode=0, show=0=strict). Because show=strict filters to the 700-799 lb
+# Steers panel only, the initial y-range is the much tighter "strict
+# basis" range rather than the wide weight-class-spread range.
+_initial_yrange = _yrange_for_state(0, 0, 0, 0)
 
 fig.update_layout(
-    height=980,
+    height=1040,
     # Top margin needs to clear: subplot title (just above each panel),
-    # legend (above subplot title), and THREE button rows (above legend):
+    # legend (above subplot title), and FOUR button rows (above legend):
+    #   y=1.56 — Show (Strict basis only / All weights & classes)
     #   y=1.44 — Mode (Nominal $ / Real $)
     #   y=1.32 — Contract (May / November / Nearby)
     #   y=1.20 — Year window (All / Last 5y / Last 3y / latest)
     # Legend sits at y=1.035; subplot titles between legend and panels.
-    margin=dict(t=290, b=60, l=80, r=30),
+    margin=dict(t=340, b=60, l=80, r=30),
     hovermode="x unified",
     paper_bgcolor="white",
     plot_bgcolor="white",
@@ -486,6 +563,10 @@ fig.update_layout(
     # annotations) by appending our row-label annotations rather than
     # replacing the list.
     annotations=list(fig.layout.annotations) + [
+        dict(text="<b>Show</b>",
+             showarrow=False, xref="paper", yref="paper",
+             x=0.0, y=1.56, xanchor="left", yanchor="top",
+             font=dict(size=12, color="#222")),
         dict(text="<b>Mode</b>",
              showarrow=False, xref="paper", yref="paper",
              x=0.0, y=1.44, xanchor="left", yanchor="top",
@@ -530,6 +611,16 @@ fig.update_layout(
             showactive=True,
             buttons=mode_buttons,
         ),
+        dict(  # show row (index 3) — Strict basis only highlighted by default
+            type="buttons",
+            direction="right",
+            active=0,
+            x=0.18, y=1.56,
+            xanchor="left", yanchor="top",
+            pad=dict(r=6, t=4, b=4),
+            showactive=True,
+            buttons=show_buttons,
+        ),
     ],
 )
 
@@ -562,18 +653,20 @@ fig.show()
 # Independent-toggle JS layer.
 #
 # Plotly updatemenus are stateless — each button click sets fixed args, so
-# the only built-in way to keep three button rows visually consistent is the
+# the only built-in way to keep four button rows visually consistent is the
 # cross-clearing pattern (clicking row N clears the highlights on rows
-# !=N). The user reasonably finds that confusing because the chart is
-# always showing the COMBINED state (year, contract, mode), but only the
-# most-recently-clicked dimension's row appears highlighted.
-#
-# This script post-process the rendered chart to keep all three rows
-# independently highlighted. It pre-computes every (year × contract ×
-# mode) state's visibility mask + y-range as a JSON lookup table, then
-# listens for ``plotly_buttonclicked`` events and re-applies the combined
+# !=N). This script post-processes the rendered chart to keep all four
+# rows independently highlighted. It pre-computes every (year × contract ×
+# mode × show) state's visibility mask + y-range as a JSON lookup table,
+# listens for ``plotly_buttonclicked`` events, and re-applies the combined
 # state via ``Plotly.update`` — including re-asserting ``active`` on all
-# three menus so each row keeps its last selection.
+# four menus so each row keeps its last selection.
+#
+# Disambiguating the two 2-button menus (Mode and Show): button count is
+# 2 for both rows, so the JS handler distinguishes them by the FIRST
+# button's label — Mode's first button is "Nominal $" (contains "$");
+# Show's first button is "Strict basis only" (no "$"). The check is
+# robust to future label tweaks as long as Mode labels keep their "$".
 #
 # Falls back gracefully: if the JS doesn't load, the buttons still work
 # in the existing cross-clearing mode (their args are unchanged).
@@ -585,10 +678,11 @@ _state_table = {}
 for _y in range(len(YEAR_WINDOWS)):
     for _c in range(N_CONTRACTS):
         for _m in range(N_MODES):
-            _state_table[f"{_y}-{_c}-{_m}"] = {
-                "v": _visibility_for(_y, _c, _m),
-                "r": _yrange_for_state(_y, _c, _m),
-            }
+            for _s in range(N_SHOWS):
+                _state_table[f"{_y}-{_c}-{_m}-{_s}"] = {
+                    "v": _visibility_for(_y, _c, _m, _s),
+                    "r": _yrange_for_state(_y, _c, _m, _s),
+                }
 _js_state = json.dumps(_state_table)
 _js_y_titles = json.dumps({
     "0": "Basis, $/cwt (nominal)",
@@ -600,18 +694,19 @@ display(HTML(f"""
 (function() {{
     var STATE = {_js_state};
     var Y_TITLES = {_js_y_titles};
-    // Menu indices: 0=contract, 1=year, 2=mode (matches updatemenus order)
-    var current = {{ contract: 0, year: 0, mode: 0 }};
+    // Menu indices: 0=contract, 1=year, 2=mode, 3=show
+    // (matches updatemenus order in the Python fig.update_layout)
+    var current = {{ contract: 0, year: 0, mode: 0, show: 0 }};
 
     function findChart() {{
-        // Look for a Plotly div on the page that has exactly three
+        // Look for a Plotly div on the page that has exactly four
         // updatemenus (our basis chart's signature) and hasn't been wired
         // by this script yet.
         var divs = document.querySelectorAll('.plotly-graph-div');
         for (var i = divs.length - 1; i >= 0; i--) {{
             var d = divs[i];
             if (d && d._fullLayout && d._fullLayout.updatemenus
-                && d._fullLayout.updatemenus.length === 3
+                && d._fullLayout.updatemenus.length === 4
                 && !d.__basisToggleWired) {{
                 return d;
             }}
@@ -620,7 +715,7 @@ display(HTML(f"""
     }}
 
     function applyState(gd) {{
-        var key = current.year + '-' + current.contract + '-' + current.mode;
+        var key = current.year + '-' + current.contract + '-' + current.mode + '-' + current.show;
         var s = STATE[key];
         if (!s) return;
         var yTitle = Y_TITLES[String(current.mode)];
@@ -634,8 +729,31 @@ display(HTML(f"""
                 'updatemenus[0].active': current.contract,
                 'updatemenus[1].active': current.year,
                 'updatemenus[2].active': current.mode,
+                'updatemenus[3].active': current.show,
             }}
         );
+    }}
+
+    function identifyDim(ev) {{
+        // Identify which menu was clicked by button count, with a
+        // label-based tiebreak for the two 2-button rows (Mode vs Show).
+        // Reference comparison against gd._fullLayout.updatemenus[i]
+        // does NOT work because every Plotly.update we trigger rebuilds
+        // _fullLayout with new menu objects.
+        //   show row     -> 2 buttons (Strict basis only / All weights & classes)
+        //   mode row     -> 2 buttons (Nominal $ / Real (... $))
+        //   contract row -> 3 buttons (May, November, Nearby)
+        //   year row     -> 4 buttons (All, 5y, 3y, latest)
+        var btns = (ev.menu && ev.menu.buttons) ? ev.menu.buttons : [];
+        var nBtns = btns.length;
+        if (nBtns === 4) return 'year';
+        if (nBtns === 3) return 'contract';
+        if (nBtns === 2) {{
+            var firstLabel = (btns[0] && btns[0].label) ? String(btns[0].label) : '';
+            // Mode buttons all contain "$"; Show buttons do not.
+            return (firstLabel.indexOf('$') !== -1) ? 'mode' : 'show';
+        }}
+        return null;
     }}
 
     function attach() {{
@@ -644,31 +762,13 @@ display(HTML(f"""
         gd.__basisToggleWired = true;
 
         gd.on('plotly_buttonclicked', function(ev) {{
-            // Identify which menu was clicked by its button count — a
-            // stable property that survives Plotly's _fullLayout rebuilds.
-            // Reference comparison against gd._fullLayout.updatemenus[i]
-            // does NOT work here: every Plotly.update we trigger rebuilds
-            // _fullLayout with new menu objects, so ev.menu (captured at
-            // button-bind time) drifts out of identity equality with the
-            // current full-layout references. Using button count also
-            // survives any future re-ordering of the rows in Python.
-            //   mode row     -> 2 buttons (Nominal, Real)
-            //   contract row -> 3 buttons (May, November, Nearby)
-            //   year row     -> 4 buttons (All, 5y, 3y, latest)
-            var nBtns = (ev.menu && ev.menu.buttons) ? ev.menu.buttons.length : 0;
-            var dim = (nBtns === 2) ? 'mode'
-                    : (nBtns === 3) ? 'contract'
-                    : (nBtns === 4) ? 'year'
-                    : null;
+            var dim = identifyDim(ev);
             if (!dim) return;
-            // Active button index after the click. ev.active is supplied
-            // by Plotly; fall back to indexOf for robustness.
             var btnIdx = ev.active;
             if (typeof btnIdx !== 'number' || btnIdx < 0) {{
                 btnIdx = ev.menu.buttons.indexOf(ev.button);
             }}
             current[dim] = btnIdx;
-
             // Defer one tick so Plotly's own button-args update fires
             // first (which momentarily clears other rows' actives via
             // the cross-clearing args), then we override with the
@@ -678,11 +778,8 @@ display(HTML(f"""
 
         // NOTE: we deliberately do NOT call applyState(gd) on init.
         // The Python-side fig.update_layout already sets the correct
-        // default visibility (year=0, contract=0, mode=0) and active
-        // states. Calling Plotly.update here would rebuild _fullLayout
-        // before the user's first click — that itself is fine, but it
-        // also costs a render and contributes nothing to the visible
-        // state.
+        // default visibility and active states. Calling Plotly.update
+        // here would rebuild _fullLayout before the user's first click.
     }}
 
     if (document.readyState === 'loading') {{
@@ -697,13 +794,15 @@ display(HTML(f"""
 
 ## How to read this
 
-**Negative basis = cash below futures.** When the line sits below the zero reference, Clovis cash for that week-of-year typically clears below the relevant CME settle. A short hedger (sold futures, plans to sell cash) realizes `settle + basis` — so a $-10/cwt basis means the hedger receives $10 less than the futures price. Producers who would normally hedge plan around this expected discount.
+**The 700–799 lb Steers panel is strict basis. The other 11 panels are weight-class spreads.** A producer hedging actual feeder-weight steers reads the blue line in the Steers panel — that's the gap between cash and futures for the population the [CME GF futures contract specification](https://www.cmegroup.com/markets/agriculture/livestock/feeder-cattle.contractSpecs.html) tracks. The other lines (300–699 lb Steers, 800–899 lb Steers, all Heifers) are cross-weight cash-futures spreads — useful for understanding the cattle cycle, for cross-hedge thinking, and for "what does a 400-lb calf trade for relative to feeder futures right now?" questions, but they are *not* a basis a producer can directly hedge with the CME GF contract. See [Methodology → Basis derivation](methodology/basis.qmd) for the formal distinction and what each kind of value lets a producer infer.
 
-**Positive basis = cash above futures.** When the line sits above zero, Clovis cash clears above CME — historically rare for the May contract, more common for the November and nearby contracts in fall delivery weeks. The 2024–2026 cash run-up has pushed many of these basis lines positive at week-of-year positions where they have historically been negative.
+**Negative basis = cash below futures.** When the strict-basis (700–799 lb Steers) line sits below the zero reference, Clovis cash typically clears below the CME settle. A short hedger (sold futures, plans to sell cash) realizes `settle + basis` — so a $-10/cwt strict basis means the hedger receives $10 less than the futures price. Producers who hedge plan around this expected discount.
 
-**The shaded band is the worst-and-best year**, not a typical year. A producer expecting "the average basis" should plan around the solid line; the band's edges are extremes seen once across the available years. Tight bands mean reliable basis; wide bands mean one or two anomaly years (drought, COVID, post-2022 cash blowout) stretched the historical range. The 2022 contribution to any (week, bin) cell sits on a thinner-than-typical lot count — see the [Methodology → 2022 receipts anomaly](methodology/clovis.qmd#the-2022-receipts-anomaly) section for the full discussion.
+**Positive values for lighter-weight Steers and most Heifers panels are price-cycle spreads, not basis.** A 300–399 lb Steers panel showing +$50/cwt does NOT mean a producer hedges a 350-lb calf and realizes settle + $50. The panel reflects that 350-lb calf cash is structurally higher than 750-lb feeder cash (price slide) by approximately that dollar margin in the recent cattle cycle. A producer with 350-lb calves and a futures position is doing a cross-hedge whose realized basis depends on calf-vs-feeder cycle dynamics, not on the strict-basis number shown.
 
-**The Nearby contract is the simplest hedge reference.** It auto-rolls to whichever contract is closest to expiry, so it's a forward-price reference no matter what time of year a producer is selling. The May and November lines answer the more specific *"what basis should I expect against the spring/fall contract a producer might already have on the books?"*
+**The shaded band is the worst-and-best year**, not a typical year. A producer expecting "the average" should plan around the solid line; the band's edges are extremes seen once across the available years. Tight bands mean reliable; wide bands mean one or two anomaly years (drought, COVID, post-2022 cash blowout) stretched the historical range. **For non-target weight bins, expect wider bands — that's the variance of cross-weight spreads, and it's why cross-hedges are noisier than direct hedges.** The 2022 contribution to any (week, bin) cell sits on a thinner-than-typical lot count — see the [Methodology → 2022 receipts anomaly](methodology/clovis.qmd#the-2022-receipts-anomaly) section for the full discussion.
+
+**The Nearby contract is the simplest reference.** It auto-rolls to whichever contract is closest to expiry, so it's a forward-price reference no matter what time of year a producer is selling. The May and November lines answer the more specific *"what should I expect against the spring/fall contract a producer might already have on the books?"*
 
 ## Why this view exists alongside the other charts
 
@@ -714,9 +813,9 @@ The chart shelf now decomposes the same Clovis-plus-CME dataset along four ortho
 | [Price–weight explorer](price-weight.qmd) | across time, per (weight, class) | *what does each weight class fetch on average?* |
 | [Weekly seasonality](seasonality.qmd) | across years, per (week-of-year, weight, class) | *when in the year do these prices peak?* |
 | [Weekly trends](weekly-trends.qmd) | nothing — raw weekly observations | *how have prices moved week-by-week?* |
-| Basis (this page) | across years, per (week-of-year, weight, class, contract) | *what's the typical hedge gap to the May / November / nearby contract?* |
+| Basis & weight-class spreads (this page) | across years, per (week-of-year, weight, class, contract) | *for 700–799 lb Steers: what's the strict hedge basis to May / November / Nearby? · for other weights and classes: what's the cash–futures spread, useful for understanding the cycle?* |
 
-A producer who hedges, or who reads futures as a forward-price reference, gets the basis answer that the cash-only views can't give. Together they triangulate "where am I" and "where am I likely to land if I lock in a hedge".
+A producer who hedges 700-lb feeders, or who reads futures as a forward-price reference for the same population, gets the strict-basis answer that the cash-only views can't give. Producers and Extension peers reading the wider weight-class panels get the calf-and-yearling cycle context — which is informative even if the lines aren't a directly-hedgeable basis.
 
 ## Download
 
@@ -733,8 +832,9 @@ A producer who hedges, or who reads futures as a forward-price reference, gets t
 
 ## What's next on this page
 
+- [ ] **Visual emphasis for the strict-basis panel.** v1 of this page surfaces the 700–799 lb Steers strict-basis call-out in prose only. v2 should add a visual signal in the chart — a thicker line, an annotation arrow, or a "show strict basis only" toggle that filters to that single panel — so a producer scanning the chart can identify their hedge basis without reading the prose first.
 - [ ] **Contract-cycle aligned x-axis.** The May contract expires in late May; a producer reading basis to May cares most about the run-up *to* expiry. The agricultural-economics literature commonly aligns the basis x-axis to contract expiry rather than to the calendar — the May figure typically starts at week 22 (when the next May becomes the active reference) and wraps through week 21 of the following year, with the same logic for November (start at week 48). The current chart shows a calendar 1–52 axis for all three contracts, which is informative but not aligned to the contract cycle. Add as v2.
 - [ ] **IQR (25–75 percentile) band** layered behind the min-max band — tighter "typical year" reference inside the extreme range. Activate once 5+ years of complete data have stabilized the percentile estimates.
-- [ ] **Bin-isolate mode** — clicking a legend entry hides every bin except the chosen one and reveals its full band detail (per-bin focus view), without the noise of all six overlaid bands.
+- [ ] **Bin-isolate mode** — clicking a legend entry hides every bin except the chosen one and reveals its full band detail (per-bin focus view), without the noise of all six overlaid bands. Pairs with the strict-basis emphasis above.
 - [ ] **Other contract months** (March / September / January / April / August) on demand — the data is already in the basis parquet; this is just adding more buttons to the contract row if a producer's marketing decision is keyed to a different contract.
-- [ ] **A "current week marker"** showing where this week's basis sits against the historical average for the same week — bridge to a future *sell-now compare* widget.
+- [ ] **A "current week marker"** showing where this week's strict basis sits against the historical average for the same week — bridge to the [Sell-now compare](sell-now-compare.qmd) page for the cash side.
