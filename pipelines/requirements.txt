@@ -10,8 +10,14 @@
 requests>=2.31,<3
 pandas>=2.2,<3
 pyarrow>=15,<20
+numpy>=1.26,<3       # explicit (transitively installed via pandas, but
+                     # site/sell-now-compare.qmd imports it directly for
+                     # numpy.percentile in the percentile-band logic)
 
 # Site rendering (Quarto executes .qmd Python code chunks via jupyter;
-# plotly renders the price-weight explorer in price-weight.qmd)
+# plotly renders the price-weight, seasonality, weekly-trends, basis,
+# and sell-now-compare charts; matplotlib renders the one-pager.qmd
+# producer-printable PDF mini-charts via Quarto's typst format).
 jupyter>=1.0,<2
 plotly>=5.24,<7
+matplotlib>=3.8,<4   # one-pager.qmd typst PDF render path
