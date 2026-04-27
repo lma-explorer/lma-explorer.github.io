@@ -356,9 +356,23 @@ for y_idx, (y_key, y_label, lo_d, hi_d) in enumerate(YEAR_WINDOWS):
         for m_idx, mode in enumerate(MODES):
             basis_col = MODE_BASIS_COL[mode]
             agg = _agg_weekly(sub_year, contract, basis_col)
-            is_default = (y_idx == 0 and c_idx == 0 and m_idx == 0)
+            # Initial trace visibility must match the default 4-D state
+            # (year=0, contract=0, mode=0, show=0=strict). show=strict
+            # restricts visible traces to the Steers × 700-799 lb bin
+            # (BIN_ORDER[4]); everything else starts hidden. Without this
+            # narrowing the page would load with all 36 traces of the
+            # (0,0,0) group visible — and the explicit y-axis range
+            # would clip the wider weight-class-spread lines, producing
+            # the visual bug "Strict basis is highlighted but all 12
+            # lines are showing" until the user clicks any button.
+            in_default_group = (y_idx == 0 and c_idx == 0 and m_idx == 0)
             for cls, panel_row in (("Steers", 1), ("Heifers", 2)):
                 for bin_idx, wb in enumerate(BIN_ORDER):
+                    is_default = (
+                        in_default_group
+                        and cls == "Steers"
+                        and bin_idx == 4  # 700-799 lb is BIN_ORDER[4]
+                    )
                     # Show legend on every Steers-row avg trace across all
                     # year×contract×mode groups. Plotly auto-hides legend
                     # entries for invisible traces, so the legend always
@@ -452,6 +466,8 @@ REAL_Y_TITLES = {
 MODE_Y_TITLES = {0: NOMINAL_Y_TITLES, 1: REAL_Y_TITLES}
 
 # Row 0 — contract buttons. Default state baseline includes show=strict.
+# (annotations[6] = heifers-empty-notice; visible=True for all three
+# non-show rows because their cross-clearing fallback resets show→strict.)
 contract_buttons = []
 for c_idx, contract in enumerate(CONTRACTS):
     label = {"MAY": "May contract", "NOV": "November contract",
@@ -469,6 +485,7 @@ for c_idx, contract in enumerate(CONTRACTS):
                 "updatemenus[3].active": -1,  # clear show row
                 "yaxis.range": yr,
                 "yaxis2.range": yr,
+                "annotations[6].visible": True,  # heifers-empty-notice ON
             },
         ],
     ))
@@ -489,6 +506,7 @@ for y_idx, (y_key, y_label, lo_d, hi_d) in enumerate(YEAR_WINDOWS):
                 "updatemenus[3].active": -1,  # clear show row
                 "yaxis.range": yr,
                 "yaxis2.range": yr,
+                "annotations[6].visible": True,  # heifers-empty-notice ON
             },
         ],
     ))
@@ -510,6 +528,7 @@ for m_idx, mode in enumerate(MODES):
                 "updatemenus[3].active": -1,  # clear show row
                 "yaxis.range": yr,
                 "yaxis2.range": yr,
+                "annotations[6].visible": True,  # heifers-empty-notice ON
             },
         ],
     ))
@@ -518,6 +537,8 @@ for m_idx, mode in enumerate(MODES):
 # These two labels are intentionally distinguishable from the Mode row's
 # labels (which all contain "$") — the JS layer disambiguates the two
 # 2-button rows by label content.
+# annotations[6] (heifers-empty-notice) toggles per show: visible when
+# strict, hidden when all (because Heifers panel populates in "all" mode).
 show_buttons = []
 for s_idx, s_label in enumerate(("Strict basis only", "All weights & classes")):
     yr = _yrange_for_state(0, 0, 0, s_idx)
@@ -533,6 +554,8 @@ for s_idx, s_label in enumerate(("Strict basis only", "All weights & classes")):
                 "updatemenus[2].active": -1,  # clear mode row
                 "yaxis.range": yr,
                 "yaxis2.range": yr,
+                # heifers-empty-notice: ON for strict (s_idx=0), OFF for all (s_idx=1)
+                "annotations[6].visible": (s_idx == 0),
             },
         ],
     ))
@@ -562,6 +585,16 @@ fig.update_layout(
     # Preserve subplot_titles (auto-added by make_subplots as layout
     # annotations) by appending our row-label annotations rather than
     # replacing the list.
+    #
+    # Final annotation indexing after this list is built:
+    #   [0] Steers subplot title (from make_subplots)
+    #   [1] Heifers subplot title (from make_subplots)
+    #   [2] <b>Show</b> row label
+    #   [3] <b>Mode</b> row label
+    #   [4] <b>Contract</b> row label
+    #   [5] <b>Year window</b> row label
+    #   [6] Heifers-empty-notice (visible only when show=Strict basis only;
+    #       toggled per state via the buttons' args + the JS applyState)
     annotations=list(fig.layout.annotations) + [
         dict(text="<b>Show</b>",
              showarrow=False, xref="paper", yref="paper",
@@ -579,6 +612,27 @@ fig.update_layout(
              showarrow=False, xref="paper", yref="paper",
              x=0.0, y=1.20, xanchor="left", yanchor="top",
              font=dict(size=12, color="#222")),
+        # Heifers-empty-notice — explains why the Heifers panel is blank
+        # in strict mode (strict basis is Steers-only by definition; the
+        # CME GF futures contract specification does not cover heifers).
+        # Default visible=True (page loads in strict mode by default).
+        # Visibility is toggled per state by the show buttons and the JS
+        # applyState layer.
+        dict(text=(
+                "<i>Strict basis is Steers-only — switch to "
+                "<b>'All weights &amp; classes'</b> "
+                "to see Heifers cash–futures spreads.</i>"
+             ),
+             showarrow=False,
+             xref="paper", yref="paper",
+             x=0.5, y=0.20,
+             xanchor="center", yanchor="middle",
+             font=dict(size=12, color="#666"),
+             bgcolor="rgba(245, 245, 245, 0.85)",
+             bordercolor="#cccccc",
+             borderwidth=1,
+             borderpad=10,
+             visible=True),
     ],
     updatemenus=[
         dict(  # contract row (index 0)
@@ -719,6 +773,14 @@ display(HTML(f"""
         var s = STATE[key];
         if (!s) return;
         var yTitle = Y_TITLES[String(current.mode)];
+        // annotations[6] = heifers-empty-notice; visible only in strict mode.
+        // The button-args fallback already sets the right value for the
+        // first click, but applyState re-asserts it here so the JS layer's
+        // independent-toggle semantics keep the annotation in sync after
+        // a cross-clearing reset (e.g., user toggles year while in "all"
+        // mode — args temporarily set notice visible, then applyState
+        // restores it to hidden because current.show is still 1).
+        var noticeVisible = (current.show === 0);
         Plotly.update(gd,
             {{ visible: s.v }},
             {{
@@ -730,6 +792,7 @@ display(HTML(f"""
                 'updatemenus[1].active': current.year,
                 'updatemenus[2].active': current.mode,
                 'updatemenus[3].active': current.show,
+                'annotations[6].visible': noticeVisible,
             }}
         );
     }}
