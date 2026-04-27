@@ -54,15 +54,33 @@ Product-scope columns for filtering to feeder-cattle steers/heifers are:
     commodity_code (== "0801"), plan_code (== "81"), type_code
     (810 = STEERS, 820 = HEIFERS, 830 = STEERS / HEIFERS combined).
 
-Status:
-    Scaffold only. The COLUMNS constant is final and ready to use.
-    parse_lrp_txt() is intentionally NotImplementedError until 4.LRP-b.
+Parsing rules:
+    - Empty string ("") between two pipes is treated as NA, not as 0.
+    - String columns are stripped of trailing whitespace (the source uses
+      fixed-width-padded strings, e.g. "All Other Counties            ").
+    - Integer columns use pandas' nullable Int16/Int32/Int64 so suppressed
+      values stay as <NA> rather than forcing float upcasting.
+    - Date columns parse YYYY-MM-DD; malformed dates become NaT.
+    - The Indemnity Amount column ("S9(10)") tolerates negatives.
+
+Smoke-test entry point:
+    python -m pipelines.lrp.parse data/raw/lrp/lrp_2003_<vintage>.zip
+
+Prints the parsed DataFrame's shape, dtypes, head, and a few key
+value-distributions for quick sanity-checking.
 """
 
 from __future__ import annotations
 
+import argparse
+import csv
+import sys
+import zipfile
+from io import TextIOWrapper
 from pathlib import Path
 from typing import NamedTuple
+
+import pandas as pd
 
 
 class _Col(NamedTuple):
@@ -118,20 +136,50 @@ COLUMNS: list[_Col] = [
 
 assert len(COLUMNS) == 31, "LRP schema is 31 columns; revisit RMA docs if this fires."
 
-# Type-code values that designate feeder cattle classes the platform cares
-# about for the Clovis-cash backtest. Other type codes (e.g., fed cattle,
-# swine, lamb) are filtered out at parse time.
-FEEDER_CATTLE_TYPE_CODES = {
-    "810",  # STEERS
-    "820",  # HEIFERS
-    "830",  # STEERS / HEIFERS combined
-}
-
+# Commodity / plan filters used by the snapshot pipeline. Confirmed by
+# diagnostic sweep across all 24 backfilled years (2003-2026):
+#   commodity 0801 = "Feeder Cattle"  (the platform's scope)
+#   commodity 0802 = "Fed Cattle"     (different market, dropped at snapshot)
+#   commodity 0815 = "Swine"          (different market, dropped at snapshot)
 FEEDER_CATTLE_COMMODITY_CODE = "0801"
 LRP_PLAN_CODE = "81"
 
+# Within feeder cattle (commodity 0801), the type-code taxonomy is:
+#   809 = Steers Weight 1
+#   810 = Steers Weight 2
+#   811 = Heifers Weight 1
+#   812 = Heifers Weight 2
+#   813 = Brahman Weight 1   (rare, regional)
+#   814 = Brahman Weight 2   (rare, regional)
+#   815 = Dairy Weight 1     (different production system)
+#   816 = Dairy Weight 2     (different production system)
+#   817 = Unborn Steers & Heifers   (forward contract on calves)
+#   818 = Unborn Brahman              (forward contract on calves)
+#   819 = Unborn Dairy                 (forward contract on calves)
+# Earlier years (2003-2020) use a subset of these; 813/814/817/818/819 are
+# the new-since-2021 expansion. Type-code 997 ("NO PRACTICE SPECIFIED" /
+# "NO TYPE SPECIFIED") appears in commodity 0815 (Swine) records, never
+# inside 0801 in modern data, but the parser does not assume this.
+FEEDER_CATTLE_TYPE_CODES_ALL = frozenset(
+    {"809", "810", "811", "812", "813", "814", "815", "816", "817", "818", "819"}
+)
 
-def parse_lrp_txt(zip_path: Path) -> "object":  # pd.DataFrame at runtime
+# The analytically-comparable subset for the Clovis-cash backtest (4.LRP-c).
+# These four type codes are conventional non-Brahman, non-dairy, born-cattle
+# feeder classes that map to Clovis auction lots' Steers / Heifers x weight
+# bins. Brahman, Dairy, and Unborn are excluded because they don't have a
+# clean Clovis-cash counterpart.
+FEEDER_CATTLE_TYPE_CODES_BACKTEST = frozenset({"809", "810", "811", "812"})
+
+# Convenience views over COLUMNS used during dtype coercion.
+_NAMES: list[str] = [c.name for c in COLUMNS]
+_INT_COLS: list[_Col] = [c for c in COLUMNS if c.dtype.startswith("Int")]
+_FLOAT_COLS: list[_Col] = [c for c in COLUMNS if c.dtype == "float64"]
+_DATE_COLS: list[_Col] = [c for c in COLUMNS if c.dtype == "date"]
+_STRING_COLS: list[_Col] = [c for c in COLUMNS if c.dtype == "string"]
+
+
+def parse_lrp_txt(zip_path: str | Path) -> pd.DataFrame:
     """Extract a pubfs-rma LRP zip and parse its TXT into a tidy DataFrame.
 
     The zip is expected to contain exactly one file (``lrp_<YYYY>.txt``)
@@ -140,9 +188,138 @@ def parse_lrp_txt(zip_path: Path) -> "object":  # pd.DataFrame at runtime
     columns parsed and integer columns nullable (Int16/Int32/Int64) so
     suppressed values can be NA without forcing float upcasting.
 
-    Status: NotImplementedError until 4.LRP-b.
+    Raises:
+        FileNotFoundError: ``zip_path`` does not exist.
+        zipfile.BadZipFile: the file is not a valid zip.
+        RuntimeError: the zip contains zero or multiple inner files, or
+            the parsed DataFrame is empty / has the wrong column count.
     """
-    raise NotImplementedError(
-        "parse_lrp_txt() is a 4.LRP-b deliverable. "
-        "See pipelines/lrp/README.md for the build sequence."
+    zip_path = Path(zip_path)
+    if not zip_path.exists():
+        raise FileNotFoundError(zip_path)
+
+    with zipfile.ZipFile(zip_path) as zf:
+        inner = zf.namelist()
+        if len(inner) != 1:
+            raise RuntimeError(
+                f"Expected exactly one file inside {zip_path.name}, "
+                f"found {len(inner)}: {inner!r}"
+            )
+        inner_name = inner[0]
+        with zf.open(inner_name) as raw:
+            # Read everything as string first; coerce dtypes after stripping
+            # whitespace. Reading-then-coercing is more robust than passing
+            # `dtype=` to read_csv because pandas' inference for nullable
+            # ints + suppression markers ("") + decimal-leading-period
+            # ("0.018060" written as ".018060") is fragile.
+            text = TextIOWrapper(raw, encoding="utf-8", newline="")
+            df = pd.read_csv(
+                text,
+                sep="|",
+                header=None,
+                names=_NAMES,
+                dtype=str,
+                keep_default_na=False,
+                na_values=[""],
+                quoting=csv.QUOTE_NONE,
+                engine="c",
+            )
+
+    if df.empty:
+        raise RuntimeError(f"Parsed DataFrame from {zip_path.name} is empty.")
+    if len(df.columns) != len(COLUMNS):
+        raise RuntimeError(
+            f"Parsed DataFrame has {len(df.columns)} columns; expected "
+            f"{len(COLUMNS)}. File may have a schema mismatch."
+        )
+
+    # Strip whitespace from string columns. The source uses fixed-width
+    # padding (e.g., "All Other Counties            "); without strip the
+    # parquet would carry trailing spaces forever.
+    for col in _STRING_COLS:
+        # df[col.name] is currently 'object' since we read everything as str.
+        # Strip then convert to pandas StringDtype.
+        df[col.name] = df[col.name].str.strip().astype("string")
+
+    # Coerce numeric columns. ``errors='coerce'`` turns un-parsable values
+    # into NaN, then .astype(nullable-int) turns NaN into <NA>.
+    for col in _INT_COLS:
+        df[col.name] = pd.to_numeric(df[col.name], errors="coerce").astype(col.dtype)
+
+    for col in _FLOAT_COLS:
+        df[col.name] = pd.to_numeric(df[col.name], errors="coerce").astype("float64")
+
+    # Parse dates. format='%Y-%m-%d' enforces the documented format; any
+    # malformed date becomes NaT. We keep dates as datetime64[ns] (not .dt.date)
+    # so they round-trip through parquet cleanly via pyarrow.
+    for col in _DATE_COLS:
+        df[col.name] = pd.to_datetime(
+            df[col.name], format="%Y-%m-%d", errors="coerce"
+        )
+
+    return df
+
+
+# --------------------------------------------------------------------------
+# Smoke-test CLI: parse one zip and print summary stats. Intentionally a
+# library-only module + a small main() so a developer can sanity-check the
+# parser on any single zip without writing a notebook cell.
+# --------------------------------------------------------------------------
+
+
+def _summary(df: pd.DataFrame) -> str:
+    """Compose a human-readable summary of one parsed DataFrame."""
+    lines = [
+        f"shape: {df.shape}",
+        "",
+        "dtypes:",
+        df.dtypes.to_string(),
+        "",
+        "head:",
+        df.head(3).to_string(),
+        "",
+        "key value distributions:",
+        f"  reinsurance_year unique: {sorted(df['reinsurance_year'].dropna().unique().tolist())}",
+        f"  commodity_code value counts (top 5):",
+        df["commodity_code"].value_counts().head(5).to_string(),
+        "",
+        f"  type_code value counts (top 10):",
+        df["type_code"].value_counts().head(10).to_string(),
+        "",
+        f"  state_abbr unique count: {df['state_abbr'].nunique()}",
+        f"  state_abbr top 10 by row count:",
+        df["state_abbr"].value_counts().head(10).to_string(),
+        "",
+        f"  effective_date min/max: "
+        f"{df['effective_date'].min()} / {df['effective_date'].max()}",
+        f"  end_date min/max: "
+        f"{df['end_date'].min()} / {df['end_date'].max()}",
+        "",
+        f"  coverage_price min/median/max: "
+        f"{df['coverage_price'].min():.2f} / "
+        f"{df['coverage_price'].median():.2f} / "
+        f"{df['coverage_price'].max():.2f}",
+        f"  indemnity_amount nonzero count: "
+        f"{(df['indemnity_amount'] != 0).sum()}",
+    ]
+    return "\n".join(lines)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Smoke-test parse.parse_lrp_txt() against one zip and print summary stats.",
     )
+    parser.add_argument(
+        "zip_path",
+        type=Path,
+        help="Path to a single lrp_<YYYY>_<vintage>.zip under data/raw/lrp/.",
+    )
+    args = parser.parse_args(argv)
+
+    df = parse_lrp_txt(args.zip_path)
+    print(_summary(df))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

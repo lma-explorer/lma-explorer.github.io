@@ -71,11 +71,73 @@ The four geographic-scope columns that drive the choropleth candidate at 4.LRP-d
 
 The processed parquet is narrowed to feeder-cattle LRP endorsements only:
 
-- `commodity_code == "0801"` (FEEDER CATTLE)
-- `plan_code == "81"` (LIVESTOCK RISK PROTECTION)
-- `type_code in {"810", "820", "830"}` (Steers / Heifers / combined)
+- `commodity_code == "0801"` (Feeder Cattle)
+- `plan_code == "81"` (Livestock Risk Protection)
 
-Other commodities (fed cattle, swine, lamb), other plans, and other product types are preserved in the raw zips for the record but not carried into the processed parquet — the platform's backtest is feeder-cattle steers/heifers under LRP only.
+Other commodities (Fed Cattle 0802, Swine 0815) and non-LRP plans are preserved in the raw zips for the record but not carried into the processed parquet.
+
+**Type-code narrowing is intentionally NOT applied at snapshot time.** Within commodity 0801 the type-code taxonomy expanded over the 24-year corpus (see schema-evolution findings below). The full feeder-cattle slate is kept in the parquet so 4.LRP-d's volume-by-state visualizations can show the complete LRP picture. The 4.LRP-c backtest narrows to the analytically-comparable subset `{"809", "810", "811", "812"}` (Steers Weight 1/2, Heifers Weight 1/2) — those are the type codes that map cleanly to Clovis auction lots. Dairy (815/816), Brahman (813/814), and Unborn (817/818/819) are excluded from the backtest because they don't have a clean Clovis-cash counterpart.
+
+## Schema-evolution findings (24-year backfill, 2003-2026)
+
+These are empirical findings from parsing every year. Captured here so 4.LRP-c (backtest scope) and 4.LRP-d (chart page scope) make informed decisions rather than re-derive these.
+
+**Total feeder-cattle LRP corpus**: 210,375 rows across 24 years.
+
+**Volume explosion in 2021.** Annual feeder-cattle row counts:
+
+```
+2003:     31     2009:    611     2015:  2,549     2021:  6,395
+2004:    362     2010:  1,227     2016:  1,715     2022: 12,892
+2005:  1,308     2011:  2,444     2017:  2,252     2023: 28,511
+2006:  1,590     2012:  2,098     2018:  1,264     2024: 37,493
+2007:    752     2013:  1,386     2019:  1,017     2025: 54,363
+2008:  1,157     2014:  3,505     2020:    814     2026: 44,639 (partial)
+```
+
+The 2021+ surge tracks the [2018 Farm Bill](https://www.usda.gov/media/blog/2019/02/26/2018-farm-bill-and-livestock-risk-protection-program) increase to LRP premium subsidies, which made the program substantially more attractive to producers. Any 4.LRP-c historical backtest spanning 2003-2020 will be data-thin; the heaviest, most decision-relevant data is 2021+.
+
+**State-level granularity began in 2004 but stayed sparse until 2021.** State counts and `XX` (national-aggregate) counts:
+
+| Year | Unique states (excl. XX) | Rows in `XX` |
+|---|---|---|
+| 2003 | 0 | 566 (100%) |
+| 2004 | 7 | 544 |
+| 2010 | 14 | 558 |
+| 2015 | 20 | 1,048 |
+| 2020 | 16 | 534 |
+| 2021 | 28 | 2,782 |
+| 2024 | 37 | 10,252 |
+| 2026 | 39 | 11,488 |
+
+For 4.LRP-d's state-level choropleth, the practical data window is **2021+**. Earlier years are mostly `XX`, which doesn't render usefully on a state-level map.
+
+**NM (Clovis state) data window.** NM rows by year:
+
+```
+2003-2010: 0 in every year
+2011: 11        2017: 0         2023: 501
+2012: 0         2018: 0         2024: 735
+2013: 13        2019: 0         2025: 729
+2014: 19        2020: 0         2026: 613 (partial)
+2015: 14        2021: 88
+2016: 10        2022: 268
+```
+
+For an NM-specific Clovis-cash backtest, the meaningful data window is **2021+** (~2,900 NM-specific rows total). A more permissive cut (2011+) adds another ~80 NM rows but spans years where coverage was sporadic.
+
+**Type-code taxonomy expansion.** Within feeder cattle (commodity 0801):
+
+- 2003 had **only one** feeder cattle type code: `810` (then named "STEERS").
+- 2005 added Steers Weight 1 vs. Weight 2 split (codes 809/810).
+- 2005-2020 stable set: `{809, 810, 811, 812, 815, 816, 820, 997}` (8 codes).
+- 2021 added: 814 (Brahman Weight 2), 817 (Unborn Steers & Heifers), 821.
+- 2024 added: 818 (Unborn Brahman), 819 (Unborn Dairy).
+- 2026 added: 823.
+
+Type names also drifted (e.g., 810 went from "STEERS" in 2003 to "Steers Weight 2" in 2024). The platform stores the type name as-published per row; do not assume a stable mapping across years.
+
+**Coverage prices reflect the cattle cycle.** 2003 coverage prices were $25-$82/cwt (median $36); 2024 was $62-$310/cwt (median $238). Real-vs-nominal deflation will be relevant if the chart wants cycle-comparable views — see the BLS pipeline's CPI-deflation pattern for precedent.
 
 ## Public-attribution posture
 

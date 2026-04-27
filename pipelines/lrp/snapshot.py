@@ -44,11 +44,17 @@ Long-format schema (matches ``pipelines/lrp/parse.py:COLUMNS``):
     vintage                  : date        (when this snapshot was first written)
 
 The pipeline applies one filter at snapshot time: rows where
-``commodity_code == "0801"`` AND ``plan_code == "81"`` AND
-``type_code in {"810", "820", "830"}``. Other livestock commodities and
-non-LRP plans are preserved in the raw zips but do not land in the
-processed parquet — the platform's backtest is feeder-cattle steers/heifers
-under LRP only.
+``commodity_code == "0801"`` AND ``plan_code == "81"``. Other livestock
+commodities (Fed Cattle 0802, Swine 0815) and non-LRP plans are preserved
+in the raw zips but do not land in the processed parquet — the platform's
+focus is feeder-cattle LRP.
+
+Within feeder cattle (commodity 0801) the parquet retains all 11 type
+codes that appear historically: Steers Weight 1/2 (809/810), Heifers
+Weight 1/2 (811/812), Brahman Weight 1/2 (813/814), Dairy Weight 1/2
+(815/816), and the Unborn variants (817/818/819). Type-code narrowing
+to the analytically-comparable subset {809, 810, 811, 812} happens at
+backtest time in ``4.LRP-c``, not here.
 
 Usage:
     python -m pipelines.lrp.snapshot
@@ -71,11 +77,18 @@ MANIFEST_PATH = PROCESSED_DIR / "lrp_MANIFEST.json"
 
 LATEST_NAME = "lrp_latest.parquet"
 
-# Filters matching the platform's backtest scope (feeder-cattle steers/heifers
-# under LRP). Other commodities and other plans are dropped at snapshot time.
+# Snapshot-time filter narrows to feeder-cattle LRP only. Other commodities
+# (Fed Cattle 0802, Swine 0815) and other plans are dropped here.
+#
+# Type-code selection is INTENTIONALLY NOT applied at snapshot time. Within
+# commodity 0801 there are 11 type codes covering Steers Weight 1/2, Heifers
+# Weight 1/2, Brahman, Dairy, and Unborn variants (see parse.py:_TYPE_CODES_FEEDER
+# for the full list). The 4.LRP-c backtest narrows to the analytically-relevant
+# subset {809, 810, 811, 812} when joining with Clovis cash; the snapshot keeps
+# the full feeder-cattle corpus so 4.LRP-d's volume/state visualizations can
+# show the complete LRP picture, not just the backtested slice.
 KEEP_COMMODITY_CODE = "0801"
 KEEP_PLAN_CODE = "81"
-KEEP_TYPE_CODES = frozenset({"810", "820", "830"})
 
 
 def _vintage_tag() -> str:
