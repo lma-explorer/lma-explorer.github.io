@@ -34,6 +34,23 @@
         "NEARBY",
         "NOV"
       ]
+    },
+    {
+      "vintage": "2026-04-28",
+      "file": "data/processed/clovis_basis_2026-04-28.parquet",
+      "sha256": "452bbb69c5fde1009fbd870639c64e829f67a43f77fd1d3c8c9f9b820f9277e1",
+      "rows": 47055,
+      "written_at_utc": "2026-04-28T16:25:25.434482+00:00",
+      "latest_path": "data/processed/clovis_basis_latest.parquet",
+      "rows_with_basis": 46999,
+      "rows_missing_settle": 56,
+      "auction_week_count": 387,
+      "coverage": "2017-10-04..2026-04-22",
+      "contract_months": [
+        "MAY",
+        "NEARBY",
+        "NOV"
+      ]
     }
   ]
 }
