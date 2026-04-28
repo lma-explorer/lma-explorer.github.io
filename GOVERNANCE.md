@@ -71,7 +71,7 @@ PRs missing any item above are blocked from merge. The checklist is enforced by 
 
 ## Annual review
 
-Once per year (target: each January), both maintainers conduct a written review covering: (a) which features are healthy; (b) which features need attention or sunset; (c) whether any new data source is worth adding; (d) whether any aspect of this governance document needs to change. The review is committed to `/docs/annual-review-YYYY.md`.
+Once per year (target: each January), the primary maintainer conducts a written review covering: (a) which features are healthy; (b) which features need attention or sunset; (c) whether any new data source is worth adding; (d) whether any aspect of this governance document needs to change. The review is committed to `/docs/annual-review-YYYY.md`.
 
 ## Changing this document
 

@@ -45,7 +45,7 @@ website:
 
   page-footer:
     left: |
-      Built on public USDA-AMS, BLS, and USDA NASS data. Code MIT; content and derived data CC-BY-4.0.
+      Built primarily on public USDA-AMS, BLS, and USDA NASS data; basis figures are derived from non-redistributed CME settle inputs (see [data licensing](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/LICENSE-DATA.md)). Code MIT; content and derived data CC-BY-4.0.
     right: |
       See [GOVERNANCE](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/GOVERNANCE.md) and [CITATION](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/CITATION.cff).
 

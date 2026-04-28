@@ -26,7 +26,10 @@ from pathlib import Path
 import json
 from IPython.display import Markdown
 
-PROCESSED = Path("..") / "data" / "processed"
+# NOTE: Quarto sets the kernel's CWD to the .qmd file's own directory at
+# render time. This page lives at site/methodology/index.qmd, so `..` is
+# `site/`, not the repo root. We need TWO levels up to reach data/processed.
+PROCESSED = Path("..") / ".." / "data" / "processed"
 MANIFESTS = [
     ("BLS CPI-U (monthly refresh)", PROCESSED / "MANIFEST.json"),
     ("USDA-AMS Clovis auction (weekly refresh)", PROCESSED / "clovis_MANIFEST.json"),
