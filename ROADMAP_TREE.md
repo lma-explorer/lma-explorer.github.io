@@ -10,7 +10,7 @@ lma-explorer.github.io/
 ├── LICENSE                               ← MIT (code)
 ├── LICENSE-DATA.md                       ← CC-BY-4.0 (docs + derived data)
 ├── GOVERNANCE.md                         ← automation-over-features commitment
-├── CODEOWNERS                            ← review routing (placeholders for now)
+├── CODEOWNERS                            ← review routing (single-maintainer @isall)
 ├── CITATION.cff                          ← machine-readable citation
 ├── .gitignore
 │
