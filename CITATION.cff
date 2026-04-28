@@ -7,35 +7,28 @@ message: >-
 type: software
 authors:
   - family-names: Sall
-    given-names: Isal
+    given-names: Ibrahima
     affiliation: Independent
-    # Note: affiliation listed as "Independent" for this
-    # personally-maintained platform. See GOVERNANCE.md
-    # (institutional posture) for rationale.
-  - family-names: TBD-COMAINTAINER-LAST
-    given-names: TBD-COMAINTAINER-FIRST
-    affiliation: Independent
-    # Placeholder for co-author / methodology reviewer. Not hardcoded
-    # pending explicit confirmation from the co-author themselves.
 abstract: >-
   An interactive, continuously-updated explorer of weekly
   feeder-cattle price data for the four-corners region.
   Ingests public-domain USDA-AMS Market News, BLS CPI, and
-  USDA NASS QuickStats on a scheduled refresh and publishes
-  producer-facing figures, methodology, and versioned data
-  snapshots. A Sall & Tronstad extension article analyzing
-  the same dataset is in preparation as related work; the
-  platform's design choices are documented and stand on
-  their own merits.
+  USDA RMA Livestock Risk Protection on a scheduled refresh
+  and publishes producer-facing figures, methodology, and
+  versioned data snapshots. A Sall & Tronstad extension
+  article analyzing the same dataset is in preparation as
+  related work; the platform's design choices are documented
+  and stand on their own merits.
 keywords:
   - livestock marketing
   - feeder cattle
   - agricultural economics
   - USDA AMS
+  - LRP
   - Extension
 license: MIT
 license-url: https://opensource.org/licenses/MIT
 repository-code: https://github.com/lma-explorer/lma-explorer.github.io
 url: https://lma-explorer.github.io
-version: 0.1.0-phase0
-date-released: 2026-04-21
+version: 0.4.0-prototype
+date-released: 2026-04-27

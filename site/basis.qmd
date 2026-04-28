@@ -882,10 +882,12 @@ A producer who hedges 700-lb feeders, or who reads futures as a forward-price re
 
 ## Download
 
-- [Basis parquet](../data/processed/clovis_basis_latest.parquet) — long-format: one row per (auction_date, class, frame, muscle_grade, weight_break_low/high, contract_month, settle, basis).
-- [CME settles parquet](../data/processed/cme_feeders_latest.parquet) — long-format: one row per (date, contract_month, settle).
+- [Basis parquet](../data/processed/clovis_basis_latest.parquet) — long-format: one row per (auction_date, class, frame, muscle_grade, weight_break_low/high, contract_month, basis). Only the derived basis statistic is committed; the underlying CME `settle` column is computed in memory and not persisted (see [data licensing](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/LICENSE-DATA.md)).
 - [Basis manifest](../data/processed/clovis_basis_MANIFEST.json) — vintage stamps and SHAs for each derived basis snapshot.
-- [CME settles manifest](../data/processed/cme_feeders_MANIFEST.json) — vintage stamps for the underlying futures snapshot.
+
+Parquet is the canonical format. Most tools read it natively: Python `pandas.read_parquet("clovis_basis_latest.parquet")`, R `arrow::read_parquet("clovis_basis_latest.parquet")`, DuckDB `SELECT * FROM 'clovis_basis_latest.parquet'`. To convert to CSV: `pd.read_parquet(...).to_csv(...)`. See the [data catalog](data.qmd) for a full inventory.
+
+The platform does not redistribute raw CME GF settle data. Producers wanting raw settles must source them directly from CME DataMine.
 
 ## See also
 

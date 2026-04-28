@@ -1,6 +1,8 @@
-# Repository Tree (intended structure)
+# Repository Tree — Roadmap (intended structure)
 
-This file documents the full directory structure the repo should have once the initial commit is pushed. The scaffold folder on disk contains only the files that have content today (README, LICENSE, GOVERNANCE, etc.); the empty subdirectories below are created by `git init` / first commit rather than duplicated onto your desktop.
+This file documents the **forward-looking** directory structure the repo aims for as Phase-2 pipelines land. The structure of the repository **today** is documented in [`README.md`](README.md). Items here that don't yet exist on `main` are explicitly Phase-2 / Phase-3 by their accompanying notes; items that match `main` today are unmarked.
+
+This file was renamed from `REPO_TREE.md` to `ROADMAP_TREE.md` on 2026-04-27 to make the aspirational vs. current distinction unambiguous.
 
 ```
 lma-explorer.github.io/

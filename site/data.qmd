@@ -63,16 +63,6 @@ CATALOG = [
         "description": "USDA-AMS Market News per-slug archive (CV_LS750 fixed-width TXT). Oct 2017 – Apr 2019. Read-only after one-time ingest; chart pages read this together with the rolling MARS-era parquet via pipelines/clovis/load.py.",
     },
     {
-        "title": "CME GF feeder-cattle daily settles (one-time bootstrap)",
-        "parquet": "cme_feeders_latest.parquet",
-        "vintage_column": "date",
-        "manifest": "cme_feeders_MANIFEST.json",
-        "pipeline_url": "https://github.com/lma-explorer/lma-explorer.github.io/tree/main/pipelines/cme_feeders",
-        "workflow_url": "https://github.com/lma-explorer/lma-explorer.github.io/blob/main/.github/workflows/clovis_refresh.yml",
-        "methodology_url": "methodology/basis.qmd",
-        "description": "CME GF (Feeder Cattle) daily settle prices for eight contract months (JAN/MAR/APR/MAY/AUG/SEP/OCT/NOV) plus an auto-rolled Nearby column. Long-format (one row per date × contract_month). Bootstrap source is a third-party settle workbook; Phase-2 follow-on refreshes from CME directly.",
-    },
-    {
         "title": "Clovis basis (derived: Clovis cash − CME settle)",
         "parquet": "clovis_basis_latest.parquet",
         "vintage_column": "auction_date",
@@ -80,7 +70,7 @@ CATALOG = [
         "pipeline_url": "https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/clovis/basis.py",
         "workflow_url": "https://github.com/lma-explorer/lma-explorer.github.io/blob/main/.github/workflows/clovis_refresh.yml",
         "methodology_url": "methodology/basis.qmd",
-        "description": "Per-(auction_date, class, frame, muscle_grade, weight_break, contract_month) `basis = head-weighted Clovis cash − CME settle`. Field name is `basis` for compactness, but only the (Steers × 700–799 lb) rows constitute strict basis under the CME GF futures contract specification — the other (class, weight_break) combinations are weight-class cash–futures spreads. See methodology/basis.qmd for the formal distinction. Three contract conventions surfaced: May, November, Nearby. Powers the Basis chart page.",
+        "description": "Per-(auction_date, class, frame, muscle_grade, weight_break, contract_month) `basis = head-weighted Clovis cash − CME settle`. Only the derived basis statistic is committed; the underlying CME `settle` column is computed in memory and not persisted (see LICENSE-DATA.md for the CME licensing posture). Field name is `basis` for compactness, but only the (Steers × 700–799 lb) rows constitute strict basis under the CME GF futures contract specification — the other (class, weight_break) combinations are weight-class cash–futures spreads. See methodology/basis.qmd for the formal distinction. Three contract conventions surfaced: May, November, Nearby. Powers the Basis chart page.",
     },
 ]
 
@@ -163,30 +153,39 @@ Every chart on the site reads from `*_latest.parquet`. To reproduce what you see
 
 ## Planned additions (Phase 2 candidates)
 
-These are discussed in the platform's roadmap but are not yet scheduled. They appear here to make the absence explicit rather than pretend the current catalog is comprehensive.
+These are roadmap items that have not yet been built. They appear here so the absence is explicit, rather than to suggest the current catalog is comprehensive.
 
 | Series | Likely source | Rationale |
 |---|---|---|
 | Pre-2017 Clovis history | Direct request to USDA-AMS Market News | Extends the public series before October 2017, the floor of the Market News per-slug archive. Aspirational; depends on whether AMS will provide a machine-readable archive. |
-| Willcox, AZ auction | USDA-AMS Market News | Companion auction in the broader four-corners marketing area. |
-| Utah feeder auctions | USDA-AMS Market News | Regional comparison within the 4-corners marketing area. |
-| CME feeder-cattle basis | Derived from Clovis + CME settles | Basis statistics (cash minus nearby futures) for hedge-decision support. Raw futures data stays link-out only per the data license; published output is the derived basis statistic, not the futures price. |
+| Willcox, AZ auction | USDA-AMS Market News | Companion auction in the broader four-corners marketing area; closer to AZ producers than Clovis. |
+| Utah feeder auctions | USDA-AMS Market News | Regional comparison within the four-corners marketing area. |
 | USDA NASS QuickStats | NASS API | State/county inventory, production, disappearance. |
+| USDA RMA Livestock Risk Protection (LRP) — public chart | Already-ingested LRP corpus on `main` | Pipeline infrastructure shipped (parquet committed, validator, schema). Chart page design is in progress; expected to surface as a filterable state-level explorer, with county-level drill-down. |
 
 ## The data folder, laid out
 
 ```
 data/
-├── raw/
-│   ├── bls/           # raw BLS JSON payloads (gitignored)
-│   └── clovis/        # raw MARS JSON payloads (gitignored)
+├── raw/                                  (gitignored)
+│   ├── bls/                              raw BLS JSON payloads
+│   ├── clovis/                           raw MARS JSON payloads
+│   ├── lrp/                              annual LRP zips downloaded from RMA
+│   └── cme/                              CME GF settles — proprietary, not redistributed
 └── processed/
-    ├── cpi_latest.parquet          # BLS, newest vintage
-    ├── cpi_<YYYY-MM>.parquet       # BLS, historical vintages
-    ├── MANIFEST.json               # BLS manifest (vintages + SHAs)
-    ├── clovis_latest.parquet       # Clovis, newest vintage
-    ├── clovis_weekly_<date>.parquet  # Clovis, historical vintages
-    └── clovis_MANIFEST.json        # Clovis manifest
+    ├── cpi_latest.parquet                BLS, newest vintage
+    ├── cpi_<YYYY-MM>.parquet             BLS, historical vintages
+    ├── MANIFEST.json                     BLS manifest (vintages + SHAs)
+    ├── clovis_latest.parquet             Clovis, newest vintage
+    ├── clovis_weekly_<date>.parquet      Clovis, historical vintages
+    ├── clovis_MANIFEST.json              Clovis manifest
+    ├── clovis_historical_era_b_*.parquet Era B reconstruction (one-time, Oct 2017 → Apr 2019)
+    ├── clovis_historical_MANIFEST.json
+    ├── clovis_basis_*.parquet            derived basis (no `settle` column committed)
+    ├── clovis_basis_MANIFEST.json
+    ├── lrp_latest.parquet                LRP corpus 2003-present, feeder-cattle subset
+    ├── lrp_premiums_<date>.parquet       LRP, vintage-stamped
+    └── lrp_MANIFEST.json                 LRP manifest
 ```
 
-Raw API payloads are kept out of git because they are large debugging artifacts and redundant with the processed snapshots. Processed snapshots, manifests, and release artifacts are all committed.
+Raw API payloads and proprietary inputs are kept out of git because they are large debugging artifacts (or non-redistributable inputs in the CME case) and redundant with the processed snapshots. Processed snapshots, manifests, and release artifacts are all committed under CC-BY-4.0.

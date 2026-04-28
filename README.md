@@ -4,7 +4,7 @@ An interactive, continuously-updated explorer of public-domain weekly feeder-cat
 
 A Sall & Tronstad extension article analyzing the same dataset is in preparation. The platform develops its own methodology and is not bound to any particular published comparison; see [`site/methodology/`](site/methodology/) for design rationales.
 
-**Status**: Phase 1 (Prototype). Price-weight explorer and weekly seasonality charts are live, reading from a combined 2017-10 → present Clovis weekly series.
+**Status**: active prototype. Live chart pages: price–weight, weekly seasonality, weekly trends, basis, sell-now compare — all anchored on the Clovis, NM feeder-cattle auction. Live data feeds: USDA-AMS (sale-week), BLS CPI-U (monthly). LRP pipeline infrastructure is on `main` (corpus 2003-present, validator) with the public chart page in design. Additional regional auctions (Willcox AZ, Utah feeders) are roadmap items.
 
 ## Who this is for
 
@@ -18,33 +18,43 @@ The same repository serves three audiences through different entry points.
 
 ## Data sources
 
-Three public data families are ingested directly and redistributed as cleaned Parquet snapshots:
+Three public data families are ingested directly and redistributed as cleaned Parquet snapshots under CC-BY-4.0:
 
-- **USDA-AMS LMR** — feeder- and fed-cattle auction reports via the MARS API (sale-day refresh for Clovis, weekly national summaries). Public domain.
+- **USDA-AMS Market News** — feeder-cattle auction reports for Clovis (NM) via the MARS API, weekly (sale-week refresh). Historical Era B reconstruction (Oct 2017 – Apr 2019) from the AMS per-slug archive. Public domain.
 - **BLS CPI-U** — series `CUUR0000SA0`, used as the deflator for all real-price figures. Public domain.
-- **USDA NASS QuickStats** — cattle inventory and slaughter. Public domain.
+- **USDA RMA Livestock Risk Protection** — annual Summary of Business zips for feeder-cattle LRP endorsements, 2003-present. Pipeline infrastructure on `main`; public chart page in design. Public domain.
 
-One additional source is **link-out only** and is *not* mirrored in this repository:
+One additional source is **derivative-only**:
 
-- **CME feeder (GF) and live-cattle (LE) futures settlement** — proprietary; the platform links to cmegroup.com for live settlement rather than caching or redistributing. See `GOVERNANCE.md` for the data-licensing posture.
+- **CME GF feeder-cattle settles** — proprietary. The basis pipeline reads CME settles from a local source (`data/raw/cme/`, gitignored) and writes only the derived `basis = cash − settle` statistic to `data/processed/`. Raw CME settles are not committed or redistributed by this repository. Downstream users wanting raw settles must license them directly from CME DataMine. See `LICENSE-DATA.md` for the full posture.
 
 ## Repository layout
 
 ```
-/site/                Quarto source (.qmd) for the rendered website
-/pipelines/           One Python module per public data source
-  ams/                USDA-AMS ingestion (Phase 2)
-  bls/                BLS CPI ingestion (Phase 1 — first pipeline)
-  nass/               USDA NASS ingestion (Phase 2)
-  cme/                Thin link-out helper (no redistribution)
-/data/processed/      Committed Parquet snapshots, time-stamped by vintage
-/data/raw/            Raw API responses cached for debugging (gitignored)
-/R/, /py/             Reusable analysis helpers
-/docs/                Methodology PDFs, Extension article PDF (on release), citation metadata
-/.github/workflows/   Scheduled refresh, site build, annual Zenodo deposit
+/site/                         Quarto source (.qmd) for the rendered website
+  index.qmd                    home page
+  price-weight.qmd             weight-class price-explorer chart
+  seasonality.qmd              week-of-year overlay across years
+  weekly-trends.qmd            calendar timeline of auction weeks
+  basis.qmd                    cash − CME settle by week-of-year
+  sell-now-compare.qmd         this-week vs same-week historical band
+  one-pager.qmd                producer reference card (typst → PDF)
+  data.qmd                     versioned data catalog
+  about.qmd                    maintainer and engagement page
+  methodology/                 per-pipeline methodology pages
+/pipelines/                    one Python package per ingested data source
+  bls/                         CPI-U monthly refresh
+  clovis/                      USDA-AMS MARS-era weekly refresh + basis derivation
+  clovis_historical/           one-time Era B reconstruction (Oct 2017 – Apr 2019)
+  cme_feeders/                 (placeholder; see LICENSE-DATA.md re: redistribution)
+  lrp/                         USDA RMA LRP annual zips (corpus on disk; chart in design)
+/data/processed/               committed Parquet snapshots, time-stamped by vintage
+/data/raw/                     proprietary inputs and raw API responses (gitignored)
+/.github/workflows/            scheduled refresh, site build, future Zenodo deposit
+ROADMAP_TREE.md                forward-looking intended structure (separate from current layout above)
 ```
 
-See `/docs/` for the underlying roadmap and strategy document.
+The forward-looking structure (which Phase-2 pipelines, what files would land where, what additional folders would be created) is documented separately in `ROADMAP_TREE.md`. This README's layout reflects what's on `main` today.
 
 ## Licensing
 

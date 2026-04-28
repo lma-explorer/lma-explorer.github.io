@@ -6,11 +6,15 @@ toc: false
 
 ## What this platform is
 
-The Livestock Marketing Alternatives Explorer is an open, continuously-updated explorer of weekly feeder-cattle price data for the four-corners region, sourced directly from USDA-AMS Market News and supporting public-domain feeds (BLS CPI, USDA NASS). The site exists to keep these comparisons alive as new public data lands — rather than as a one-time snapshot — and to give producers and Extension peers interactive tools to work against their own year ranges, weight classes, and deflation choices. Every number is reproducible from versioned code against public-domain federal data; every page has an **edit on GitHub** link.
+The Livestock Marketing Alternatives Explorer is an open, continuously-updated explorer of weekly feeder-cattle price data for the four-corners region, sourced directly from USDA-AMS Market News and supporting public-domain feeds (BLS CPI). The site exists to keep these comparisons alive as new public data lands — rather than as a one-time snapshot — and to give producers and Extension peers interactive tools to work against their own year ranges, weight classes, and deflation choices. Cash-side numbers are public-domain federal data; basis figures are a derived statistic against CME GF settles which are not redistributed by this repository (see [data licensing](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/LICENSE-DATA.md) for the full posture). Every figure is reproducible from versioned code; every page has an **edit on GitHub** link.
 
 ## Related work
 
 A Sall & Tronstad extension article analyzing the same dataset is in preparation. The article extends and updates an earlier 1994 Extension chapter on livestock marketing alternatives (Tronstad, 1994). The platform develops its own methodology and is not bound to any particular published comparison; design choices on this site are documented under [Methodology](methodology/index.qmd) and stand on their own merits.
+
+## What's currently in development
+
+A USDA RMA Livestock Risk Protection (LRP) explorer is in design. The underlying corpus (every LRP feeder-cattle endorsement 2003-present, ~210k rows) is committed and validated; the public chart page is being designed as a filterable state-level explorer with county-level drill-down. Until that page ships, the LRP pipeline infrastructure is browsable in [`pipelines/lrp/`](https://github.com/lma-explorer/lma-explorer.github.io/tree/main/pipelines/lrp) but is not yet surfaced as a producer page.
 
 ## Who maintains it
 

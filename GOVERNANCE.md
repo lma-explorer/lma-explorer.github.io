@@ -4,21 +4,20 @@ This document defines who is responsible for what, how changes get into the repo
 
 ## Maintainers
 
-- **Primary maintainer**: TBD-PRIMARY (placeholder until Phase 1 exit).
-- **Co-maintainer**: TBD-COMAINTAINER (placeholder until Phase 1 exit).
+- **Primary maintainer**: Ibrahima Sall ([`@isall`](https://github.com/isall)).
 
-Both maintainers are individuals, not institutions. The platform is intentionally institution-independent so that policy changes at any single Extension office cannot strand the project.
+The platform is a single-maintainer project as of the audit date. A future co-maintainer can be added when one is named; the slot is intentionally open rather than placeholder. The platform is institution-independent so that policy changes at any single Extension office cannot strand the project.
 
 ## Decision authority
 
 | Decision type                                | Authority                          | Forum                          |
 |---------------------------------------------|-------------------------------------|--------------------------------|
-| Routine bug fixes, documentation typos      | Either maintainer                   | Single PR review               |
-| New feature or new ingestion source         | Both maintainers must approve       | PR review + checklist below    |
+| Routine bug fixes, documentation typos      | Primary maintainer                  | Single PR review               |
+| New feature or new ingestion source         | Primary maintainer + checklist      | PR review + checklist below    |
 | License changes                             | Primary maintainer + 30-day notice  | Issue thread, public notice    |
-| Adding a third maintainer                   | Both current maintainers            | Public issue, 14-day comment   |
-| Sunsetting a feature                        | Either maintainer                   | Public issue, 30-day notice    |
-| Emergency takedown (legal, data correction) | Either maintainer                   | Acted on, then publicly logged |
+| Adding a co-maintainer                      | Primary maintainer + public comment | Public issue, 14-day comment   |
+| Sunsetting a feature                        | Primary maintainer                  | Public issue, 30-day notice    |
+| Emergency takedown (legal, data correction) | Primary maintainer                  | Acted on, then publicly logged |
 
 ## The Automation Over Features Commitment
 
@@ -61,14 +60,14 @@ PRs missing any item above are blocked from merge. The checklist is enforced by 
 
 ## Data retention
 
-- **Processed data** (`/data/processed/`): committed to the repository indefinitely. Old vintages are retained as part of the git history; the latest of each cadence is also kept as a `latest` symlink for convenience.
-- **Raw API responses** (`/data/raw/`): gitignored. Cached locally for debugging; retained only in CI artifacts (default 90-day GitHub retention). Not redistributed.
-- **CME-derived figures**: any figure computed from publicly posted (lagged) CME numbers is regenerated from scratch each run; no CME numbers are persisted to disk.
+- **Processed data** (`/data/processed/`): committed to the repository indefinitely. Old vintages are retained as part of the git history; the latest of each cadence is also kept under a stable filename (`<source>_latest.parquet`) for convenience.
+- **Raw API responses and proprietary inputs** (`/data/raw/`): gitignored. Cached locally for debugging or as proprietary inputs not redistributed by this repo (see CME settles below). Not committed.
+- **CME settlement data**: the repository does not host raw CME GF or LE futures settlement series. The basis pipeline (`pipelines/clovis/basis.py`) reads CME settles from a local-only file (`data/raw/cme/`, gitignored) and writes the derived `basis = cash − settle` statistic to `data/processed/clovis_basis_*.parquet`. The `settle` column itself is not persisted in the committed parquet — it exists only in memory during basis derivation.
 
 ## Compliance posture
 
 - USDA-AMS, BLS, and USDA NASS data are public-domain U.S. government works (17 U.S.C. § 105) and may be republished with attribution. The CC-BY-4.0 notice on derived data is a request, not a legal restriction inherited from the source.
-- CME settlement data is proprietary. The platform does not mirror, cache, or redistribute CME settlement series. See `LICENSE-DATA.md` for the full data-licensing posture.
+- CME settlement data is proprietary. The platform does not commit, mirror, or redistribute raw CME GF or LE settle series. The basis pipeline computes a derived statistic (`cash − settle`) and commits only that derived value, with the underlying `settle` column dropped from output. See `LICENSE-DATA.md` for the full data-licensing posture.
 
 ## Annual review
 

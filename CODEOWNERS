@@ -1,28 +1,23 @@
 # CODEOWNERS — Livestock Marketing Alternatives Explorer
 #
 # GitHub uses this file to auto-request reviews on pull requests.
-# Syntax: <path pattern>  @github-handle  [@github-handle...]
+# Syntax: <path pattern>  @github-handle
 # Docs:   https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-security/customizing-your-repository/about-code-owners
-#
-# Handles below are PLACEHOLDERS until Phase 1 exit. Replace TBD-PRIMARY
-# and TBD-COMAINTAINER with real GitHub usernames before opening the repo
-# to external contributions.
 
 # Default owner for everything in the repo
-*                              @TBD-PRIMARY  @TBD-COMAINTAINER
+*                              @isall
 
-# Data pipelines — changes here can silently corrupt downstream figures,
-# so both maintainers must approve.
-/pipelines/                    @TBD-PRIMARY  @TBD-COMAINTAINER
-/data/                         @TBD-PRIMARY  @TBD-COMAINTAINER
+# Data pipelines — changes here can silently corrupt downstream figures.
+/pipelines/                    @isall
+/data/                         @isall
 
 # Licensing and governance — primary maintainer signs off; these don't
 # change often and should be reviewed extra-carefully when they do.
-LICENSE                        @TBD-PRIMARY
-LICENSE-DATA.md                @TBD-PRIMARY
-GOVERNANCE.md                  @TBD-PRIMARY
-CITATION.cff                   @TBD-PRIMARY
+LICENSE                        @isall
+LICENSE-DATA.md                @isall
+GOVERNANCE.md                  @isall
+CITATION.cff                   @isall
 
 # Workflow files — these control scheduled refresh and deployment; treat
 # as high-risk.
-/.github/workflows/            @TBD-PRIMARY  @TBD-COMAINTAINER
+/.github/workflows/            @isall

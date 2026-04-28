@@ -567,6 +567,8 @@ display(HTML(f"""
 - [Vintage manifest](../data/processed/clovis_MANIFEST.json) — SHA-256 of every snapshot the pipeline has committed
 - [CPI deflator](../data/processed/cpi_latest.parquet) — BLS CPI-U NSA (`CUUR0000SA0`), the deflation basis
 
+Parquet is the canonical format. Most tools read it natively: Python `pandas.read_parquet("clovis_latest.parquet")`, R `arrow::read_parquet("clovis_latest.parquet")`, DuckDB `SELECT * FROM 'clovis_latest.parquet'`. To convert to CSV: `pd.read_parquet(...).to_csv(...)`. See the [data catalog](data.qmd) for a full inventory.
+
 ## Why these choices
 
 **Min–mean–max rather than a single point.** Auction prices vary within a weight class and within a sale day; collapsing them to a single number hides risk that matters to a seller deciding when to market.

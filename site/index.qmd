@@ -5,12 +5,12 @@ toc: false
 ---
 
 ::: {.callout-note appearance="minimal"}
-This site is in **Phase 1 prototype**. One figure (price–weight explorer) is live; more are coming as additional public data pipelines land.
+**Current status**: active prototype. Live chart pages cover price–weight, weekly seasonality, weekly trends, basis to CME GF feeder futures, and a sell-now compare for the Clovis, NM feeder-cattle auction. Live data feeds: USDA-AMS Clovis (sale-week cadence), BLS CPI-U (monthly). Additional pipelines (USDA RMA Livestock Risk Protection, additional regional auctions) are under development.
 :::
 
 ## What this is
 
-A producer-facing, Extension-aligned platform that takes weekly USDA-AMS feeder-cattle market data for the four-corners region and turns it into focused, interactive figures — price-weight relationships, weekly seasonality, basis to the nearby CME feeder-futures contract — refreshed automatically as new public USDA and BLS data land. Every number on this site is sourced from a public-domain federal dataset; every figure is reproducible from versioned code; every page has an **edit on GitHub** link for corrections.
+A producer-facing, Extension-aligned platform that takes weekly USDA-AMS feeder-cattle market data for the four-corners region and turns it into focused, interactive figures — price-weight relationships, weekly seasonality, basis to the nearby CME feeder-futures contract — refreshed automatically as new public USDA and BLS data land. The cash-side numbers (USDA-AMS, BLS) are sourced from public-domain federal datasets; the basis charts are a derived statistic computed against CME GF settles which are not themselves redistributed (see [data licensing](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/LICENSE-DATA.md)). Every figure is reproducible from versioned code; every page has an **edit on GitHub** link for corrections.
 
 ## Who this is for
 
@@ -38,6 +38,36 @@ Each figure has a **methodology** link explaining what's computed, the deflation
 Raw snapshots are committed as Parquet and released annually as a Zenodo deposit with a DOI. Every pipeline run is logged in the `MANIFEST.json`; every figure carries a vintage stamp.
 
 [Browse the data →](data.qmd)
+:::
+
+:::
+
+## What should I look at first?
+
+::: {.grid}
+
+::: {.g-col-12 .g-col-md-6}
+**"I want to know what cattle brought last week."** → [Weekly trends](weekly-trends.qmd) — actual auction-week prices on a calendar timeline.
+:::
+
+::: {.g-col-12 .g-col-md-6}
+**"I want to compare weight classes."** → [Price–weight](price-weight.qmd) — min/mean/max bands across your selected window.
+:::
+
+::: {.g-col-12 .g-col-md-6}
+**"I want to know if this week is high or low."** → [Sell-now compare](sell-now-compare.qmd) — this week vs. the historical band for the same week-of-year.
+:::
+
+::: {.g-col-12 .g-col-md-6}
+**"I hedge or watch futures."** → [Basis](basis.qmd) — Clovis cash minus CME GF settle, by week-of-year.
+:::
+
+::: {.g-col-12 .g-col-md-6}
+**"I want to know when prices peak each year."** → [Weekly seasonality](seasonality.qmd) — week-of-year pattern, all weight classes overlaid.
+:::
+
+::: {.g-col-12 .g-col-md-6}
+**"I want a printable reference for the sale or banker."** → [Producer reference card (PDF)](one-pager.pdf) — one printable sheet with the latest auction's prices.
 :::
 
 :::

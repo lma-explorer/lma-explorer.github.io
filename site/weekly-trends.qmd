@@ -9,6 +9,10 @@ toc-depth: 2
 **Caveat before scrolling.** This page shows actual reported weekly prices, not predictions. The chart answers *"where are we now compared with the last few months / years?"* — the trajectory itself, not a recommendation about what comes next. See [Methodology](methodology/index.qmd) for the data window, the deflation choice, and what the lines aggregate.
 :::
 
+::: {.callout-note appearance="simple"}
+**Aggregation note for multi-lot weeks.** This page currently simple-averages multiple lots within the same (week, class, weight bin) cell. The other chart-shelf pages (price–weight, seasonality, basis, sell-now compare, one-pager) use head-weighted means. Where lot sizes vary substantially within a week, the simple-average value can differ by ~$1-3/cwt from the head-weighted version. A head-weighted refactor is queued; the methodology page documents the choice.
+:::
+
 ## About this page
 
 The third view in the chart shelf. The [Price–weight explorer](price-weight.qmd) answers *"what does each weight class fetch on average?"* and the [Weekly seasonality](seasonality.qmd) page answers *"when in the year do these prices peak?"* This page answers a different question: *"how have prices moved week-by-week since October 2017?"* The chart shows actual auction-week observations on a calendar timeline, with one line per weight class so a producer can see at a glance whether this week sits high, low, or middle relative to recent history. Two button rows above the chart let you pick the **mode** (top: Nominal $ / Real December-2025 $) and the **year window** (bottom: All / Last 5 years / Last 3 years / latest calendar year). Each row maintains its own selection independently — at any moment, the chart shows the combination of both highlighted choices.
@@ -566,6 +570,8 @@ A producer looking at all three answers a different question on each: structure,
 - [Parquet snapshot](../data/processed/clovis_latest.parquet) — Clovis feeder-cattle archive, latest MARS vintage
 - [Vintage manifest](../data/processed/clovis_MANIFEST.json) — SHA-256 of every snapshot the pipeline has committed
 - [CPI deflator](../data/processed/cpi_latest.parquet) — BLS CPI-U NSA (`CUUR0000SA0`), the deflation basis
+
+Parquet is the canonical format. Most tools read it natively: Python `pandas.read_parquet("clovis_latest.parquet")`, R `arrow::read_parquet("clovis_latest.parquet")`, DuckDB `SELECT * FROM 'clovis_latest.parquet'`. To convert to CSV: `pd.read_parquet(...).to_csv(...)`. See the [data catalog](data.qmd) for a full inventory.
 
 ## See also
 

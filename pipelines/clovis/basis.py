@@ -10,14 +10,19 @@ the strict-basis vs. spread distinction explicitly to a producer audience.
 
 Joins:
   - Clovis combined parquet (Era B + MARS, via pipelines.clovis.load)
-  - CME GF feeder-cattle settle parquet (data/processed/cme_feeders_latest.parquet)
+  - CME GF feeder-cattle settle parquet (data/raw/cme/cme_feeders_latest.parquet,
+    gitignored — the platform does NOT redistribute raw CME settles).
 
 For each Clovis observation (auction_date × class × frame × muscle_grade ×
 weight_break_low/high), aggregates lots within the same (auction_date, class,
 weight_bin_100lb, frame, muscle_grade) to a single cash price (head-weighted
 where head_count is available, simple mean otherwise) and joins to the daily
 settle for {MAY, NOV, NEARBY} contracts on the auction date (with prior-
-trading-day fallback up to 5 days).
+trading-day fallback up to 5 days). The ``settle`` value is used in memory
+to compute ``basis = cash − settle`` and is intentionally NOT written to the
+output parquet — only the derived ``basis`` statistic is committed under
+CC-BY-4.0; raw CME settles are licensed proprietarily by CME and are not
+redistributed by this repository.
 
 Output (long-format, ~16k rows for the current 8.6-year span):
 
@@ -30,10 +35,8 @@ Output (long-format, ~16k rows for the current 8.6-year span):
     price_avg_cash   float   ($/cwt, Clovis weighted-avg over lots in the bin)
     n_lots           Int32   (count of Clovis lots aggregated into this row)
     contract_month   string  ("MAY" / "NOV" / "NEARBY")
-    settle           float   ($/cwt, futures settle on auction_date)
-    settle_date      date    (actual settle date — prior trading day if auction
-                              fell on a weekend / holiday)
-    basis            float   ($/cwt, = price_avg_cash − settle)
+    basis            float   ($/cwt, = price_avg_cash − settle, with `settle`
+                             observed in memory and NOT persisted in this output)
                              NOTE: strict hedging basis only for (class=Steers,
                              weight_break_low=700). Other rows are weight-class
                              cash−futures spreads — see methodology/basis.qmd.
@@ -68,8 +71,13 @@ import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PROCESSED = REPO_ROOT / "data" / "processed"
-CME_LATEST_PARQUET = PROCESSED / "cme_feeders_latest.parquet"
-CME_LATEST_CSV = PROCESSED / "cme_feeders_latest.csv"
+# CME settles are read from a gitignored local-only directory. The platform
+# does not redistribute raw CME settles (see LICENSE-DATA.md); the basis
+# pipeline reads them in-memory, computes basis = cash − settle, and writes
+# only the derived basis statistic to data/processed/.
+CME_RAW_DIR = REPO_ROOT / "data" / "raw" / "cme"
+CME_LATEST_PARQUET = CME_RAW_DIR / "cme_feeders_latest.parquet"
+CME_LATEST_CSV = CME_RAW_DIR / "cme_feeders_latest.csv"
 MANIFEST_PATH = PROCESSED / "clovis_basis_MANIFEST.json"
 
 CONTRACTS = ["MAY", "NOV", "NEARBY"]
@@ -252,15 +260,24 @@ def lookup_settles(weekly_clovis: pd.DataFrame, cme: pd.DataFrame) -> pd.DataFra
 def derive_basis(weekly_clovis: pd.DataFrame, settles: pd.DataFrame,
                  vintage: date) -> pd.DataFrame:
     """Cross-join weekly_clovis × settles on auction_date, compute
-    basis = price_avg_cash − settle. Long format."""
+    basis = price_avg_cash − settle. Long format.
+
+    The ``settle`` and ``settle_date`` columns are used IN MEMORY to compute
+    the derived ``basis`` statistic and are then dropped before returning —
+    raw CME settles are not redistributed by this repository. See the module
+    docstring for the licensing posture.
+    """
     joined = weekly_clovis.merge(settles, on="auction_date", how="left")
     joined["basis"] = joined["price_avg_cash"] - joined["settle"]
     joined["vintage"] = vintage
+    # Output schema deliberately excludes `settle` and `settle_date` — those
+    # are CME-licensed values used only in memory to derive basis. Only the
+    # derived `basis` value is persisted.
     cols = [
         "auction_date", "class", "frame", "muscle_grade",
         "weight_break_low", "weight_break_high",
         "price_avg_cash", "n_lots",
-        "contract_month", "settle", "settle_date", "basis",
+        "contract_month", "basis",
         "vintage",
     ]
     return joined[cols].sort_values(

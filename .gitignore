@@ -1,4 +1,7 @@
-# Raw API response cache — debugging artifact, not redistributable
+# Raw API response cache — debugging artifact, not redistributable.
+# Also used for proprietary inputs that are NOT redistributed (e.g.
+# CME GF feeder-cattle settles in /data/raw/cme/ — see LICENSE-DATA.md
+# for the redistribution posture).
 /data/raw/
 !/data/raw/.gitkeep
 

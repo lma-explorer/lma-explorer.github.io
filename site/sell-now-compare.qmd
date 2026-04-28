@@ -9,6 +9,10 @@ toc-depth: 2
 **Caveat before scrolling.** *"Above the historical average for this week"* doesn't categorically mean *"sell now"* — carrying costs, basis to a futures hedge, available marketing channels, and your own risk tolerance all matter. The chart on this page answers the narrower question: *given how this week typically prices in past years, where does this week's actual price sit?* Use it as one input to a marketing decision, not as a recommendation.
 :::
 
+::: {.callout-tip appearance="simple"}
+**Small-sample caveat.** Percentile bands are descriptive and can be unstable when the same-week historical sample is small. Treat any cell with fewer than 5 historical years (`n=` shown in the tooltip and the summary table below) as directional rather than precise. The default *All available years* window has the largest sample; *Last 3 years* has the smallest.
+:::
+
 ## About this page
 
 The chart shelf's other pages explore patterns across years (price–weight, seasonality, weekly-trends, basis). This page does the opposite — it pins to **this week** and asks: *given how prices have looked in this same calendar week of past years, is this week high, low, or middle?*
@@ -739,6 +743,8 @@ The other four pages are exploratory; this page is decision-anchored. A producer
 - [Parquet snapshot](../data/processed/clovis_latest.parquet) — Clovis feeder-cattle archive, latest MARS vintage
 - [Vintage manifest](../data/processed/clovis_MANIFEST.json) — SHA-256 of every snapshot the pipeline has committed
 - [CPI deflator](../data/processed/cpi_latest.parquet) — BLS CPI-U NSA (`CUUR0000SA0`), the deflation basis
+
+Parquet is the canonical format. Most tools read it natively: Python `pandas.read_parquet("clovis_latest.parquet")`, R `arrow::read_parquet("clovis_latest.parquet")`, DuckDB `SELECT * FROM 'clovis_latest.parquet'`. To convert to CSV: `pd.read_parquet(...).to_csv(...)`. See the [data catalog](data.qmd) for a full inventory.
 
 ## See also
 
