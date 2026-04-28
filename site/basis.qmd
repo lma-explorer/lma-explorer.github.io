@@ -183,6 +183,8 @@ else:
 **Grade shown**: Medium and Large, muscle grade 1 ·
 **Basis convention**: cash − settle on auction date (prior-trading-day fallback for weekend auctions, up to 5 days) ·
 **Deflation basis (real-$ view)**: `{python} cpi_basis_label` CPI-U NSA (`CUUR0000SA0`).
+
+The window's upper bound is bounded by **CME-settle availability**, not by the cash data alone. The Clovis cash parquet typically extends a week or two further than the latest available CME settle; auctions for which no settle is found within the 5-day fallback have a null `basis` and don't appear in this chart. The data catalog reports the cash-side window (which can run further); this page reports the basis-with-non-null-settle window.
 :::
 
 ## Weekly basis pattern
