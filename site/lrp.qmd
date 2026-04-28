@@ -1,0 +1,820 @@
+---
+title: "Livestock Risk Protection — what does LRP look like?"
+subtitle: "USDA RMA Summary of Business · feeder cattle, Steers/Heifers Weight 1+2 · 2003-present"
+toc: true
+toc-depth: 2
+---
+
+::: {.callout-tip appearance="simple"}
+**This page is descriptive, not prescriptive.** It summarizes USDA Risk Management Agency's [Livestock Risk Protection](https://www.rma.usda.gov/policy-and-procedure/insurance-plans/livestock-risk-protection-policy) program for feeder cattle. Historical indemnities, payout ratios, and subsidy shares are descriptive summaries only — they are **not** recommendations to buy or avoid LRP. LRP outcomes depend on market conditions, coverage level, endorsement length, premium subsidy, timing, and the producer's actual marketing plan.
+:::
+
+## About this page
+
+[LRP](https://www.rma.usda.gov/policy-and-procedure/insurance-plans/livestock-risk-protection-policy) is a federal insurance product offered by [USDA RMA](https://www.rma.usda.gov/) that lets producers insure a coverage price floor for feeder cattle. If the actual ending value at the end of the coverage period falls below the elected coverage price, RMA pays an indemnity covering the shortfall.
+
+This page reads RMA's public **Summary of Business** files — every LRP feeder-cattle endorsement sold from reinsurance year 2003 through the current year — and lets you explore the program along **four groups of information**:
+
+1. **Participation / use** — how many endorsements, how many head, how much weight is being insured.
+2. **Cost / subsidy** — total premium, producer premium, subsidy amount, cost per cwt.
+3. **Coverage design** — endorsement length, coverage price elected, expected end value, coverage level percent.
+4. **Outcome / payout** — indemnities paid, indemnified-endorsement share, indemnity-to-producer-premium ratio.
+
+Filter scope: `commodity 0801` (feeder cattle), `plan 81` (LRP), `type codes 809-812` (Steers Weight 1, Steers Weight 2, Heifers Weight 1, Heifers Weight 2 — the four conventional non-Brahman, non-dairy, born-cattle codes the platform's narrative anchors on). See the [methodology page](methodology/lrp.qmd) for the full filter rationale.
+
+The default state is **Arizona** (this platform's producer-reference state); the default year window is **All available years**. Use the dropdown and button row above the chart to change either.
+
+::: {.callout-tip appearance="simple"}
+**How to read this page (60-second guide).** Below you'll find: (1) a **time-series** of producer premium (blue), indemnity received (green), and indemnified-endorsement share (red line) for the state you select; (2) a **state map** showing where LRP is used in the country; (3) a **benchmark table** ranking states by program activity; and (4) an **at-a-glance summary** for the selected state and year window covering all four groups. Two controls sit at the top: **State** (dropdown, default Arizona) and **Year window** (button row). Changes to one control respect the other.
+:::
+
+::: {.callout-note appearance="simple" icon="false"}
+**Terminology.** **"Producer premium"** on this page means the **producer-paid** premium — what producers pay *after* the federal subsidy — not the total/gross premium. RMA reports `total_premium_amount`, `subsidy_amount`, and `producer_premium_amount` as separate fields; the chart and tables here use `producer_premium_amount`.
+:::
+
+```{python}
+#| echo: false
+#| label: data-load
+
+from pathlib import Path
+import sys
+import math
+import pandas as pd
+import numpy as np
+
+PROCESSED = Path("..") / "data" / "processed"
+sys.path.insert(0, str(Path("..").resolve()))
+
+from pipelines.lrp.load import (  # noqa: E402
+    load_corpus, yearly_summary, state_summary,
+    summary_metrics, available_states, available_years,
+    apply_year_window, YEAR_WINDOWS, DEFAULT_STATE_ABBR,
+    _year_bounds,
+)
+
+data_is_placeholder = False
+data_source_label = None
+
+_loaded = load_corpus(PROCESSED)
+if _loaded is not None:
+    df = _loaded.df
+    data_source_label = _loaded.data_source_label
+else:
+    rng = np.random.default_rng(seed=2026)
+    rows = []
+    states_demo = ["AZ", "TX", "NE", "KS", "OK", "SD"]
+    years = list(range(2018, 2027))
+    for y in years:
+        for s in states_demo:
+            for tc in ["809", "810", "811", "812"]:
+                n = int(rng.integers(50, 500))
+                rows.append({
+                    "reinsurance_year": y,
+                    "state_abbr": s,
+                    "type_code": tc,
+                    "commodity_code": "0801",
+                    "plan_code": "81",
+                    "n_endorsements_earning": n,
+                    "n_endorsements_indemn": int(n * 0.3),
+                    "n_head": n * 100,
+                    "total_weight_cwt": n * 700,
+                    "liability_amount": n * 100_000,
+                    "producer_premium_amount": n * 5_000,
+                    "subsidy_amount": n * 3_000,
+                    "total_premium_amount": n * 8_000,
+                    "indemnity_amount": int(n * 5_000 * 0.4),
+                    "length_weeks": int(rng.choice([13, 17, 21, 26, 30, 34])),
+                    "coverage_price": float(rng.uniform(150, 280)),
+                    "expected_end_value": float(rng.uniform(150, 280)),
+                    "coverage_level_pct": float(rng.uniform(0.7, 0.99)),
+                    "cost_per_cwt": float(rng.uniform(5, 25)),
+                })
+    df = pd.DataFrame(rows)
+    data_is_placeholder = True
+    data_source_label = "synthetic stand-in (no live data available)"
+
+
+def _fmt_money_M(x):
+    if x is None or (isinstance(x, float) and math.isnan(x)):
+        return "—"
+    return f"${x/1_000_000:.1f}M"
+
+def _fmt_int(x):
+    if x is None or (isinstance(x, float) and math.isnan(x)):
+        return "—"
+    return f"{int(x):,}"
+
+def _fmt_pct(x, places=1):
+    if x is None or (isinstance(x, float) and math.isnan(x)):
+        return "—"
+    return f"{x*100:.{places}f}%"
+
+def _fmt_ratio(x, places=2):
+    if x is None or (isinstance(x, float) and math.isnan(x)):
+        return "—"
+    return f"{x:.{places}f}"
+
+def _fmt_currency(x):
+    if x is None or (isinstance(x, float) and math.isnan(x)):
+        return "—"
+    return f"${x:,.2f}"
+
+def _fmt_weeks(x):
+    if x is None or (isinstance(x, float) and math.isnan(x)):
+        return "—"
+    return f"{x:.1f} wks"
+```
+
+```{python}
+#| echo: false
+#| label: precompute
+
+state_list = available_states(df)
+states_with_all = ["All"] + state_list
+window_list = list(YEAR_WINDOWS)
+year_list = available_years(df)
+
+DEFAULT_STATE = DEFAULT_STATE_ABBR if DEFAULT_STATE_ABBR in state_list else (
+    state_list[0] if state_list else "All"
+)
+DEFAULT_WINDOW = "all"
+
+# Pre-compute year-window bounds for the JS xaxis-range update
+year_bounds_lookup = {w: list(_year_bounds(df, w)) for w in window_list}
+
+# Pre-compute year-aggregations PER STATE only (not per state × window).
+# The chart shows the full corpus year range and zero-pads missing years;
+# year-window filtering happens via xaxis.range update in JS, not by
+# rebuilding traces. This cuts the time-series trace count from ~500 to ~130.
+yearly_by_state = {}
+for s in states_with_all:
+    if s == "All":
+        yearly_by_state[s] = yearly_summary(df, state_abbr=None, year_window="all")
+    else:
+        yearly_by_state[s] = yearly_summary(df, state_abbr=s, year_window="all")
+
+# Pre-compute state-summary per year-window (drives the state choropleth)
+state_summary_by_window = {}
+for w in window_list:
+    state_summary_by_window[w] = state_summary(df, year_window=w)
+
+# Pre-compute summary metrics per (state, window) — for the at-a-glance HTML
+metrics_lookup = {}
+for s in states_with_all:
+    for w in window_list:
+        sub_for_metrics = df if s == "All" else df[df["state_abbr"] == s]
+        sub_w = apply_year_window(sub_for_metrics, w)
+        latest_year = (
+            int(sub_w["reinsurance_year"].dropna().max())
+            if not sub_w["reinsurance_year"].dropna().empty
+            else None
+        )
+        metrics_lookup[(s, w)] = summary_metrics(
+            df,
+            state_abbr=(None if s == "All" else s),
+            year=latest_year,
+        )
+        metrics_lookup[(s, w)]["window"] = w
+        metrics_lookup[(s, w)]["latest_year"] = latest_year
+```
+
+```{python}
+#| echo: false
+#| label: build-figure
+#| fig-width: 11
+#| fig-height: 11
+
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+# Figure: TWO subplots only (time-series + state choropleth). Tables moved
+# out of the figure into HTML containers below for performance.
+fig = make_subplots(
+    rows=2, cols=1,
+    specs=[
+        [{"type": "xy", "secondary_y": True}],
+        [{"type": "choropleth"}],
+    ],
+    row_heights=[0.50, 0.50],
+    vertical_spacing=0.10,
+    subplot_titles=(
+        "Time series by reinsurance year",
+        "Map — producer premium by state ($M)",
+    ),
+)
+
+# ---------------------------------------------------------------------------
+# Time-series traces. ONE set of traces per state (no year-window dimension):
+# the full 2003-2026 range is shipped, and the year-window button row updates
+# xaxis.range via JS to narrow the visible window.
+# ---------------------------------------------------------------------------
+ts_index_map = {}  # state -> [trace indices]
+trace_idx = 0
+
+for s in states_with_all:
+    y = yearly_by_state[s]
+    is_default = (s == DEFAULT_STATE)
+    x = y["reinsurance_year"].tolist() if not y.empty else []
+    prem = (y["producer_premium_amount"] / 1_000_000).tolist() if not y.empty else []
+    indemn = (y["indemnity_amount"] / 1_000_000).tolist() if not y.empty else []
+    rate_pct = (y["indemnified_share"] * 100).tolist() if not y.empty else []
+
+    fig.add_trace(
+        go.Bar(
+            x=x, y=prem, name="Producer premium",
+            marker_color="#4F88C9",
+            visible=is_default,
+            showlegend=is_default,
+            hovertemplate="<b>Year %{x}</b><br>Producer premium: $%{y:.1f}M<extra></extra>",
+        ),
+        row=1, col=1, secondary_y=False,
+    )
+    idx_prem = trace_idx; trace_idx += 1
+
+    fig.add_trace(
+        go.Bar(
+            x=x, y=indemn, name="Indemnity",
+            marker_color="#5FAE6E",
+            visible=is_default,
+            showlegend=is_default,
+            hovertemplate="<b>Year %{x}</b><br>Indemnity: $%{y:.1f}M<extra></extra>",
+        ),
+        row=1, col=1, secondary_y=False,
+    )
+    idx_indemn = trace_idx; trace_idx += 1
+
+    fig.add_trace(
+        go.Scatter(
+            x=x, y=rate_pct, name="Indemnified share (right)",
+            mode="lines+markers",
+            line=dict(color="#C94F4F", width=2),
+            marker=dict(size=6),
+            visible=is_default,
+            showlegend=is_default,
+            hovertemplate="<b>Year %{x}</b><br>Indemnified share: %{y:.1f}%<extra></extra>",
+            yaxis="y2",
+        ),
+        row=1, col=1, secondary_y=True,
+    )
+    idx_rate = trace_idx; trace_idx += 1
+
+    ts_index_map[s] = [idx_prem, idx_indemn, idx_rate]
+
+# ---------------------------------------------------------------------------
+# State choropleth — one trace per year-window. Selected state is not
+# specially outlined (Plotly's USA-states locationmode doesn't make per-state
+# borders trivial). The hover tooltip highlights the selected state's row in
+# the benchmark table below.
+# ---------------------------------------------------------------------------
+state_chor_index_map = {}
+
+for w in window_list:
+    sdf = state_summary_by_window[w]
+    is_default = (w == DEFAULT_WINDOW)
+    locations = sdf["state_abbr"].tolist() if not sdf.empty else []
+    z_values = (sdf["producer_premium_amount"] / 1_000_000).tolist() if not sdf.empty else []
+    n_endorsements = sdf["n_endorsements_earning"].tolist() if not sdf.empty else []
+    n_head_list = sdf["n_head"].tolist() if not sdf.empty else []
+    indemn_M = (sdf["indemnity_amount"] / 1_000_000).tolist() if not sdf.empty else []
+
+    fig.add_trace(
+        go.Choropleth(
+            locations=locations,
+            z=z_values,
+            locationmode="USA-states",
+            colorscale="Blues",
+            colorbar=dict(
+                title=dict(text="Premium ($M)", font=dict(size=11)),
+                thickness=12,
+                len=0.4,
+                x=1.01,
+                xanchor="left",
+                y=0.25,
+                yanchor="middle",
+                tickfont=dict(size=10),
+            ),
+            customdata=list(zip(n_endorsements, n_head_list, indemn_M)),
+            hovertemplate=(
+                "<b>%{location}</b><br>"
+                "Producer premium: $%{z:.1f}M<br>"
+                "Endorsements earning premium: %{customdata[0]:,}<br>"
+                "Head insured: %{customdata[1]:,}<br>"
+                "Indemnity received: $%{customdata[2]:.1f}M"
+                "<extra></extra>"
+            ),
+            visible=is_default,
+            showscale=is_default,
+            geo="geo2",
+            name=f"State map ({w})",
+        ),
+        row=2, col=1,
+    )
+    state_chor_index_map[w] = trace_idx
+    trace_idx += 1
+
+TOTAL_TRACES = trace_idx
+```
+
+```{python}
+#| echo: false
+#| label: build-table-data
+
+# Build benchmark + at-a-glance DATA (not HTML) for every (state, window)
+# combo. JS builds the HTML at runtime from this raw data — keeping the
+# embedded JSON free of <table> tags that Quarto's pandoc post-processor
+# would otherwise mangle (turning JSON strings into broken multi-line
+# constructs and breaking the entire script).
+
+def _build_benchmark_rows_data(window: str, selected_state: str) -> list[dict]:
+    sdf = state_summary_by_window[window]
+    if sdf.empty:
+        return []
+    sdf = sdf.reset_index(drop=True).copy()
+    sdf["rank"] = sdf.index + 1
+    top10 = sdf.head(10).copy()
+    az_row = sdf[sdf["state_abbr"] == "AZ"]
+    sel_row = sdf[sdf["state_abbr"] == selected_state] if selected_state != "All" else pd.DataFrame()
+    rows = top10.copy()
+    if not az_row.empty and "AZ" not in rows["state_abbr"].tolist():
+        rows = pd.concat([rows, az_row], ignore_index=True)
+    if not sel_row.empty and selected_state not in rows["state_abbr"].tolist():
+        rows = pd.concat([rows, sel_row], ignore_index=True)
+    out = []
+    for _, r in rows.iterrows():
+        out.append({
+            "rank": int(r["rank"]),
+            "state": r["state_abbr"],
+            "endorsements": _fmt_int(r["n_endorsements_earning"]),
+            "head": _fmt_int(r["n_head"]),
+            "producer_premium": _fmt_money_M(r["producer_premium_amount"]),
+            "indemnity": _fmt_money_M(r["indemnity_amount"]),
+            "indemnified_share": _fmt_pct(r["indemnified_share"]),
+        })
+    return out
+
+
+def _build_atglance_rows_data(state: str, window: str) -> dict:
+    m = metrics_lookup[(state, window)]
+    if m.get("rows", 0) == 0:
+        return {"empty": True, "state_label": ("National" if state == "All" else state), "window": window}
+    state_label = "National" if state == "All" else state
+    window_label = {
+        "all": "all available years",
+        "last_5": "the last 5 years",
+        "last_3": "the last 3 years",
+        "latest": "the latest available year",
+    }.get(window, window)
+    rows = [
+        ("Participation / use", "Endorsements earning premium", _fmt_int(m["n_endorsements_earning"])),
+        ("Participation / use", "Endorsements indemnified", _fmt_int(m["n_endorsements_indemn"])),
+        ("Participation / use", "Net head insured", _fmt_int(m["n_head"])),
+        ("Participation / use", "Total weight (cwt)", _fmt_int(m["total_weight_cwt"])),
+        ("Participation / use", "Liability ($)", _fmt_money_M(m["liability_amount"])),
+        ("Cost / subsidy", "Producer premium ($)", _fmt_money_M(m["producer_premium_amount"])),
+        ("Cost / subsidy", "Subsidy ($)", _fmt_money_M(m["subsidy_amount"])),
+        ("Cost / subsidy", "Total premium ($)", _fmt_money_M(m["total_premium_amount"])),
+        ("Cost / subsidy", "Subsidy share of total premium", _fmt_pct(m["subsidy_share"])),
+        ("Cost / subsidy", "Producer share of total premium", _fmt_pct(m["producer_share_of_premium"])),
+        ("Cost / subsidy", "Avg cost per cwt", _fmt_currency(m["avg_cost_per_cwt"])),
+        ("Coverage design", "Avg endorsement length", _fmt_weeks(m["avg_endorsement_length_weeks"])),
+        ("Coverage design", "Avg coverage price ($/cwt)", _fmt_currency(m["avg_coverage_price"])),
+        ("Coverage design", "Avg expected end value ($/cwt)", _fmt_currency(m["avg_expected_end_value"])),
+        ("Coverage design", "Avg coverage level", _fmt_pct(m["avg_coverage_level_pct"])),
+        ("Outcome / payout", "Indemnity ($)", _fmt_money_M(m["indemnity_amount"])),
+        ("Outcome / payout", "Indemnified-endorsement share", _fmt_pct(m["indemnified_share"])),
+        ("Outcome / payout", "Indemnity-to-producer-premium ratio", _fmt_ratio(m["indemnity_to_producer_premium_rate"])),
+    ]
+    return {
+        "empty": False,
+        "state_label": state_label,
+        "window_label": window_label,
+        "latest_year": m.get("latest_year"),
+        "rows": [{"group": g, "metric": me, "value": v} for (g, me, v) in rows],
+    }
+
+
+benchmark_data_lookup = {}
+atglance_data_lookup = {}
+for s in states_with_all:
+    for w in window_list:
+        key = f"{s}::{w}"
+        benchmark_data_lookup[key] = _build_benchmark_rows_data(w, s)
+        atglance_data_lookup[key] = _build_atglance_rows_data(s, w)
+```
+
+```{python}
+#| echo: false
+#| label: filter-bar
+#| output: asis
+
+# Unified filter bar — State dropdown + Year-window button row in a single
+# flex container, rendered ABOVE the chart so the controls feel like one
+# filter bar. Both controls are native HTML; JS in the sync chunk reads
+# the active state from these elements and applies visibility / title /
+# x-range updates to the Plotly figure. flex-wrap lets the two controls
+# stack vertically on narrow viewports.
+
+window_label_map = {
+    "all": "All",
+    "last_5": "Last 5 yrs",
+    "last_3": "Last 3 yrs",
+    "latest": "Latest",
+}
+
+print('<div id="lrp-filter-bar" style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.4em 1.2em; margin: 1em 0 0.6em 0; padding: 0.45em 0.7em; background: #F7F7F7; border: 1px solid #DDD; border-radius: 4px;">')
+
+# State control
+print('<div style="display: flex; align-items: center; gap: 0.4em;">')
+print('<label for="lrp-state-select" style="font-weight: 600; white-space: nowrap;">State:</label>')
+print('<select id="lrp-state-select" style="padding: 0.25em 0.5em; font-size: 0.95em; min-width: 180px; border: 1px solid #BBB; border-radius: 3px; background: white;">')
+for s in states_with_all:
+    label = ("National (all states aggregated)" if s == "All" else s)
+    selected = ' selected' if s == DEFAULT_STATE else ''
+    print(f'  <option value="{s}"{selected}>{label}</option>')
+print('</select>')
+print('</div>')
+
+# Year-window control
+print('<div style="display: flex; align-items: center; gap: 0.4em;">')
+print('<span style="font-weight: 600; white-space: nowrap;">Year window:</span>')
+print('<div id="lrp-year-buttons" role="group" style="display: inline-flex; border: 1px solid #BBB; border-radius: 3px; overflow: hidden; background: white;">')
+for w in window_list:
+    is_active = (w == DEFAULT_WINDOW)
+    bg = "#4F88C9" if is_active else "white"
+    fg = "white" if is_active else "#222"
+    fw = "600" if is_active else "400"
+    border_left = "" if w == window_list[0] else "border-left: 1px solid #BBB;"
+    print(
+        f'<button type="button" class="lrp-year-btn" data-window="{w}" '
+        f'style="padding: 0.3em 0.75em; font-size: 0.92em; cursor: pointer; '
+        f'background: {bg}; color: {fg}; font-weight: {fw}; border: 0; {border_left}">'
+        f'{window_label_map[w]}</button>'
+    )
+print('</div>')
+print('</div>')
+
+print('</div>')
+# Helper note OUTSIDE the filter bar — keeps the bar visually compact
+print('<p style="color: #666; font-size: 0.85em; margin: 0.2em 0 0.8em 0.2em;">Default is Arizona (this platform\'s producer-reference state). Choose <em>National</em> for the country-wide aggregate.</p>')
+```
+
+```{python}
+#| echo: false
+#| label: fig-layout
+
+# Year window control is now a native HTML button row (above) so we no
+# longer add a Plotly updatemenu. Layout is tightened: the legend sits
+# above the top subplot with extra top margin so all three legend items
+# fit without clipping.
+
+fig.update_layout(
+    height=860,
+    margin=dict(l=50, r=90, t=90, b=40),
+    plot_bgcolor="white",
+    barmode="group",
+    legend=dict(
+        orientation="h",
+        yanchor="bottom", y=1.02,
+        xanchor="left", x=0.0,
+        font=dict(size=11),
+        bgcolor="rgba(255,255,255,0.85)",
+        bordercolor="#DDDDDD",
+        borderwidth=0,
+        itemwidth=30,
+    ),
+    geo=dict(scope="usa"),
+    geo2=dict(scope="usa"),
+    title=dict(
+        text=f"LRP feeder cattle, {DEFAULT_STATE} — All available years",
+        x=0.5, y=0.98,
+        xanchor="center", yanchor="top",
+        font=dict(size=14),
+    ),
+)
+fig.update_yaxes(title_text="$ millions", row=1, col=1, secondary_y=False)
+fig.update_yaxes(title_text="Indemnified share (%)", range=[0, 100], row=1, col=1, secondary_y=True)
+fig.update_xaxes(title_text="Reinsurance year", row=1, col=1, dtick=2)
+
+fig.show()
+```
+
+```{python}
+#| echo: false
+#| label: tables-default
+#| output: asis
+
+# Pre-bake the table containers with the AZ-default content so they show
+# real data immediately, even if the JS sync fails to load. JS updates the
+# innerHTML on subsequent state/year-window clicks. The HTML-builder logic
+# here is mirrored EXACTLY in JS in the next chunk — both consume the same
+# raw data dicts, so the default and post-click renderings are identical.
+
+def _render_benchmark_html(rows_data: list[dict], selected_state: str) -> str:
+    if not rows_data:
+        return "<p>No data for this filter.</p>"
+    headers = ["Rank", "State", "Endorsements", "Head insured",
+               "Producer premium", "Indemnity", "Indemnified share"]
+    keys = ["rank", "state", "endorsements", "head",
+            "producer_premium", "indemnity", "indemnified_share"]
+    parts = ['<table style="border-collapse: collapse; width: 100%; font-size: 0.95em;">']
+    parts.append('<thead><tr style="background: #EAEAEA;">')
+    for h in headers:
+        parts.append(f'<th style="text-align: left; padding: 6px; border-bottom: 1px solid #CCC;">{h}</th>')
+    parts.append('</tr></thead><tbody>')
+    for row in rows_data:
+        bg = ""
+        if row["state"] == selected_state:
+            bg = ' style="background: #FFF3CD;"'
+        elif row["state"] == "AZ":
+            bg = ' style="background: #E8F0FE;"'
+        parts.append(f'<tr{bg}>')
+        for k in keys:
+            parts.append(f'<td style="padding: 6px; border-bottom: 1px solid #EEE;">{row[k]}</td>')
+        parts.append('</tr>')
+    parts.append('</tbody></table>')
+    return "".join(parts)
+
+
+def _render_atglance_html(data: dict) -> str:
+    if data.get("empty"):
+        return f'<p>No LRP endorsements for {data.get("state_label", "")} in this year window.</p>'
+    parts = [f'<p style="margin-bottom: 0.6em;"><b>{data["state_label"]}</b> &middot; {data["window_label"]}']
+    if data.get("latest_year"):
+        parts.append(f' &middot; latest year: {data["latest_year"]}')
+    parts.append('</p>')
+    parts.append('<table style="border-collapse: collapse; width: 100%; font-size: 0.95em;">')
+    parts.append('<thead><tr style="background: #EAEAEA;">')
+    for h in ["Group", "Metric", "Value"]:
+        parts.append(f'<th style="text-align: left; padding: 6px; border-bottom: 1px solid #CCC;">{h}</th>')
+    parts.append('</tr></thead><tbody>')
+    last_group = None
+    for row in data["rows"]:
+        first_in_group = row["group"] != last_group
+        last_group = row["group"]
+        gcell = f'<b>{row["group"]}</b>' if first_in_group else ""
+        parts.append('<tr>')
+        parts.append(f'<td style="padding: 6px; border-bottom: 1px solid #EEE;">{gcell}</td>')
+        parts.append(f'<td style="padding: 6px; border-bottom: 1px solid #EEE;">{row["metric"]}</td>')
+        parts.append(f'<td style="padding: 6px; border-bottom: 1px solid #EEE; text-align: right;">{row["value"]}</td>')
+        parts.append('</tr>')
+    parts.append('</tbody></table>')
+    return "".join(parts)
+
+
+_default_key = f"{DEFAULT_STATE}::{DEFAULT_WINDOW}"
+_default_bench_html = _render_benchmark_html(
+    benchmark_data_lookup.get(_default_key, []), DEFAULT_STATE
+)
+_default_atglance_html = _render_atglance_html(
+    atglance_data_lookup.get(_default_key, {"empty": True, "state_label": DEFAULT_STATE})
+)
+
+print('<h3 style="margin-top: 1.5em;">Benchmark table &mdash; top states by producer-paid premium</h3>')
+print('<p style="font-size: 0.95em; color: #555;">Top 10 states by producer-paid premium for the selected year window, plus AZ (always shown) and your selected state when not already in the top 10.</p>')
+print(f'<div id="lrp-benchmark-container">{_default_bench_html}</div>')
+
+print('<h3 style="margin-top: 1.8em; padding: 0.4em 0.6em; background: #EEF3FA; border-left: 4px solid #4F88C9; border-radius: 2px;">At-a-glance summary for selected state and year window</h3>')
+print('<p style="font-size: 0.95em; color: #444; margin-top: -0.2em;"><b>Participation / use</b> &middot; <b>Cost / subsidy</b> &middot; <b>Coverage design</b> &middot; <b>Outcome / payout</b></p>')
+print('<p style="font-size: 0.9em; color: #666;">All four LRP information groups for the current filter selection. Use the state dropdown and year-window buttons above to update.</p>')
+print(f'<div id="lrp-atglance-container">{_default_atglance_html}</div>')
+```
+
+```{python}
+#| echo: false
+#| label: js-sync
+#| output: asis
+
+import json
+
+window_labels_for_title = {
+    "all": "All available years",
+    "last_5": "Last 5 years",
+    "last_3": "Last 3 years",
+    "latest": "Latest year",
+}
+
+ts_indices_for_js = {s: ts_index_map[s] for s in states_with_all if s in ts_index_map}
+chor_indices_for_js = {w: state_chor_index_map[w] for w in window_list if w in state_chor_index_map}
+
+# Use print() with output: asis so Quarto emits the script content as raw
+# HTML directly into the document. display(HTML(...)) wraps the content in
+# Jupyter HTML output containers that may interfere with script execution.
+_js_payload = (
+    '<script>\n'
+    'console.log("[LRP] sync script loading");\n'
+    'window.lrpTsIndices = ' + json.dumps(ts_indices_for_js) + ';\n'
+    'window.lrpChorIndices = ' + json.dumps(chor_indices_for_js) + ';\n'
+    'window.lrpStates = ' + json.dumps(states_with_all) + ';\n'
+    'window.lrpWindows = ' + json.dumps(list(window_list)) + ';\n'
+    'window.lrpWindowLabels = ' + json.dumps(window_labels_for_title) + ';\n'
+    'window.lrpYearBounds = ' + json.dumps(year_bounds_lookup) + ';\n'
+    'window.lrpTotalTraces = ' + str(TOTAL_TRACES) + ';\n'
+    'window.lrpDefault = {"state": ' + json.dumps(DEFAULT_STATE) +
+    ', "window": ' + json.dumps(DEFAULT_WINDOW) + '};\n'
+    'window.lrpBenchData = ' + json.dumps(benchmark_data_lookup) + ';\n'
+    'window.lrpAtGlanceData = ' + json.dumps(atglance_data_lookup) + ';\n'
+    '\n'
+    'function lrpRenderBenchmarkHtml(rowsData, selectedState) {\n'
+    '  if (!rowsData || !rowsData.length) return "<p>No data for this filter.</p>";\n'
+    '  var headers = ["Rank", "State", "Endorsements", "Head insured", "Producer premium", "Indemnity", "Indemnified share"];\n'
+    '  var keys = ["rank", "state", "endorsements", "head", "producer_premium", "indemnity", "indemnified_share"];\n'
+    '  var parts = [\'<table style="border-collapse: collapse; width: 100%; font-size: 0.95em;">\'];\n'
+    '  parts.push(\'<thead><tr style="background: #EAEAEA;">\');\n'
+    '  for (var h = 0; h < headers.length; h++) {\n'
+    '    parts.push(\'<th style="text-align: left; padding: 6px; border-bottom: 1px solid #CCC;">\' + headers[h] + \'</th>\');\n'
+    '  }\n'
+    '  parts.push("</tr></thead><tbody>");\n'
+    '  for (var i = 0; i < rowsData.length; i++) {\n'
+    '    var row = rowsData[i];\n'
+    '    var bg = "";\n'
+    '    if (row.state === selectedState) bg = \' style="background: #FFF3CD;"\';\n'
+    '    else if (row.state === "AZ") bg = \' style="background: #E8F0FE;"\';\n'
+    '    parts.push("<tr" + bg + ">");\n'
+    '    for (var k = 0; k < keys.length; k++) {\n'
+    '      parts.push(\'<td style="padding: 6px; border-bottom: 1px solid #EEE;">\' + row[keys[k]] + "</td>");\n'
+    '    }\n'
+    '    parts.push("</tr>");\n'
+    '  }\n'
+    '  parts.push("</tbody></table>");\n'
+    '  return parts.join("");\n'
+    '}\n'
+    '\n'
+    'function lrpRenderAtGlanceHtml(data) {\n'
+    '  if (!data || data.empty) {\n'
+    '    var lbl = data ? data.state_label : "";\n'
+    '    return "<p>No LRP endorsements for " + lbl + " in this year window.</p>";\n'
+    '  }\n'
+    '  var parts = [\'<p style="margin-bottom: 0.6em;"><b>\' + data.state_label + "</b> \\u00b7 " + data.window_label];\n'
+    '  if (data.latest_year) parts.push(" \\u00b7 latest year: " + data.latest_year);\n'
+    '  parts.push("</p>");\n'
+    '  parts.push(\'<table style="border-collapse: collapse; width: 100%; font-size: 0.95em;">\');\n'
+    '  parts.push(\'<thead><tr style="background: #EAEAEA;">\');\n'
+    '  var headers = ["Group", "Metric", "Value"];\n'
+    '  for (var h = 0; h < headers.length; h++) {\n'
+    '    parts.push(\'<th style="text-align: left; padding: 6px; border-bottom: 1px solid #CCC;">\' + headers[h] + "</th>");\n'
+    '  }\n'
+    '  parts.push("</tr></thead><tbody>");\n'
+    '  var lastGroup = null;\n'
+    '  for (var i = 0; i < data.rows.length; i++) {\n'
+    '    var r = data.rows[i];\n'
+    '    var firstInGroup = r.group !== lastGroup;\n'
+    '    lastGroup = r.group;\n'
+    '    var gcell = firstInGroup ? ("<b>" + r.group + "</b>") : "";\n'
+    '    parts.push("<tr>");\n'
+    '    parts.push(\'<td style="padding: 6px; border-bottom: 1px solid #EEE;">\' + gcell + "</td>");\n'
+    '    parts.push(\'<td style="padding: 6px; border-bottom: 1px solid #EEE;">\' + r.metric + "</td>");\n'
+    '    parts.push(\'<td style="padding: 6px; border-bottom: 1px solid #EEE; text-align: right;">\' + r.value + "</td>");\n'
+    '    parts.push("</tr>");\n'
+    '  }\n'
+    '  parts.push("</tbody></table>");\n'
+    '  return parts.join("");\n'
+    '}\n'
+    '\n'
+    '(function() {\n'
+    '  function setup() {\n'
+    '    var figs = document.querySelectorAll(".plotly-graph-div");\n'
+    '    if (!figs.length || typeof Plotly === "undefined") {\n'
+    '      return setTimeout(setup, 150);\n'
+    '    }\n'
+    '    // Use the first plotly fig on the page (this page has only one).\n'
+    '    var fig = figs[0];\n'
+    '    if (!fig || !fig._fullLayout) { return setTimeout(setup, 150); }\n'
+    '    console.log("[LRP] figure found, attaching handlers");\n'
+    '\n'
+    '    var stateSelect = document.getElementById("lrp-state-select");\n'
+    '    var yearBtns = document.querySelectorAll("#lrp-year-buttons .lrp-year-btn");\n'
+    '\n'
+    '    function setActiveYearButton(winKey) {\n'
+    '      for (var i = 0; i < yearBtns.length; i++) {\n'
+    '        var b = yearBtns[i];\n'
+    '        var active = (b.getAttribute("data-window") === winKey);\n'
+    '        b.style.background = active ? "#4F88C9" : "white";\n'
+    '        b.style.color = active ? "white" : "#222";\n'
+    '        b.style.fontWeight = active ? "600" : "400";\n'
+    '      }\n'
+    '    }\n'
+    '\n'
+    '    function readState() {\n'
+    '      var st = (stateSelect && stateSelect.value) ? stateSelect.value : window.lrpDefault.state;\n'
+    '      var win = window.lrpDefault.window;\n'
+    '      for (var i = 0; i < yearBtns.length; i++) {\n'
+    '        if (yearBtns[i].style.background.indexOf("rgb(79, 136, 201)") !== -1\n'
+    '            || yearBtns[i].style.background === "#4F88C9"\n'
+    '            || yearBtns[i].dataset.lrpActive === "1") {\n'
+    '          win = yearBtns[i].getAttribute("data-window") || win;\n'
+    '          break;\n'
+    '        }\n'
+    '      }\n'
+    '      return { state: st, window: win };\n'
+    '    }\n'
+    '\n'
+    '    function applyAll() {\n'
+    '      var current = readState();\n'
+    '      var visArr = new Array(window.lrpTotalTraces).fill(false);\n'
+    '      var tsIdx = window.lrpTsIndices[current.state] || [];\n'
+    '      for (var i = 0; i < tsIdx.length; i++) { visArr[tsIdx[i]] = true; }\n'
+    '      var chorIdx = window.lrpChorIndices[current.window];\n'
+    '      if (typeof chorIdx === "number") { visArr[chorIdx] = true; }\n'
+    '\n'
+    '      var stateLabel = (current.state === "All" ? "National" : current.state);\n'
+    '      var windowLabel = window.lrpWindowLabels[current.window] || current.window;\n'
+    '      var titleStr = "LRP feeder cattle, " + stateLabel + " \\u2014 " + windowLabel;\n'
+    '\n'
+    '      var bounds = window.lrpYearBounds[current.window] || null;\n'
+    '      var xRange = bounds ? [bounds[0] - 0.5, bounds[1] + 0.5] : null;\n'
+    '      var relayoutObj = { "title.text": titleStr };\n'
+    '      if (xRange) { relayoutObj["xaxis.range"] = xRange; }\n'
+    '\n'
+    '      Plotly.restyle(fig, { "visible": visArr });\n'
+    '      Plotly.relayout(fig, relayoutObj);\n'
+    '\n'
+    '      var key = current.state + "::" + current.window;\n'
+    '      var benchEl = document.getElementById("lrp-benchmark-container");\n'
+    '      var atEl = document.getElementById("lrp-atglance-container");\n'
+    '      if (benchEl) {\n'
+    '        var benchData = window.lrpBenchData[key] || [];\n'
+    '        benchEl.innerHTML = lrpRenderBenchmarkHtml(benchData, current.state);\n'
+    '      }\n'
+    '      if (atEl) {\n'
+    '        var atData = window.lrpAtGlanceData[key] || { empty: true, state_label: current.state };\n'
+    '        atEl.innerHTML = lrpRenderAtGlanceHtml(atData);\n'
+    '      }\n'
+    '    }\n'
+    '\n'
+    '    // Initialize: tag the default-active button via dataset for robust readState\n'
+    '    for (var i = 0; i < yearBtns.length; i++) {\n'
+    '      var b = yearBtns[i];\n'
+    '      b.dataset.lrpActive = (b.getAttribute("data-window") === window.lrpDefault.window) ? "1" : "0";\n'
+    '      b.addEventListener("click", function() {\n'
+    '        for (var j = 0; j < yearBtns.length; j++) { yearBtns[j].dataset.lrpActive = "0"; }\n'
+    '        this.dataset.lrpActive = "1";\n'
+    '        setActiveYearButton(this.getAttribute("data-window"));\n'
+    '        applyAll();\n'
+    '      });\n'
+    '    }\n'
+    '    if (stateSelect) { stateSelect.addEventListener("change", applyAll); }\n'
+    '\n'
+    '    setActiveYearButton(window.lrpDefault.window);\n'
+    '    applyAll();\n'
+    '    console.log("[LRP] initial applyAll done");\n'
+    '  }\n'
+    '  if (document.readyState === "loading") {\n'
+    '    document.addEventListener("DOMContentLoaded", setup);\n'
+    '  } else {\n'
+    '    setup();\n'
+    '  }\n'
+    '})();\n'
+    '</script>\n'
+)
+print(_js_payload)
+```
+
+::: {.callout-note appearance="simple"}
+**Reading the chart shelf above.** When the green bar (indemnity received) towers over the blue bar (producer premium paid), producers in aggregate came out ahead that year — that happens in cattle-cycle troughs. When the blue bar dwarfs the green, producers paid more than they received — that happens in cycle peaks. The red line shows the *indemnified-endorsement share* — the percentage of endorsements that received any indemnity payment. The state map below shows where LRP is being used, with darker shades indicating higher producer premium. Below the map, the **benchmark table** ranks states by program activity for the chosen year window, and the **at-a-glance summary** breaks down all four LRP information groups for your selected state and window.
+:::
+
+## Glossary of LRP terms
+
+These are plain-language definitions of the terms used on this page. RMA's full data dictionary is in [`LRP_Summary_of_Business_All_Years.docx`](https://pubfs-rma.fpac.usda.gov/pub/Web_Data_Files/Summary_of_Business/livestock_and_dairy_participation/LRP_Summary_of_Business_All_Years.docx) on the RMA pubfs directory.
+
+- **Endorsement** — a single LRP coverage application a producer purchases for a defined head count, weight class, coverage period, and coverage price. One LRP transaction = one endorsement.
+- **Endorsement length** — the number of weeks the LRP coverage period runs, from sale date to end date. Documented values: 13, 17, 21, 26, 30, 34, 39, 43, 47, or 52 weeks.
+- **Coverage price** — the per-cwt price floor the producer elects when buying the endorsement. If the actual ending value falls below this, RMA pays the difference as an indemnity.
+- **Expected end value** — RMA's projection at sale time of what the actual ending value will be. Used internally to set the coverage-level reference; the actual ending value at coverage end is what triggers indemnity payment.
+- **Coverage level percent** — the percentage of expected end value that the producer's coverage price represents. Higher = more protection but higher premium. Producers typically choose 70-100%.
+- **Total premium** — the gross premium for the endorsement, before any subsidy. RMA column: `total_premium_amount`.
+- **Subsidy** — the federal-government share of the total premium, paid by RMA on behalf of the producer. RMA column: `subsidy_amount`. The 2018 Farm Bill increased subsidy rates substantially, which is visible as the volume jump in 2021 on the time-series chart.
+- **Producer premium** — the **producer-paid** out-of-pocket dollar amount, equal to total premium minus subsidy. This is the figure shown as "Producer premium" on this page's chart and tables. RMA column: `producer_premium_amount`. By design, `total_premium_amount = subsidy_amount + producer_premium_amount`.
+- **Liability** — the maximum dollar amount RMA could pay out under the endorsement (= coverage price × total weight × insured share).
+- **Indemnity** — the dollar amount RMA actually pays the producer, if the actual ending value falls below the coverage price. Zero if the price held above coverage.
+- **Net number of head** — the head count covered by the endorsement, adjusted by the producer's insured share percent.
+- **Total weight** — the total hundredweight (cwt) covered by the endorsement, computed as target weight × number of head.
+
+## What this page does *not* do
+
+- **Not a recommendation.** Historical indemnities, payout ratios, and subsidy shares are descriptive summaries. LRP outcomes depend on market conditions, coverage level, endorsement length, premium subsidy, timing, and the producer's actual marketing plan. The chart and tables on this page are inputs for understanding the program, not advice.
+- **Not a backtest against cash auction.** The platform's other pages describe Clovis cash directly (price-weight, seasonality, weekly-trends) or compare it to CME GF feeder futures (basis). Comparing LRP outcomes to selling at cash is a separate analytical question that is currently a candidate v2 feature; see the [methodology page](methodology/lrp.qmd).
+- **No county-level drill-down in v1.** County-level analysis is **planned for a future version**. It was deferred from v1 to keep the page fast and usable. The underlying corpus already includes county FIPS codes, so the data is in place when the county view is built.
+- **Not a complete LRP product overview.** Type codes 813/814 (Brahman), 815/816 (Dairy), 817/818/819 (Unborn variants of Steers&Heifers / Brahman / Dairy), and 823 (Unborn Calves, $/head pricing) are excluded from these aggregations because they don't compare cleanly to the conventional Steers/Heifers Weight 1+2 narrative.
+- **Not adjusted for premium subsidy changes.** The 2018 Farm Bill increased premium subsidies starting in 2021, which substantially changed producer net cost. The "Subsidy share of total premium" metric tracks this directly.
+
+## Methodology and downloads
+
+Full methodology: [Methodology → LRP](methodology/lrp.qmd) — the snapshot filter, type-code subset rationale, schema-evolution caveats (volume jump in 2021, state granularity 2021+), and the unit-shift on type 823.
+
+Downloads:
+
+- [LRP corpus parquet](../data/processed/lrp_latest.parquet) — long-format, 31 columns, every endorsement 2003-present.
+- [LRP manifest](../data/processed/lrp_MANIFEST.json) — vintage stamps, SHAs, annual breakdown.
+
+Parquet is the canonical format. Most tools read it natively: Python `pandas.read_parquet("lrp_latest.parquet")`, R `arrow::read_parquet("lrp_latest.parquet")`, DuckDB `SELECT * FROM 'lrp_latest.parquet'`. To convert to CSV: `pd.read_parquet(...).to_csv(...)`. See the [data catalog](data.qmd) for a full inventory.
+
+```{python}
+#| echo: false
+#| label: data-source-caption
+
+if data_is_placeholder:
+    print(f"Note — synthetic data shown: {data_source_label}")
+else:
+    print(f"Data source: {data_source_label}")
+```

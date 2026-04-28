@@ -32,6 +32,8 @@ website:
         href: basis.qmd
       - text: "Sell-now compare"
         href: sell-now-compare.qmd
+      - text: "LRP"
+        href: lrp.qmd
       - text: "Methodology"
         href: methodology/index.qmd
       - text: "Data"

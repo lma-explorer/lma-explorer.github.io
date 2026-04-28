@@ -1,0 +1,117 @@
+---
+title: "Livestock Risk Protection (LRP) — methodology"
+subtitle: "How figures on the LRP page are computed, the source data, and the choices behind the filters."
+toc: true
+toc-depth: 2
+---
+
+## What is being measured
+
+The [LRP page](../lrp.qmd) summarizes USDA Risk Management Agency's [Livestock Risk Protection](https://www.rma.usda.gov/policy-and-procedure/insurance-plans/livestock-risk-protection-policy) program for feeder cattle. Two visualizations appear:
+
+1. **Annual scale** — total producer-paid premium and indemnity received, plus the indemnity rate (share of endorsements receiving any indemnity), per reinsurance year, 2003 through the current year.
+2. **Geographic concentration** — total producer-paid premium summed by state, reinsurance years 2021 through current.
+
+The page is descriptive: it shows what LRP looks like, not whether to buy it. A backtest comparing LRP outcomes to selling at cash auction is a candidate v2 feature but is not built.
+
+## Where the data comes from
+
+USDA RMA publishes a public **Summary of Business** dataset for every livestock insurance plan (LRP, LGM, DRP) at:
+
+```
+https://pubfs-rma.fpac.usda.gov/pub/Web_Data_Files/
+  Summary_of_Business/livestock_and_dairy_participation/
+```
+
+For LRP, RMA publishes one zip file per reinsurance year (`lrp_<YYYY>.zip`), each containing a single pipe-delimited TXT with no header row. The schema is documented in [`LRP_Summary_of_Business_All_Years.docx`](https://pubfs-rma.fpac.usda.gov/pub/Web_Data_Files/Summary_of_Business/livestock_and_dairy_participation/LRP_Summary_of_Business_All_Years.docx) on the same RMA directory and reproduced (Python-friendly form) in [`pipelines/lrp/parse.py`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/lrp/parse.py).
+
+The LRP series begins with reinsurance year 2003 and is currently published through 2026 (24 years). Total feeder-cattle endorsements across all years: **~210,000 rows**.
+
+## What transformations are applied
+
+### Snapshot-time filter
+
+The pipeline keeps only rows where:
+
+- `commodity_code == "0801"` (Feeder Cattle)
+- `plan_code == "81"` (Livestock Risk Protection)
+
+Other commodities (Fed Cattle 0802, Swine 0815) and other insurance plans are preserved in the raw zips but do not enter the processed parquet. See [`pipelines/lrp/snapshot.py`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/lrp/snapshot.py) for the canonical filter.
+
+### Type-code subset for visualization
+
+Within feeder cattle (commodity 0801), RMA's `type_code` column has eleven values reflecting different product structures:
+
+| Type code | Type name (modern) | In page? | Why |
+|---|---|---|---|
+| **809** | **Steers Weight 1** | ✓ | Conventional non-Brahman, non-dairy, born |
+| **810** | **Steers Weight 2** | ✓ | Conventional non-Brahman, non-dairy, born |
+| **811** | **Heifers Weight 1** | ✓ | Conventional non-Brahman, non-dairy, born |
+| **812** | **Heifers Weight 2** | ✓ | Conventional non-Brahman, non-dairy, born |
+| 813 / 814 | Brahman Weight 1 / 2 | — | Rare, regional |
+| 815 / 816 | Dairy Weight 1 / 2 | — | Different production system |
+| 817 | Unborn Steers & Heifers | — | Forward contract on calves before birth |
+| 818 / 819 | Unborn Brahman / Unborn Dairy | — | As above, narrower scope |
+| 823 | Unborn Calves *(new 2026)* | — | **Uses $/head pricing, not $/cwt** — see schema-evolution note below |
+
+The platform's chart-shelf narrative anchors on Steers/Heifers Weight 1+2 because those are the four type codes that map cleanly to Clovis auction-lot weight bins (the platform's other primary data source). Including Brahman, Dairy, or Unborn variants in the same chart would mix populations that don't have a common cash-auction comparison.
+
+### Aggregation
+
+For each visualization on the [LRP page](../lrp.qmd), the aggregation is straightforward:
+
+- **Annual scale chart** — within the type-code subset, group by `reinsurance_year`. Sum `producer_premium_amount`, `indemnity_amount`, `n_head`. Count rows. Compute `indemnity_rate = (rows where indemnity_amount > 0) / total rows`.
+- **State choropleth** — within the type-code subset and `reinsurance_year >= 2021`, exclude `state_abbr == "XX"` (national-aggregate code), group by `state_abbr`. Sum `producer_premium_amount`, `n_head`, `indemnity_amount`. Count rows.
+
+The aggregations are computed at chart-page render time from `data/processed/lrp_latest.parquet`. There is no separate aggregate parquet — the corpus is small enough (~7.7 MB) that grouping is fast and the source-of-truth is single. See [`pipelines/lrp/load.py`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/lrp/load.py).
+
+## Schema-evolution notes (24-year corpus)
+
+These are empirical findings from parsing every annual zip. They shape the page's display choices.
+
+**Volume jump in 2021 reflects the 2018 Farm Bill.** Annual feeder-cattle endorsement counts in the platform's type-code subset:
+
+```
+2003:     31     2009:    604     2015:  2,469     2021:  6,275
+2004:    362     2010:  1,217     2016:  1,643     2022: 12,450
+2005:  1,288     2011:  2,420     2017:  2,200     2023: 27,251
+2006:  1,556     2012:  2,063     2018:  1,240     2024: 34,347
+2007:    732     2013:  1,341     2019:  1,008     2025: 47,859
+2008:  1,135     2014:  3,443     2020:    812     2026: 33,119 (partial)
+```
+
+The 2021+ surge tracks the [2018 Farm Bill](https://www.fsa.usda.gov/programs-and-services/laws-and-regulations/farm-bill/index)'s increase to LRP premium subsidy rates, which made the program substantially more attractive. The annual chart on the LRP page shows this directly — bars before 2021 are visually small relative to bars after.
+
+**State-level reporting began in 2004 but was sparse until 2021.** In 2003, every endorsement was reported as `state_abbr == "XX"` ("All Other Counties", a national-aggregate placeholder). State granularity grew gradually through the 2010s — 14 unique states in 2010, 20 in 2015, 16 in 2020. From 2021 onward, 28+ unique states appear per year, and the `XX` share of rows drops below 25%. The choropleth's default lower bound (2021) is set so the map shows real geographic data rather than a national-aggregate placeholder masquerading as data.
+
+**Type-code 823 (Unborn Calves, new 2026) uses `$/head` pricing.** All other 11 feeder-cattle type codes — including the other "Unborn" variants (817/818/819) — quote `coverage_price`, `expected_end_value`, and `cost_per_cwt` in `$/cwt`. Type 823 quotes the same columns in `$/head`: observed median `coverage_price` is ~$1,358 (the value of one calf), median `cost_per_cwt` is ~$90 (the per-head premium). The column names are unchanged but the unit is different. The validator scopes its `$/cwt` plausibility bounds to the type-code subset {809-812}; the LRP page excludes 823 from its aggregations to avoid mixing units.
+
+## What is deliberately left out
+
+- **No comparison to cash auction.** The chart shelf's other pages describe Clovis cash directly (price-weight, seasonality, weekly-trends) or compare it to CME GF feeder futures (basis). A backtest that would say *"would a producer have done better holding LRP than selling at cash on the same week"* requires careful design choices (type-code → Clovis weight-bin mapping, end-date → Clovis week alignment, NM-only vs broader regional scope) that benefit from collaborator review before being baked into a public chart. See *Future work* below.
+- **No producer-side decision tool.** The platform's [sell-now compare page](../sell-now-compare.qmd) is the closest analog — a "is this a good time to act?" framing. An LRP-specific decision tool (*"is now a good time to buy LRP?"*) would require modeling RMA's coverage-price-setting mechanism, which itself derives from CME futures. That's a Phase 2 candidate, not a Phase 1 deliverable.
+- **No subsidy-rate-vs-cycle analysis.** The Farm Bill's premium-subsidy schedule changed over time and is observable in the data (`subsidy_amount` divided by `total_premium_amount`). A page showing how subsidy rates moved with the cattle cycle would be informative; it's a candidate v2 addition.
+- **No county-level choropleth.** RMA reports at county granularity (`county_fips`, `county_name`) but Plotly's bundled US-state geometry doesn't extend to counties without an external topojson. A county-level map is a candidate v2 feature.
+
+## Future work
+
+Tracked as candidate v2 items:
+
+- **`v2.lrp-clovis-backtest`** — Compare LRP outcomes to selling at cash on the end-date week. Requires (a) NM-or-broader scope decision, (b) type-code → Clovis weight-bin mapping, (c) end-date → Clovis week alignment rule. Benefits from co-author / Extension review of the design choices before implementation.
+- **`v2.lrp-county-choropleth`** — County-level granularity using a topojson layer. Adds non-trivial CI weight; defer until state-level is well-received.
+- **`v2.lrp-subsidy-trajectory`** — Time-series of subsidy share of total premium, to make the 2018 Farm Bill change visible directly.
+
+## Code
+
+- Chart page source: [`site/lrp.qmd`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/site/lrp.qmd)
+- This methodology page's source: [`site/methodology/lrp.qmd`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/site/methodology/lrp.qmd)
+- Pipeline modules: [`pipelines/lrp/`](https://github.com/lma-explorer/lma-explorer.github.io/tree/main/pipelines/lrp)
+  - [`ingest.py`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/lrp/ingest.py) — fetch annual zips from RMA pubfs
+  - [`parse.py`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/lrp/parse.py) — extract zip + parse pipe-delim TXT, with the canonical 31-column COLUMNS list
+  - [`validate.py`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/lrp/validate.py) — schema hash + value sanity + year coverage checks
+  - [`snapshot.py`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/lrp/snapshot.py) — orchestrator: parse all zips, filter, write parquet + manifest
+  - [`load.py`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/lrp/load.py) — render-time aggregate views consumed by the chart page
+
+## Contact
+
+Spotted an error or a methodological disagreement? Open a [new issue](https://github.com/lma-explorer/lma-explorer.github.io/issues/new/choose) with the `methodology` label.

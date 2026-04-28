@@ -114,6 +114,14 @@ The chart shelf decomposes weekly Clovis prices and CME-feeder basis along four 
 
 All four pages share the same year-window selector (All / Last 5 yrs / Last 3 yrs / latest year) and the same nominal-vs-real dollar toggle. The basis page adds a contract-month selector (May / November / Nearby) on top of those two; real-dollar basis is computed per row as `basis_nominal × deflator(month_of_auction)` because both cash and futures settle scale by the same monthly CPI factor.
 
+## A different kind of view: livestock insurance
+
+::: {.callout-note appearance="simple" icon="false"}
+**[→ Livestock Risk Protection (LRP): what does the program look like?](lrp.qmd)**
+
+The chart shelf above describes weekly Clovis cash auction data and its relationship to CME GF feeder futures. The LRP page describes a different kind of producer choice — federal price-floor insurance for feeder cattle (USDA RMA's [Livestock Risk Protection program](https://www.rma.usda.gov/policy-and-procedure/insurance-plans/livestock-risk-protection-policy)). The State dropdown defaults to Arizona; the Year window button row toggles between All available years, Last 5 yrs, Last 3 yrs, and Latest. Four groups of information are surfaced: participation, cost/subsidy, coverage design, and outcome/payout. The page is descriptive — it shows what the program looks like, not whether to buy it.
+:::
+
 ## Producer reference card (PDF)
 
 ::: {.callout-tip appearance="simple"}
