@@ -181,8 +181,7 @@ for s in states_with_all:
 ```{python}
 #| echo: false
 #| label: build-figure
-#| fig-width: 11
-#| fig-height: 11
+#| fig-cap: ""
 
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -224,7 +223,7 @@ for s in states_with_all:
             x=x, y=prem, name="Producer premium",
             marker_color="#4F88C9",
             visible=is_default,
-            showlegend=is_default,
+            showlegend=True,  # Plotly only shows legend entries for visible+showlegend traces
             hovertemplate="<b>Year %{x}</b><br>Producer premium: $%{y:.1f}M<extra></extra>",
         ),
         row=1, col=1, secondary_y=False,
@@ -236,7 +235,7 @@ for s in states_with_all:
             x=x, y=indemn, name="Indemnity",
             marker_color="#5FAE6E",
             visible=is_default,
-            showlegend=is_default,
+            showlegend=True,
             hovertemplate="<b>Year %{x}</b><br>Indemnity: $%{y:.1f}M<extra></extra>",
         ),
         row=1, col=1, secondary_y=False,
@@ -250,7 +249,7 @@ for s in states_with_all:
             line=dict(color="#C94F4F", width=2),
             marker=dict(size=6),
             visible=is_default,
-            showlegend=is_default,
+            showlegend=True,
             hovertemplate="<b>Year %{x}</b><br>Indemnified share: %{y:.1f}%<extra></extra>",
             yaxis="y2",
         ),
