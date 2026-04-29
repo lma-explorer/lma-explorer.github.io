@@ -21,3 +21,6 @@ numpy>=1.26,<3       # explicit (transitively installed via pandas, but
 jupyter>=1.0,<2
 plotly>=5.24,<7
 matplotlib>=3.8,<4   # one-pager.qmd typst PDF render path
+openpyxl>=3.1,<4     # scripts/prepare_downloads.py writes XLSX next to each
+                     # *.parquet for analyst-friendly downloads (Excel-readable
+                     # alongside the canonical parquet)

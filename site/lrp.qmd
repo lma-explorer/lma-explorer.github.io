@@ -433,18 +433,24 @@ for s in states_with_all:
 print('</select>')
 print('</div>')
 
-# Year-window control
+# Year-window control. role="group" + aria-label names the cluster for
+# assistive tech; aria-pressed on each button announces the active state
+# (so a screen reader reads "Last 5 yrs button, pressed" for the active
+# selection). The visual styling and aria-pressed are kept in sync by JS
+# in the sync chunk below — see setActiveYearButton.
 print('<div style="display: flex; align-items: center; gap: 0.4em;">')
-print('<span style="font-weight: 600; white-space: nowrap;">Year window:</span>')
-print('<div id="lrp-year-buttons" role="group" style="display: inline-flex; border: 1px solid #BBB; border-radius: 3px; overflow: hidden; background: white;">')
+print('<span id="lrp-year-window-label" style="font-weight: 600; white-space: nowrap;">Year window:</span>')
+print('<div id="lrp-year-buttons" role="group" aria-labelledby="lrp-year-window-label" style="display: inline-flex; border: 1px solid #BBB; border-radius: 3px; overflow: hidden; background: white;">')
 for w in window_list:
     is_active = (w == DEFAULT_WINDOW)
     bg = "#4F88C9" if is_active else "white"
     fg = "white" if is_active else "#222"
     fw = "600" if is_active else "400"
     border_left = "" if w == window_list[0] else "border-left: 1px solid #BBB;"
+    pressed = "true" if is_active else "false"
     print(
         f'<button type="button" class="lrp-year-btn" data-window="{w}" '
+        f'aria-pressed="{pressed}" '
         f'style="padding: 0.3em 0.75em; font-size: 0.92em; cursor: pointer; '
         f'background: {bg}; color: {fg}; font-weight: {fw}; border: 0; {border_left}">'
         f'{window_label_map[w]}</button>'
@@ -460,6 +466,7 @@ print('<p style="color: #666; font-size: 0.85em; margin: 0.2em 0 0.8em 0.2em;">D
 ```{python}
 #| echo: false
 #| label: fig-layout
+#| fig-alt: "LRP feeder-cattle explorer for the selected state and year window. Two stacked panels: a time-series of producer-paid premium (blue bars), indemnity received (green bars), and indemnified-endorsement share (red line on right axis) by reinsurance year; and a US state choropleth shaded by total producer premium per state across the selected year window. Filter bar above the chart provides a State dropdown (default Arizona) and a Year-window button row (All available years, Last 5 yrs, Last 3 yrs, Latest); changing either filter re-renders both panels and the benchmark and at-a-glance tables below."
 
 # Year window control is now a native HTML button row (above) so we no
 # longer add a Plotly updatemenu. Layout is tightened: the legend sits
@@ -690,6 +697,7 @@ _js_payload = (
     '        b.style.background = active ? "#4F88C9" : "white";\n'
     '        b.style.color = active ? "white" : "#222";\n'
     '        b.style.fontWeight = active ? "600" : "400";\n'
+    '        b.setAttribute("aria-pressed", active ? "true" : "false");\n'
     '      }\n'
     '    }\n'
     '\n'
@@ -803,10 +811,13 @@ Full methodology: [Methodology → LRP](methodology/lrp.qmd) — the snapshot fi
 
 Downloads:
 
-- [LRP corpus parquet](../data/processed/lrp_latest.parquet) — long-format, 31 columns, every endorsement 2003-present.
-- [LRP manifest](../data/processed/lrp_MANIFEST.json) — vintage stamps, SHAs, annual breakdown.
+**LRP corpus** (long-format, 31 columns, every endorsement 2003-present, ~210k rows):
+[Parquet](../data/processed/lrp_latest.parquet) · [CSV](../data/processed/lrp_latest.csv)
 
-Parquet is the canonical format. Most tools read it natively: Python `pandas.read_parquet("lrp_latest.parquet")`, R `arrow::read_parquet("lrp_latest.parquet")`, DuckDB `SELECT * FROM 'lrp_latest.parquet'`. To convert to CSV: `pd.read_parquet(...).to_csv(...)`. See the [data catalog](data.qmd) for a full inventory.
+**Manifest** (vintage stamps, SHAs, annual breakdown):
+[lrp_MANIFEST.json](../data/processed/lrp_MANIFEST.json)
+
+Parquet is the canonical format and the smallest on disk (~9 MB). CSV is the same data in a universally readable format (~30 MB) — open it in any text editor or load it into Python (`pd.read_csv`), R (`read.csv`), DuckDB (`SELECT * FROM 'lrp_latest.csv'`), or Polars. XLSX is intentionally not generated for this file because the row count exceeds Excel's ~1.05M-row limit. See the [data catalog](data.qmd) for the full inventory.
 
 ```{python}
 #| echo: false

@@ -3,6 +3,16 @@ project:
   output-dir: _site
   preview:
     port: 4848
+  # Generate analyst-friendly download artifacts (CSV + XLSX) alongside each
+  # canonical *.parquet in data/processed/, then copy the whole folder into
+  # _site/data/processed/ so download links on chart pages and the data
+  # catalog actually resolve on the deployed site. The script handles both
+  # phases: pre-render generates CSVs/XLSXs from parquets; post-render copies
+  # the full folder into the rendered output. See scripts/prepare_downloads.py.
+  pre-render:
+    - python3 ../scripts/prepare_downloads.py --phase pre
+  post-render:
+    - python3 ../scripts/prepare_downloads.py --phase post
 
 website:
   title: "Livestock Marketing Alternatives Explorer"

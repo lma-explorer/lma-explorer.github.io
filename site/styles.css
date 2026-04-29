@@ -34,3 +34,14 @@ main.content {
     overflow-x: auto;
   }
 }
+
+/* Keyboard-accessible focus indicator for the LRP filter-bar custom controls.
+ * The amber outline is visible against both white-inactive and blue-active
+ * button backgrounds and against the white state-select. Only renders on
+ * keyboard focus (not mouse click) to avoid visual noise for sighted/mouse
+ * users. WCAG 2.1 SC 2.4.7 (Focus Visible). */
+.lrp-year-btn:focus-visible,
+#lrp-state-select:focus-visible {
+  outline: 2px solid #FFB800;
+  outline-offset: 2px;
+}

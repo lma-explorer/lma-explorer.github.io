@@ -193,6 +193,7 @@ Each line is the **average basis** for one weight class at each week of the cale
 
 ```{python}
 #| echo: false
+#| fig-alt: "Basis chart for the Clovis, NM cash auction relative to CME GF feeder-cattle futures. Two stacked panels (Steers above, Heifers below) plot basis ($/cwt; cash minus futures settle) against an auction-date timeline. Each weight bin (300-399 through 800-899 lb) is one line; the 700-799 lb Steers line is the strict basis (matches the CME GF contract specification), while the others are weight-class cash-futures spreads shown as cycle context. Three button rows above the chart toggle contract month (May, November, Nearby), year window, and currency mode."
 
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -884,10 +885,14 @@ A producer who hedges 700-lb feeders, or who reads futures as a forward-price re
 
 ## Download
 
-- [Basis parquet](../data/processed/clovis_basis_latest.parquet) — long-format: one row per (auction_date, class, frame, muscle_grade, weight_break_low/high, contract_month, basis). Only the derived basis statistic is committed; the underlying CME `settle` column is computed in memory and not persisted (see [data licensing](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/LICENSE-DATA.md)).
-- [Basis manifest](../data/processed/clovis_basis_MANIFEST.json) — vintage stamps and SHAs for each derived basis snapshot.
+**Basis snapshot** (long-format: one row per `auction_date × class × frame × muscle_grade × weight_break × contract_month`. Only the derived `basis` is committed; the underlying CME `settle` column is computed in memory and not persisted — see [data licensing](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/LICENSE-DATA.md)):
 
-Parquet is the canonical format. Most tools read it natively: Python `pandas.read_parquet("clovis_basis_latest.parquet")`, R `arrow::read_parquet("clovis_basis_latest.parquet")`, DuckDB `SELECT * FROM 'clovis_basis_latest.parquet'`. To convert to CSV: `pd.read_parquet(...).to_csv(...)`. See the [data catalog](data.qmd) for a full inventory.
+[Parquet](../data/processed/clovis_basis_latest.parquet) · [CSV](../data/processed/clovis_basis_latest.csv) · [XLSX](../data/processed/clovis_basis_latest.xlsx)
+
+**Manifest** (vintage stamps and SHAs for each derived basis snapshot):
+[clovis_basis_MANIFEST.json](../data/processed/clovis_basis_MANIFEST.json)
+
+Parquet is the canonical format and the smallest on disk. CSV opens in any text editor or spreadsheet app. XLSX opens directly in Excel/Numbers/LibreOffice. See the [data catalog](data.qmd) for the full inventory and per-file row counts.
 
 The platform does not redistribute raw CME GF settle data. Producers wanting raw settles must source them directly from CME DataMine.
 

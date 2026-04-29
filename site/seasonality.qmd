@@ -183,6 +183,7 @@ Each line is the average price for a weight class at each week of the calendar y
 
 ```{python}
 #| echo: false
+#| fig-alt: "Weekly seasonality chart for the Clovis, NM feeder-cattle auction. Two stacked panels (Steers above, Heifers below) overlay every weight bin (300-399 through 800-899 lb) on a 1-52 week-of-year x-axis. Each line traces the average $/cwt for one weight bin across the calendar year, with the lines for the lighter weight classes generally sitting higher than the heavier ones. The shape of each line shows the intra-year price pattern (typical seasonal peaks around late spring and late fall). Two button rows above the chart toggle year window (All, Last 5 yrs, Last 3 yrs, Latest) and currency mode (Nominal vs Real $)."
 
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -546,11 +547,16 @@ display(HTML(f"""
 
 ## Download
 
-- [Parquet snapshot](../data/processed/clovis_latest.parquet) — Clovis feeder-cattle archive, latest MARS vintage
-- [Vintage manifest](../data/processed/clovis_MANIFEST.json) — SHA-256 of every snapshot the pipeline has committed
-- [CPI deflator](../data/processed/cpi_latest.parquet) — BLS CPI-U NSA (`CUUR0000SA0`), the deflation basis
+**Clovis feeder-cattle archive** (latest MARS vintage):
+[Parquet](../data/processed/clovis_latest.parquet) · [CSV](../data/processed/clovis_latest.csv) · [XLSX](../data/processed/clovis_latest.xlsx)
 
-Parquet is the canonical format. Most tools read it natively: Python `pandas.read_parquet("clovis_latest.parquet")`, R `arrow::read_parquet("clovis_latest.parquet")`, DuckDB `SELECT * FROM 'clovis_latest.parquet'`. To convert to CSV: `pd.read_parquet(...).to_csv(...)`. See the [data catalog](data.qmd) for a full inventory.
+**CPI deflator** (BLS CPI-U NSA `CUUR0000SA0`, the deflation basis):
+[Parquet](../data/processed/cpi_latest.parquet) · [CSV](../data/processed/cpi_latest.csv) · [XLSX](../data/processed/cpi_latest.xlsx)
+
+**Manifest** (SHA-256 of every snapshot the pipeline has committed):
+[clovis_MANIFEST.json](../data/processed/clovis_MANIFEST.json)
+
+Parquet is the canonical format and the smallest on disk. CSV opens in any text editor or spreadsheet app. XLSX opens directly in Excel/Numbers/LibreOffice. See the [data catalog](data.qmd) for the full inventory and per-file row counts.
 
 ## What's next on this page
 

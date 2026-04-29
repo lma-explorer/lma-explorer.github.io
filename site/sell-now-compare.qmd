@@ -184,6 +184,7 @@ else:
 
 ```{python}
 #| echo: false
+#| fig-alt: "Sell-now-compare chart for the Clovis, NM cash auction. Two stacked panels (Steers above, Heifers below) show, for each weight bin on the x-axis, a gray vertical bar spanning the historical min-to-max range for the same calendar week of past years, a small horizontal tick on the bar marking the historical average, and a colored dot showing this week's actual price. Dot color encodes the percentile band: green = top 25% of past years, gray = middle 50%, red = bottom 25%. Two button rows above the chart toggle comparison window and currency mode. The chart is paired with a static this-week-in-numbers table further down the page that gives exact dollars and uses emoji indicators (green / white / red) to convey the same percentile band without relying on color alone."
 
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -740,11 +741,16 @@ The other four pages are exploratory; this page is decision-anchored. A producer
 
 ## Download
 
-- [Parquet snapshot](../data/processed/clovis_latest.parquet) — Clovis feeder-cattle archive, latest MARS vintage
-- [Vintage manifest](../data/processed/clovis_MANIFEST.json) — SHA-256 of every snapshot the pipeline has committed
-- [CPI deflator](../data/processed/cpi_latest.parquet) — BLS CPI-U NSA (`CUUR0000SA0`), the deflation basis
+**Clovis feeder-cattle archive** (latest MARS vintage):
+[Parquet](../data/processed/clovis_latest.parquet) · [CSV](../data/processed/clovis_latest.csv) · [XLSX](../data/processed/clovis_latest.xlsx)
 
-Parquet is the canonical format. Most tools read it natively: Python `pandas.read_parquet("clovis_latest.parquet")`, R `arrow::read_parquet("clovis_latest.parquet")`, DuckDB `SELECT * FROM 'clovis_latest.parquet'`. To convert to CSV: `pd.read_parquet(...).to_csv(...)`. See the [data catalog](data.qmd) for a full inventory.
+**CPI deflator** (BLS CPI-U NSA `CUUR0000SA0`, the deflation basis):
+[Parquet](../data/processed/cpi_latest.parquet) · [CSV](../data/processed/cpi_latest.csv) · [XLSX](../data/processed/cpi_latest.xlsx)
+
+**Manifest** (SHA-256 of every snapshot the pipeline has committed):
+[clovis_MANIFEST.json](../data/processed/clovis_MANIFEST.json)
+
+Parquet is the canonical format and the smallest on disk. CSV opens in any text editor or spreadsheet app. XLSX opens directly in Excel/Numbers/LibreOffice. See the [data catalog](data.qmd) for the full inventory and per-file row counts.
 
 ## See also
 

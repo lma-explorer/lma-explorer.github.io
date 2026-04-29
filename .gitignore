@@ -65,5 +65,8 @@ Data_*/
 # Internal planning docs (Phase-0 Decision 7 — kept local until promotion)
 PLAN_*.md
 
-# Sandbox-only CSV artifacts (canonical historical block is .parquet via pyarrow)
+# Generated download artifacts (CSV + XLSX produced by scripts/prepare_downloads.py
+# at site-build time alongside each canonical *.parquet; bundled into _site by
+# Quarto's `resources:` config). Never committed; regenerated on every build.
 data/processed/*.csv
+data/processed/*.xlsx
