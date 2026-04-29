@@ -432,23 +432,6 @@ fig.update_yaxes(
 )
 fig.update_layout(yaxis2=dict(matches="y"))
 
-with open("/tmp/wt-debug.txt", "w") as _dbg:
-    _dbg.write(f"work.shape: {work.shape}\n")
-    _dbg.write(f"auction_date dtype: {work['auction_date'].dtype}\n")
-    _dbg.write(f"auction_date min/max: {work['auction_date'].min()} / {work['auction_date'].max()}\n")
-    _dbg.write(f"price_avg sample: {work['price_avg'].head(3).tolist()}\n")
-    _dbg.write(f"price_avg has nulls: {work['price_avg'].isna().sum()} / {len(work)}\n")
-    _dbg.write(f"total traces: {len(fig.data)}\n")
-    _dbg.write(f"visible[0:12]: {[bool(t.visible) for t in fig.data[:12]]}\n")
-    _t0 = fig.data[0]
-    _dbg.write(f"trace[0].name: {_t0.name}\n")
-    _x = list(_t0.x) if _t0.x is not None else []
-    _y = list(_t0.y) if _t0.y is not None else []
-    _dbg.write(f"trace[0].x len: {len(_x)}\n")
-    _dbg.write(f"trace[0].y len: {len(_y)}\n")
-    if _x: _dbg.write(f"trace[0].x[0:3]: {_x[:3]}\n")
-    if _y: _dbg.write(f"trace[0].y[0:3]: {_y[:3]}\n")
-fig.write_html("/tmp/wt-standalone.html", include_plotlyjs="cdn")
 fig.show()
 
 

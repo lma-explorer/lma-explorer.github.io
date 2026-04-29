@@ -14,7 +14,9 @@ A Sall & Tronstad extension article analyzing the same dataset is in preparation
 
 ## What's currently in development
 
-A USDA RMA Livestock Risk Protection (LRP) explorer is in design. The underlying corpus (every LRP feeder-cattle endorsement 2003-present, ~210k rows) is committed and validated; the public chart page is being designed as a filterable state-level explorer with county-level drill-down. Until that page ships, the LRP pipeline infrastructure is browsable in [`pipelines/lrp/`](https://github.com/lma-explorer/lma-explorer.github.io/tree/main/pipelines/lrp) but is not yet surfaced as a producer page.
+The [USDA RMA Livestock Risk Protection (LRP) explorer](lrp.qmd) is now live — a filterable explorer for ~210k feeder-cattle LRP endorsements (2003-present), defaulting to Arizona with state and year-window filters. County-level drill-down is a planned v2 enhancement.
+
+Currently in development: an **LRP-vs-cash backtest** comparing realized LRP outcomes to selling at the Clovis cash auction over matched windows; **methodology-style explainer pages** for marketing alternatives that are described in the research literature but not yet built into the platform; and **additional regional auction integrations** (Willcox AZ, Utah feeders) so producers outside the four-corners region have closer benchmarks.
 
 ## Who maintains it
 

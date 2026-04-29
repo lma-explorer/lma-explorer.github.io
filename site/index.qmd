@@ -35,7 +35,7 @@ Each figure has a **methodology** link explaining what's computed, the deflation
 ::: {.g-col-12 .g-col-md-4}
 ### For researchers & journalists
 
-Raw snapshots are committed as Parquet and released annually as a Zenodo deposit with a DOI. Every pipeline run is logged in the `MANIFEST.json`; every figure carries a vintage stamp.
+Raw snapshots are committed as Parquet, with annual Zenodo DOI releases planned (Phase 2 exit milestone). Every pipeline run is logged in the `MANIFEST.json`; every figure carries a vintage stamp.
 
 [Browse the data →](data.qmd)
 :::

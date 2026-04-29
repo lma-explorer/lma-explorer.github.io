@@ -9,6 +9,7 @@ website:
   description: "An interactive, continuously-updated explorer of public USDA-AMS feeder-cattle price data for the four-corners region — built on public-domain USDA, BLS, and NASS feeds."
   site-url: "https://lma-explorer.github.io"
   repo-url: "https://github.com/lma-explorer/lma-explorer.github.io"
+  repo-subdir: site
   repo-actions: [edit, source, issue]
   back-to-top-navigation: true
   page-navigation: true
