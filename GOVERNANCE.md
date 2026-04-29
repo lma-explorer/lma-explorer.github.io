@@ -69,6 +69,12 @@ PRs missing any item above are blocked from merge. The checklist is enforced by 
 - USDA-AMS, BLS, and USDA NASS data are public-domain U.S. government works (17 U.S.C. § 105) and may be republished with attribution. The CC-BY-4.0 notice on derived data is a request, not a legal restriction inherited from the source.
 - CME settlement data is proprietary. The platform does not commit, mirror, or redistribute raw CME GF or LE settle series. The basis pipeline computes a derived statistic (`cash − settle`) and commits only that derived value, with the underlying `settle` column dropped from output. See `LICENSE-DATA.md` for the full data-licensing posture.
 
+## Privacy and analytics
+
+**The deployed site loads no third-party analytics or tracking scripts.** No Google Analytics, no Facebook pixel, no advertising networks, no fingerprinters, no behavioral profiling. No cookies are set, no IP addresses are logged, and no consent banner is required. This stance is binding: any PR that adds a third-party tracker is rejected.
+
+Repo-level traffic (clones, stars, watchers, referrers to the GitHub repository page) is visible to the maintainer via GitHub's built-in repo Insights and is the only operational signal currently available. If lightweight, privacy-respecting page-view analytics become useful for impact reporting later (for example, documenting Extension reach), a self-hostable or non-commercial-tier service such as [GoatCounter](https://www.goatcounter.com/) would be the candidate — chosen because it sets no cookies, stores no IP addresses, and operates without a GDPR consent banner. Any future addition of analytics ships with a corresponding update to this section and to the About page so the disclosure stays accurate.
+
 ## Annual review
 
 Once per year (target: each January), the primary maintainer conducts a written review covering: (a) which features are healthy; (b) which features need attention or sunset; (c) whether any new data source is worth adding; (d) whether any aspect of this governance document needs to change. The review is committed to `/docs/annual-review-YYYY.md`.

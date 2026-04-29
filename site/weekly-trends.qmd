@@ -569,7 +569,7 @@ Parquet is the canonical format and the smallest on disk. CSV opens in any text 
 - [Methodology → Clovis pipeline](methodology/clovis.qmd) — every filter, bin, and edge case behind the snapshot this page reads from.
 - [Methodology → CPI deflation](methodology/cpi.qmd) — how the December-2025-basis deflator is computed.
 
-## What's next on this page
+## Roadmap
 
 - [ ] Per-week head-weighted mean (not simple-average) for multi-lot weeks. The current chart simple-averages multiple lots within the same (week, class, bin); a head-weighted mean is more accurate. Methodology page documents the choice.
 - [ ] Mark the most recent observation per line with a labeled dot ("Latest week: $X.XX"). Bridge to a future *sell-now compare* widget.

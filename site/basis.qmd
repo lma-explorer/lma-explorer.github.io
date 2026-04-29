@@ -902,7 +902,7 @@ The platform does not redistribute raw CME GF settle data. Producers wanting raw
 - [Methodology → Clovis pipeline](methodology/clovis.qmd) — the cash side of the basis calculation.
 - [Methodology → Basis derivation](methodology/basis.qmd) — the contract-month convention, date-alignment rule, and the per-row deflation identity used by the real-dollar mode.
 
-## What's next on this page
+## Roadmap
 
 - [ ] **Visual emphasis for the strict-basis panel.** v1 of this page surfaces the 700–799 lb Steers strict-basis call-out in prose only. v2 should add a visual signal in the chart — a thicker line, an annotation arrow, or a "show strict basis only" toggle that filters to that single panel — so a producer scanning the chart can identify their hedge basis without reading the prose first.
 - [ ] **Contract-cycle aligned x-axis.** The May contract expires in late May; a producer reading basis to May cares most about the run-up *to* expiry. The agricultural-economics literature commonly aligns the basis x-axis to contract expiry rather than to the calendar — the May figure typically starts at week 22 (when the next May becomes the active reference) and wraps through week 21 of the following year, with the same logic for November (start at week 48). The current chart shows a calendar 1–52 axis for all three contracts, which is informative but not aligned to the contract cycle. Add as v2.

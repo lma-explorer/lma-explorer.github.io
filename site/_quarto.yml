@@ -21,11 +21,22 @@ website:
   repo-url: "https://github.com/lma-explorer/lma-explorer.github.io"
   repo-subdir: site
   repo-actions: [edit, source, issue]
+  # Note on sitemap: Quarto auto-generates _site/sitemap.xml from every
+  # rendered page when `site-url` is set (above). No explicit directive
+  # is required. To verify, after `quarto render`, check that
+  # _site/sitemap.xml exists and lists every page.
   back-to-top-navigation: true
   page-navigation: true
   reader-mode: false
-  twitter-card: true
-  open-graph: true
+  # Open-graph and Twitter card metadata. The 1200x630 PNG is generated
+  # from site/assets/og-card.svg via scripts/render_og_card.py — edit the
+  # SVG, regenerate the PNG, commit both. The image: value is the relative
+  # path Quarto inlines into <meta og:image> and <meta twitter:image>.
+  twitter-card:
+    image: assets/og-card.png
+    card-style: summary_large_image
+  open-graph:
+    image: assets/og-card.png
 
   navbar:
     background: light

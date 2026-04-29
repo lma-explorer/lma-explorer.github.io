@@ -4,8 +4,44 @@ subtitle: "An open, continuously-updated explorer of public-domain weekly feeder
 toc: false
 ---
 
+```{python}
+#| echo: false
+#| label: read-anchors
+
+# Read the latest Clovis auction date and CPI vintage at render time so any
+# inline reference to "this week" or "latest" on this page can be resolved
+# to a concrete date the reader can verify against. If a manifest is
+# missing (e.g., a fresh clone before the first pipeline run), we fall
+# back to a string so the page still renders.
+
+import json
+from pathlib import Path
+
+PROCESSED = Path("..") / "data" / "processed"
+
+
+def _latest_vintage(manifest_filename: str) -> str:
+    path = PROCESSED / manifest_filename
+    if not path.exists():
+        return "(not yet populated)"
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            entries = json.load(f).get("entries", [])
+        if entries:
+            v = entries[-1].get("vintage")
+            if v:
+                return str(v)
+    except (json.JSONDecodeError, OSError):
+        pass
+    return "(unavailable)"
+
+
+latest_clovis_auction = _latest_vintage("clovis_MANIFEST.json")
+latest_cpi_vintage = _latest_vintage("MANIFEST.json")
+```
+
 ::: {.callout-note appearance="minimal"}
-**Current status**: active prototype. Live chart pages cover price–weight, weekly seasonality, weekly trends, basis to CME GF feeder futures, and a sell-now compare for the Clovis, NM feeder-cattle auction. Live data feeds: USDA-AMS Clovis (sale-week cadence), BLS CPI-U (monthly). Additional pipelines (USDA RMA Livestock Risk Protection, additional regional auctions) are under development.
+**Current status**: active prototype. Live chart pages cover price–weight, weekly seasonality, weekly trends, basis to CME GF feeder futures, sell-now compare (Clovis, NM feeder-cattle auction), and an LRP explorer (USDA RMA Summary of Business). Live data feeds: USDA-AMS Clovis (sale-week cadence), BLS CPI-U (monthly), USDA RMA (annual). Latest Clovis auction on file: **`{python} latest_clovis_auction`**.
 :::
 
 ## What this is
@@ -35,7 +71,7 @@ Each figure has a **methodology** link explaining what's computed, the deflation
 ::: {.g-col-12 .g-col-md-4}
 ### For researchers & journalists
 
-Raw snapshots are committed as Parquet, with annual Zenodo DOI releases planned (Phase 2 exit milestone). Every pipeline run is logged in the `MANIFEST.json`; every figure carries a vintage stamp.
+Raw snapshots are committed as Parquet, with annual Zenodo DOI releases planned (a roadmap item — the first release will land once the platform stabilizes). Every pipeline run is logged in the `MANIFEST.json`; every figure carries a vintage stamp.
 
 [Browse the data →](data.qmd)
 :::
@@ -78,6 +114,8 @@ Raw snapshots are committed as Parquet, with annual Zenodo DOI releases planned 
 **[→ Sell-now compare: is this week's price high or low for this time of year?](sell-now-compare.qmd)**
 
 For each weight class × bin, the page shows where this week's actual Clovis price sits relative to the historical band for the same calendar week of past years. A green dot means top 25% of past years; gray middle 50%; red bottom 25%. One input to a marketing decision, not a recommendation.
+
+*"This week" anchored on Clovis auction date: **`{python} latest_clovis_auction`**.* If a regular weekly auction was missed (holiday, USDA reporting delay, ingest failure), this is the most recent published auction — not necessarily the most recent calendar week.
 :::
 
 ## Four views of the same dataset
@@ -132,22 +170,32 @@ The chart shelf above describes weekly Clovis cash auction data and its relation
 
 ```{python}
 #| echo: false
-import json
-from pathlib import Path
-# Same pattern as data.qmd — cwd is site/ at render time.
-manifest_path = Path("..") / "data" / "processed" / "MANIFEST.json"
-if manifest_path.exists():
-    with manifest_path.open("r", encoding="utf-8") as f:
-        manifest = json.load(f)
-    entries = manifest.get("entries", [])
-    if entries:
-        latest = entries[-1]
-        print(f"CPI vintage: {latest.get('vintage')} · written {latest.get('written_at_utc')}")
-    else:
-        print("CPI vintage: not yet populated")
-else:
-    print("CPI vintage: not yet populated")
+#| label: last-refreshed
+
+# Surface the two highest-cadence data sources' vintages on the home page so
+# readers don't have to navigate to the data catalog to see freshness.
+# Anchors set in the read-anchors chunk above; this re-reads the manifest's
+# "written_at_utc" for the timestamp display.
+
+def _written_at(manifest_filename: str) -> str:
+    path = PROCESSED / manifest_filename
+    if not path.exists():
+        return "(not yet populated)"
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            entries = json.load(f).get("entries", [])
+        if entries:
+            return entries[-1].get("written_at_utc", "(unavailable)") or "(unavailable)"
+    except (json.JSONDecodeError, OSError):
+        pass
+    return "(unavailable)"
+
+
+print(f"- **Clovis auction (sale-week)**: latest auction `{latest_clovis_auction}` · pipeline last wrote `{_written_at('clovis_MANIFEST.json')}`")
+print(f"- **BLS CPI-U (monthly)**: latest period `{latest_cpi_vintage}` · pipeline last wrote `{_written_at('MANIFEST.json')}`")
 ```
+
+For the full inventory of every snapshot the platform commits — including basis, Era B historical reconstruction, and LRP — see the [data catalog](data.qmd).
 
 ## Governance
 

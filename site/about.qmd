@@ -32,6 +32,10 @@ Primary author and maintainer: **Ibrahima Sall**, postdoctoral researcher in agr
 
 Read [GOVERNANCE.md](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/GOVERNANCE.md) for the full decision-authority matrix, the Automation Over Features commitment, and the acceptable-use posture. In short: every feature ships with a scheduled refresh, a failure detector, a last-known-good fallback, a vintage stamp, a methodology page, and license-compliant source attribution — or it does not ship.
 
+## Privacy
+
+This site does **not** use any third-party analytics or tracking services — no Google Analytics, no Facebook pixel, no advertising networks, no browser fingerprinters. Visitors are not tracked, no cookies are set, and no consent banner is required because there is nothing to consent to. The maintainer has visibility only into repo-level traffic (clones, stars, referrers to the GitHub repository page) via GitHub's built-in repo Insights — not into who visits the deployed site or what they do here.
+
 ## Acknowledgments
 
 This platform sits at the intersection of publicly-funded federal data (BLS, USDA-AMS, USDA NASS) and publicly-released Extension research. It exists because those data are in the public domain and because Extension's mission is to put trustworthy information in reach of rural producers.

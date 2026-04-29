@@ -14,7 +14,7 @@ The same repository serves three audiences through different entry points.
 
 **Extension peers, instructors, and graduate students.** Read the methodology pages for how each figure is computed. Fork this repository and adapt it for a different state or auction. Every chart renders from committed code; nothing is hand-tuned.
 
-**Researchers and journalists.** Download the versioned Parquet and CSV snapshots in `/data/processed/`. Cite the annual Zenodo release DOI (first release: Phase 2 exit). All derived data carries a CC-BY-4.0 notice; the underlying sources (USDA-AMS, BLS, USDA NASS) are U.S. public domain.
+**Researchers and journalists.** Download the versioned Parquet and CSV snapshots in `/data/processed/`. Cite the annual Zenodo release DOI (planned; first release will land once the platform stabilizes — see GOVERNANCE.md). All derived data carries a CC-BY-4.0 notice; the underlying sources (USDA-AMS, BLS, USDA NASS) are U.S. public domain.
 
 ## Data sources
 
@@ -69,7 +69,7 @@ This project optimizes for **automation over features**. Every user-visible addi
 
 ## Citation
 
-See `CITATION.cff`. Once the first Zenodo deposit is live (planned for Phase 2 exit), a versioned DOI will be the preferred citation target.
+See `CITATION.cff`. Once the first Zenodo deposit is live (planned for once the platform stabilizes — see GOVERNANCE.md for the roadmap), a versioned DOI will be the preferred citation target.
 
 ## Contributing and contact
 

@@ -198,7 +198,7 @@ plt.show()
 #### Methodology and citation
 
 - **Live site**: [lma-explorer.github.io](https://lma-explorer.github.io)
-- **Methodology**: [lma-explorer.github.io/methodology](https://lma-explorer.github.io/methodology)
+- **Methodology**: [lma-explorer.github.io/methodology/clovis.html](https://lma-explorer.github.io/methodology/clovis.html) (Clovis pipeline) · [/methodology/cpi.html](https://lma-explorer.github.io/methodology/cpi.html) (CPI deflator)
 - **Data source**: USDA-AMS Market News, slug `AMS_1781` via the [MARS API](https://mymarketnews.ams.usda.gov/mars-api). Public domain ([17 U.S.C. § 105](https://www.law.cornell.edu/uscode/text/17/105)).
 - **License**: Content CC-BY-4.0; code MIT.
 - **Citation**: see [CITATION.cff](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/CITATION.cff).
@@ -206,10 +206,28 @@ plt.show()
 ```{python}
 #| echo: false
 #| output: asis
-# Footer with the snapshot vintage + render UTC. Lets a printed card
-# stand on its own as a citable artifact.
+# Footer with the snapshot vintage + SHA + render UTC. Lets a printed
+# card stand on its own as a citable artifact: a banker who asks where
+# the numbers came from gets a vintage stamp, an auction-date anchor,
+# and a SHA-256 prefix that uniquely identifies the underlying snapshot.
+import json
+
+_manifest_path = PROCESSED / "clovis_MANIFEST.json"
+_sha_short = ""
+if _manifest_path.exists():
+    try:
+        _m = json.loads(_manifest_path.read_text(encoding="utf-8"))
+        _entries = _m.get("entries", [])
+        if _entries:
+            _sha = _entries[-1].get("sha256", "") or ""
+            if _sha:
+                _sha_short = f" · snapshot SHA `{_sha[:12]}…`"
+    except (json.JSONDecodeError, OSError):
+        pass
+
 print(
     f"\n*Card generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}; "
-    f"data vintage anchored on auction date {latest_date.strftime('%Y-%m-%d')}.*\n"
+    f"data vintage anchored on auction date {latest_date.strftime('%Y-%m-%d')}"
+    f"{_sha_short}.*\n"
 )
 ```

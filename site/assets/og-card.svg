@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Open Graph / Twitter card image for the Livestock Marketing Alternatives
+  Explorer. 1200x630 — the canonical OG card aspect ratio.
+
+  This SVG is the editable source. A PNG export (og-card.png) sits next to
+  it for social-media platforms that don't render SVG previews. Regenerate
+  the PNG via `python scripts/render_og_card.py` after edits.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" font-family="Helvetica, Arial, sans-serif">
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#FFFFFF"/>
+  <rect x="0" y="0" width="1200" height="8" fill="#4F88C9"/>
+
+  <!-- Schematic mini-chart in upper right (decorative; evokes a feeder-cattle price chart) -->
+  <g transform="translate(700, 80)">
+    <!-- chart frame -->
+    <rect x="0" y="0" width="440" height="240" fill="#F7F7F7" stroke="#DDD" stroke-width="1"/>
+    <!-- gridlines -->
+    <line x1="0" y1="60" x2="440" y2="60" stroke="#E5E5E5" stroke-width="1"/>
+    <line x1="0" y1="120" x2="440" y2="120" stroke="#E5E5E5" stroke-width="1"/>
+    <line x1="0" y1="180" x2="440" y2="180" stroke="#E5E5E5" stroke-width="1"/>
+
+    <!-- bars (producer premium) — blue -->
+    <rect x="20"  y="180" width="20" height="40" fill="#4F88C9"/>
+    <rect x="60"  y="160" width="20" height="60" fill="#4F88C9"/>
+    <rect x="100" y="140" width="20" height="80" fill="#4F88C9"/>
+    <rect x="140" y="120" width="20" height="100" fill="#4F88C9"/>
+    <rect x="180" y="100" width="20" height="120" fill="#4F88C9"/>
+    <rect x="220" y="80"  width="20" height="140" fill="#4F88C9"/>
+    <rect x="260" y="60"  width="20" height="160" fill="#4F88C9"/>
+    <rect x="300" y="50"  width="20" height="170" fill="#4F88C9"/>
+    <rect x="340" y="40"  width="20" height="180" fill="#4F88C9"/>
+    <rect x="380" y="30"  width="20" height="190" fill="#4F88C9"/>
+
+    <!-- trend line (red, like the indemnified-share line on LRP) -->
+    <polyline points="30,200 70,180 110,165 150,145 190,135 230,110 270,95 310,75 350,55 390,40"
+              fill="none" stroke="#C94F4F" stroke-width="3" stroke-linejoin="round"/>
+    <circle cx="30"  cy="200" r="3" fill="#C94F4F"/>
+    <circle cx="70"  cy="180" r="3" fill="#C94F4F"/>
+    <circle cx="110" cy="165" r="3" fill="#C94F4F"/>
+    <circle cx="150" cy="145" r="3" fill="#C94F4F"/>
+    <circle cx="190" cy="135" r="3" fill="#C94F4F"/>
+    <circle cx="230" cy="110" r="3" fill="#C94F4F"/>
+    <circle cx="270" cy="95"  r="3" fill="#C94F4F"/>
+    <circle cx="310" cy="75"  r="3" fill="#C94F4F"/>
+    <circle cx="350" cy="55"  r="3" fill="#C94F4F"/>
+    <circle cx="390" cy="40"  r="3" fill="#C94F4F"/>
+  </g>
+
+  <!-- Title -->
+  <text x="60" y="220" font-size="56" font-weight="700" fill="#222222">
+    Livestock Marketing
+  </text>
+  <text x="60" y="290" font-size="56" font-weight="700" fill="#222222">
+    Alternatives Explorer
+  </text>
+
+  <!-- Subtitle / one-line value prop -->
+  <text x="60" y="360" font-size="26" fill="#555555">
+    Public USDA-AMS feeder-cattle data,
+  </text>
+  <text x="60" y="395" font-size="26" fill="#555555">
+    refreshed every auction week.
+  </text>
+
+  <!-- Feature list -->
+  <text x="60" y="475" font-size="22" fill="#4F88C9" font-weight="600">
+    Price-weight  ·  Seasonality  ·  Trends  ·  Basis  ·  Sell-now  ·  LRP
+  </text>
+
+  <!-- Footer / URL -->
+  <text x="60" y="565" font-size="22" fill="#777777">
+    lma-explorer.github.io
+  </text>
+  <text x="60" y="595" font-size="16" fill="#999999">
+    Code MIT  ·  Content CC-BY-4.0  ·  Data: USDA-AMS, BLS, USDA RMA
+  </text>
+</svg>

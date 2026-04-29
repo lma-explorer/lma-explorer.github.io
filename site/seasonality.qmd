@@ -558,8 +558,8 @@ display(HTML(f"""
 
 Parquet is the canonical format and the smallest on disk. CSV opens in any text editor or spreadsheet app. XLSX opens directly in Excel/Numbers/LibreOffice. See the [data catalog](data.qmd) for the full inventory and per-file row counts.
 
-## What's next on this page
+## Roadmap
 
-- [ ] Year-range slider matching the price-weight explorer (Phase 2).
+- [ ] Year-range slider matching the price-weight explorer (planned).
 - [ ] Percentile bands (10/50/90) around each line for the per-week dispersion.
 - [ ] Side-by-side "this year vs. historical average" overlay for the current marketing season.

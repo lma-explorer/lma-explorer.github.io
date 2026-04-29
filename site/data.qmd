@@ -180,12 +180,12 @@ Each snapshot above ships in three formats so you can use the tool you already k
 Right-click any link in the tables above and "Save link as…", or open it directly in the browser. Files are regenerated fresh on every site build, so the linked file always matches the snapshot vintage shown in the same table.
 
 ### Stable citation (a specific vintage)
-Cite by the manifest's SHA-256. Every committed vintage has one, and the manifest is append-only — a SHA you cite today will still resolve to the same bytes later. If you need DOI-class persistence, the Phase 2 plan includes an annual Zenodo deposit with citeable DOIs.
+Cite by the manifest's SHA-256. Every committed vintage has one, and the manifest is append-only — a SHA you cite today will still resolve to the same bytes later. If you need DOI-class persistence, an annual Zenodo deposit with citeable DOIs is planned (target: first release after the platform stabilizes, see GOVERNANCE for the roadmap).
 
 ### Reproducing a figure on this site
 Every chart on the site reads from `*_latest.parquet`. To reproduce what you see, `git clone` the repo and `pip install -r pipelines/requirements.txt`; every `.qmd` file names the Parquet file it reads in its first code cell.
 
-## Planned additions (Phase 2 candidates)
+## Planned additions (roadmap)
 
 These are roadmap items that have not yet been built. They appear here so the absence is explicit, rather than to suggest the current catalog is comprehensive.
 

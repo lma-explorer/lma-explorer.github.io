@@ -136,7 +136,7 @@ n_obs = len(work)
 # CPI deflation. The BLS pipeline (pipelines/bls/) writes cpi_latest.parquet
 # with columns period (month-start date), cpi_u (All Items NSA), vintage,
 # revision_count. The site's real-dollar basis is December 2025 — a fixed
-# month chosen at Phase 1 release so historical chart values stay stable
+# month chosen at platform launch so historical chart values stay stable
 # across BLS revisions. The deflator for an observation in month M is:
 #
 #     deflator_M = cpi_u(Dec 2025) / cpi_u(M)
@@ -581,7 +581,7 @@ Parquet is the canonical format and the smallest on disk. CSV opens in any text 
 
 **Nominal and real dollars, reader-selectable.** Many producers think in nominal dollars (what the check actually read). Researchers think in real dollars (to compare 2019 against 2026 without inflation muddying the picture). The toggle lets either audience see what they're looking for. Real-dollar prices use December 2025 as a fixed basis month so historical chart values stay stable across BLS revisions, computed from the BLS CPI-U All Items NSA series, auto-refreshed monthly by `pipelines/bls/`. See [Methodology → CPI](methodology/cpi.qmd).
 
-**Clovis, Medium-and-Large 1, only.** M&L 1 is the dominant grade combination by volume at this auction and across the four-corners region, and the standard reference grade in USDA-AMS feeder-cattle reporting and agricultural-economics analysis of price-slide behavior; restricting to it keeps the comparison apples-to-apples week over week. Additional frames and muscle grades are preserved in the snapshot and can be surfaced in later Phase 2 filters.
+**Clovis, Medium-and-Large 1, only.** M&L 1 is the dominant grade combination by volume at this auction and across the four-corners region, and the standard reference grade in USDA-AMS feeder-cattle reporting and agricultural-economics analysis of price-slide behavior; restricting to it keeps the comparison apples-to-apples week over week. Additional frames and muscle grades are preserved in the snapshot and can be surfaced in later roadmap filters.
 
 ## See also
 
@@ -589,11 +589,11 @@ Parquet is the canonical format and the smallest on disk. CSV opens in any text 
 - [Methodology → Clovis pipeline](methodology/clovis.qmd) — every filter, bin, and edge case behind the snapshot this page reads from.
 - [Methodology → CPI deflation](methodology/cpi.qmd) — how the December-2025-basis deflator is computed.
 
-## What's next on this page
+## Roadmap
 
 - [x] Real Clovis data (live MARS feed) replacing the synthetic stand-in.
 - [x] CPI deflation toggle (nominal / real December-2025 dollars).
 - [x] Companion seasonality page (matches article Figures 3–4).
-- [ ] Year-range slider + class filter (Phase 2).
+- [ ] Year-range slider + class filter (planned).
 - [ ] Historical reconstruction extending the window back to 1992 (separate workstream).
-- [ ] Downloadable session summary for producers to take to a banker (Phase 3).
+- [ ] Downloadable session summary for producers to take to a banker (planned).

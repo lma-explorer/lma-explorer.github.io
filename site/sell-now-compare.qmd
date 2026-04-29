@@ -721,7 +721,7 @@ else:
 
 **The chart is one input to a marketing decision, not a recommendation.** Above-average-for-this-week doesn't always mean *sell now* — feeding to a heavier weight class might still pencil out, basis to a futures hedge might lock in something better, or your operation may have non-price reasons to hold. Below-average doesn't always mean *don't sell* — sometimes the right call is taking the loss and moving on, especially if forage or carrying costs are cutting into margin.
 
-**Limited historical depth caveats.** With Comparison window = "All", the platform currently has at most ~8 years of historical observations for any given week (October 2017 forward). The 25th and 75th percentile breakpoints are computed across those 8 values. As historical depth grows (Phase 2 deeper-history workstream), the percentile bands stabilize. With Window = "Last 3 years", the breakpoints are computed across 3 values — which is honest but lumpy. The chart hover tooltip and the table report `n = X year(s)` so the reader can weight the signal appropriately.
+**Limited historical depth caveats.** With Comparison window = "All", the platform currently has at most ~8 years of historical observations for any given week (October 2017 forward). The 25th and 75th percentile breakpoints are computed across those 8 values. As the platform's pre-2017 historical reconstruction lands (a planned roadmap item), the percentile bands stabilize. With Window = "Last 3 years", the breakpoints are computed across 3 values — which is honest but lumpy. The chart hover tooltip and the table report `n = X year(s)` so the reader can weight the signal appropriately.
 
 **The historical band excludes the current year.** When the chart compares this week to "past years", it means strictly *prior* calendar years — not earlier weeks of the current year. A producer reading the chart in week 17 of 2026 sees the historical band for week 17 across 2018–2025 (or fewer years per the chosen window). The current week's price is overlaid on that band, not folded into it.
 
@@ -759,9 +759,9 @@ Parquet is the canonical format and the smallest on disk. CSV opens in any text 
 - [Methodology → CPI deflation](methodology/cpi.qmd) — how the December-2025-basis deflator is computed.
 - [Producer reference card (PDF)](one-pager.pdf) — single-sheet printable version of this week's prices, suitable for taking to a sale or banker meeting.
 
-## What's next on this page
+## Roadmap
 
-- [ ] **Larger historical depth.** As the platform's pre-2017 historical reconstruction lands (Phase 2 candidate per the data catalog), the percentile bands stabilize and shorter comparison windows become more reliable.
+- [ ] **Larger historical depth.** As the platform's pre-2017 historical reconstruction lands (a planned roadmap item per the data catalog), the percentile bands stabilize and shorter comparison windows become more reliable.
 - [ ] **Dynamic summary table.** v1 renders the summary table only for the default state (All years × Nominal $). v2 would re-render the table client-side when the buttons change so the table tracks the chart.
 - [ ] **Drill-down by year.** Hover state could expose the per-year prices that compose the historical band — useful for spotting anomaly years (drought, COVID, post-2022 cash blowout) on the chart itself.
 - [ ] **LRP backtest integration.** Once the LRP backtest ships, link from this page to a producer-facing comparison: *"this week's price is Top 25% — but if you'd had LRP coverage at X, your realized price would have looked like Y over the past N years."*
