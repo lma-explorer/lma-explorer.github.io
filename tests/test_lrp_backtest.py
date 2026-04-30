@@ -283,7 +283,7 @@ def test_aggregate_by_coverage_suppresses_bins_below_threshold() -> None:
     df = _synthetic_corpus()
     result = aggregate_by_coverage(df, state_abbr="AZ", year_window="all")
     # Every AZ bin in the synthetic corpus has n < 30, so all should be suppressed.
-    assert (result["suppressed"] == True).all(), (
+    assert result["suppressed"].all(), (
         f"Expected all rows suppressed for the synthetic corpus, but found "
         f"{result[~result['suppressed']]['coverage_level_pct'].tolist()} unsuppressed."
     )
@@ -306,7 +306,7 @@ def test_aggregate_by_coverage_does_not_suppress_when_n_at_or_above_threshold() 
     result = aggregate_by_coverage(df, state_abbr="TX", year_window="all")
     tx_95 = result[result["coverage_level_pct"] == 0.95]
     assert tx_95["n_endorsements"].iloc[0] == MIN_BIN_N
-    assert tx_95["suppressed"].iloc[0] == False, (
+    assert not tx_95["suppressed"].iloc[0], (
         "Bin with exactly MIN_BIN_N rows should not be suppressed (boundary check)."
     )
 
