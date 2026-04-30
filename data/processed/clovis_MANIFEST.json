@@ -7,6 +7,13 @@
       "sha256": "d37577c45747a1d07e520ce716cfae7b863c0a38cb8a2d52e40d8038be455ce6",
       "rows": 26045,
       "written_at_utc": "2026-04-23T22:47:28+00:00"
+    },
+    {
+      "vintage": "2026-04-30",
+      "file": "data/processed/clovis_weekly_2026-04-30.parquet",
+      "sha256": "a73ba48327ff91e8942ac3d3242ed8023b234e66fb29678958b08d99aca7c4ea",
+      "rows": 26136,
+      "written_at_utc": "2026-04-30T19:27:00+00:00"
     }
   ]
 }
