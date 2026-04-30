@@ -242,3 +242,100 @@ def test_sample_summary_handles_empty_slice_without_crash() -> None:
     s = sample_summary(df, state_abbr="ZZ", year_window="all")
     assert s["n_endorsements"] == 0
     assert s["mean_advantage_per_cwt"] == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Suppression flag and 95% CI columns (V2 — sample-size disclosure)
+# ---------------------------------------------------------------------------
+
+
+def test_aggregate_by_coverage_output_schema_includes_suppression_and_ci() -> None:
+    """V2 schema: aggregate_by_coverage must return suppressed flag and CI bounds.
+
+    The chart page's filter logic reads these columns; if they go missing
+    a render would crash. This test guards the schema contract.
+    """
+    df = _synthetic_corpus()
+    result = aggregate_by_coverage(df, state_abbr="AZ", year_window="all")
+    expected_cols = {
+        "coverage_level_pct",
+        "n_endorsements",
+        "mean_advantage_per_cwt",
+        "median_advantage_per_cwt",
+        "std_advantage_per_cwt",
+        "sem_advantage_per_cwt",
+        "ci95_lower",
+        "ci95_upper",
+        "indemnified_share",
+        "total_head",
+        "total_weight_cwt",
+        "suppressed",
+    }
+    assert expected_cols.issubset(set(result.columns)), (
+        f"Output schema is missing required columns. "
+        f"Expected at least {expected_cols}, got {set(result.columns)}"
+    )
+
+
+def test_aggregate_by_coverage_suppresses_bins_below_threshold() -> None:
+    """Synthetic corpus has tiny n per bin; all bins should be flagged
+    suppressed=True since each bin has n < MIN_BIN_N (=30)."""
+    df = _synthetic_corpus()
+    result = aggregate_by_coverage(df, state_abbr="AZ", year_window="all")
+    # Every AZ bin in the synthetic corpus has n < 30, so all should be suppressed.
+    assert (result["suppressed"] == True).all(), (
+        f"Expected all rows suppressed for the synthetic corpus, but found "
+        f"{result[~result['suppressed']]['coverage_level_pct'].tolist()} unsuppressed."
+    )
+
+
+def test_aggregate_by_coverage_does_not_suppress_when_n_at_or_above_threshold() -> None:
+    """Build a corpus with exactly MIN_BIN_N (=30) rows in one bin and verify
+    suppressed is False at the boundary."""
+    from pipelines.lrp.backtest import MIN_BIN_N
+
+    rows = []
+    for i in range(MIN_BIN_N):
+        rows.append({
+            "state_abbr": "TX", "reinsurance_year": 2024, "type_code": "810",
+            "coverage_level_pct": 0.95, "total_weight_cwt": 100.0,
+            "producer_premium_amount": 1500, "indemnity_amount": 1500 + i * 10,
+            "n_head": 100, "commodity_code": "0801", "plan_code": "81",
+        })
+    df = pd.DataFrame(rows)
+    result = aggregate_by_coverage(df, state_abbr="TX", year_window="all")
+    tx_95 = result[result["coverage_level_pct"] == 0.95]
+    assert tx_95["n_endorsements"].iloc[0] == MIN_BIN_N
+    assert tx_95["suppressed"].iloc[0] == False, (
+        "Bin with exactly MIN_BIN_N rows should not be suppressed (boundary check)."
+    )
+
+
+def test_aggregate_by_coverage_ci_brackets_the_mean() -> None:
+    """For any bin with n >= 2, the 95% CI must bracket the mean.
+    For bins with n < 2 the CI may be NaN (sem undefined)."""
+    from pipelines.lrp.backtest import MIN_BIN_N
+    import math
+
+    # Build a bin with 30 rows so the CI is computable.
+    rows = []
+    for i in range(MIN_BIN_N):
+        rows.append({
+            "state_abbr": "TX", "reinsurance_year": 2024, "type_code": "810",
+            "coverage_level_pct": 0.95, "total_weight_cwt": 100.0,
+            "producer_premium_amount": 1500, "indemnity_amount": 1500 + i * 10,
+            "n_head": 100, "commodity_code": "0801", "plan_code": "81",
+        })
+    df = pd.DataFrame(rows)
+    result = aggregate_by_coverage(df, state_abbr="TX", year_window="all")
+    tx_95 = result[result["coverage_level_pct"] == 0.95].iloc[0]
+    mean = tx_95["mean_advantage_per_cwt"]
+    lo = tx_95["ci95_lower"]
+    hi = tx_95["ci95_upper"]
+    assert lo <= mean <= hi, (
+        f"95% CI [{lo}, {hi}] does not bracket the mean ({mean})."
+    )
+    # Sanity: CI should be approximately mean ± 1.96 * std/sqrt(n)
+    sem = tx_95["sem_advantage_per_cwt"]
+    assert math.isclose(hi - mean, 1.96 * sem, rel_tol=1e-6)
+    assert math.isclose(mean - lo, 1.96 * sem, rel_tol=1e-6)

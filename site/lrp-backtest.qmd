@@ -104,7 +104,14 @@ DEFAULT_STATE = DEFAULT_STATE_ABBR if DEFAULT_STATE_ABBR in state_list else (
 )
 DEFAULT_WINDOW = "all"
 
-# Build per-(state, window) aggregate lookup
+# Build per-(state, window) aggregate lookup. The JSON payload here drives
+# both the initial server-side render and the JS-side filter swap. Each
+# (state, window) entry carries the FULL bin list (including suppressed
+# bins) so the JS can apply the suppression rule consistently and so
+# the downloadable CSV is complete.
+def _opt_float(v):
+    return None if pd.isna(v) else float(v)
+
 agg_by_filter = {}
 sample_by_filter = {}
 for s in states_with_all:
@@ -115,19 +122,13 @@ for s in states_with_all:
         agg_by_filter[key] = {
             "coverage_level_pct": agg_df["coverage_level_pct"].tolist(),
             "n_endorsements": agg_df["n_endorsements"].tolist(),
-            "mean_advantage_per_cwt": [
-                None if pd.isna(v) else float(v)
-                for v in agg_df["mean_advantage_per_cwt"].tolist()
-            ],
-            "median_advantage_per_cwt": [
-                None if pd.isna(v) else float(v)
-                for v in agg_df["median_advantage_per_cwt"].tolist()
-            ],
-            "indemnified_share": [
-                None if pd.isna(v) else float(v)
-                for v in agg_df["indemnified_share"].tolist()
-            ],
+            "mean_advantage_per_cwt": [_opt_float(v) for v in agg_df["mean_advantage_per_cwt"].tolist()],
+            "median_advantage_per_cwt": [_opt_float(v) for v in agg_df["median_advantage_per_cwt"].tolist()],
+            "ci95_lower": [_opt_float(v) for v in agg_df["ci95_lower"].tolist()],
+            "ci95_upper": [_opt_float(v) for v in agg_df["ci95_upper"].tolist()],
+            "indemnified_share": [_opt_float(v) for v in agg_df["indemnified_share"].tolist()],
             "total_head": [int(v) for v in agg_df["total_head"].tolist()],
+            "suppressed": [bool(v) for v in agg_df["suppressed"].tolist()],
         }
         sample_by_filter[key] = sample_summary(df, state_abbr=state_arg, year_window=w)
 ```
@@ -190,7 +191,7 @@ print('<p style="color: #666; font-size: 0.85em; margin: 0.2em 0 0.8em 0.2em;">D
 #| echo: false
 #| label: build-figure
 #| fig-cap: ""
-#| fig-alt: "LRP-vs-cash backtest bar chart for the selected state and year window. Bar per coverage-level percent (70-95+%) on the x-axis, mean LRP advantage in $/cwt on the y-axis. Above-zero bars (green) mean LRP paid out more than it cost on average; below-zero bars (red) mean LRP cost more than it paid. A horizontal zero line marks the break-even point. State dropdown and Year-window button row above the chart drive the filter; sample size and indemnified share are reported below the chart."
+#| fig-alt: "LRP-vs-cash backtest bar chart for the selected state and year window. Bar per coverage-level range on the x-axis, mean LRP advantage in $/cwt on the y-axis. Above-zero bars (green) mean LRP paid out more than it cost on average; below-zero bars (red) mean LRP cost more than it paid. A horizontal zero line marks the break-even point. Each bar carries a vertical 95% confidence interval error bar showing the statistical uncertainty in its mean, and a sample-size label of the form 'n=X' above the bar showing how many endorsements that mean is built on. Coverage-level bins where fewer than 30 endorsements are available in the slice are suppressed (not displayed) because per-bin means become unreliable below that sample-size threshold; a note below the chart reports the suppressed-bin count for the current filter. State dropdown and Year-window button row above the chart drive the filter."
 
 import plotly.graph_objects as go
 
@@ -207,12 +208,65 @@ def _coverage_range_label(low: float) -> str:
 
 
 _init = agg_by_filter[_default_key]
-_x = [_coverage_range_label(c) for c in _init["coverage_level_pct"]]
-_y = _init["mean_advantage_per_cwt"]
+
+# Filter to non-suppressed bins only. The chart visual must not show bars
+# whose underlying sample size is below MIN_BIN_N — readers cannot tell a
+# n=1 bar from a n=153 bar by sight, and pretending they're comparable
+# is the load-bearing finding from the 2026-04-30 Layer 1 audit (C1).
+def _select_visible(payload: dict) -> dict:
+    """From an agg_by_filter entry, keep only rows where suppressed == False
+    and pack into parallel arrays used by Plotly. CI errors are converted to
+    plus/minus offsets relative to the mean (Plotly's error_y format)."""
+    keep = []
+    for i, supp in enumerate(payload["suppressed"]):
+        if not supp:
+            keep.append(i)
+    cov = [payload["coverage_level_pct"][i] for i in keep]
+    n = [payload["n_endorsements"][i] for i in keep]
+    mean = [payload["mean_advantage_per_cwt"][i] for i in keep]
+    lo = [payload["ci95_lower"][i] for i in keep]
+    hi = [payload["ci95_upper"][i] for i in keep]
+    indemn = [payload["indemnified_share"][i] for i in keep]
+    # Plotly error_y wants symmetric arrays: array (upper offset) and
+    # arrayminus (lower offset). Both are positive numbers — the distance
+    # from the mean to each CI edge.
+    err_up = [
+        (hi[i] - mean[i]) if (hi[i] is not None and mean[i] is not None) else 0
+        for i in range(len(keep))
+    ]
+    err_dn = [
+        (mean[i] - lo[i]) if (lo[i] is not None and mean[i] is not None) else 0
+        for i in range(len(keep))
+    ]
+    return {
+        "coverage_level_pct": cov,
+        "n_endorsements": n,
+        "mean": mean,
+        "ci95_lower": lo,
+        "ci95_upper": hi,
+        "indemnified_share": indemn,
+        "err_up": err_up,
+        "err_dn": err_dn,
+    }
+
+
+_vis = _select_visible(_init)
+_x = [_coverage_range_label(c) for c in _vis["coverage_level_pct"]]
+_y = _vis["mean"]
 _colors = [
     "#5FAE6E" if (v is not None and v >= 0) else "#C94F4F"
     for v in _y
 ]
+# Per-bar text labels showing the sample size used for each mean.
+_text = [f"n={n:,}" for n in _vis["n_endorsements"]]
+# customdata carries the values referenced in the hover template
+# in the order [n, ci_lower, ci_upper, indemnified_share].
+_customdata = list(zip(
+    _vis["n_endorsements"],
+    [v if v is not None else float("nan") for v in _vis["ci95_lower"]],
+    [v if v is not None else float("nan") for v in _vis["ci95_upper"]],
+    [v if v is not None else float("nan") for v in _vis["indemnified_share"]],
+))
 
 fig = go.Figure(
     data=[
@@ -221,9 +275,26 @@ fig = go.Figure(
             y=_y,
             marker_color=_colors,
             name="Mean LRP advantage",
+            text=_text,
+            textposition="outside",
+            textfont=dict(size=11, color="#444"),
+            error_y=dict(
+                type="data",
+                symmetric=False,
+                array=_vis["err_up"],
+                arrayminus=_vis["err_dn"],
+                color="#666",
+                thickness=1.2,
+                width=6,
+            ),
+            customdata=_customdata,
             hovertemplate=(
                 "<b>%{x} coverage</b><br>"
-                "Mean advantage: $%{y:.2f}/cwt<extra></extra>"
+                "Mean advantage: $%{y:.2f}/cwt<br>"
+                "n=%{customdata[0]:,} endorsements<br>"
+                "95%% CI: [$%{customdata[1]:+.2f}, $%{customdata[2]:+.2f}]<br>"
+                "Share indemnified: %{customdata[3]:.1%}"
+                "<extra></extra>"
             ),
         ),
     ]
@@ -274,6 +345,22 @@ _yr_range = (
     if _s["n_endorsements"] > 0 and _s["year_min"] != _s["year_max"]
     else (str(_s["year_min"]) if _s["n_endorsements"] > 0 else "—")
 )
+# Mirror the JS-side suppression note so the initial server-rendered
+# panel describes the same thing the JS panel does after the first
+# filter change. _init was set in the build-figure chunk and carries
+# the suppression flags for the default slice.
+_n_suppressed = sum(1 for b in _init["suppressed"] if b)
+_n_visible = sum(1 for b in _init["suppressed"] if not b)
+_supp_note = (
+    f' <span style="color:#888">({_n_suppressed} coverage bin'
+    f'{"" if _n_suppressed == 1 else "s"} suppressed for n &lt; 30)</span>'
+    if _n_suppressed > 0 else ""
+)
+_empty_note = (
+    ' <b style="color:#A14040">No coverage bin in this slice has '
+    '&ge; 30 endorsements; chart is empty.</b>'
+    if _n_visible == 0 and _s["n_endorsements"] > 0 else ""
+)
 
 print('<div id="lrpbt-sample-summary" style="margin: 0.5em 0 1.5em 0; padding: 0.7em 1em; background: #F0F4F8; border-left: 4px solid #4F88C9; border-radius: 2px; font-size: 0.95em; color: #333;">')
 print(
@@ -281,12 +368,19 @@ print(
     f' for {_s["state_label"]}, reinsurance years {_yr_range}.'
     f' Of these, {_s["n_indemnified"]:,} ({_indemn_pct}) received an indemnity.'
     f' Overall mean advantage across all coverage levels: <b>{_mean_adv}</b>.'
+    f'{_supp_note}{_empty_note}'
 )
 print('</div>')
 ```
 
 ::: {.callout-note appearance="simple"}
-**Reading the chart.** Each bar's height is the **arithmetic mean** of the per-endorsement advantage at that coverage level — equally weighted across endorsements regardless of size. A producer who bought LRP at 95 % coverage repeatedly over many years would, on average, have realized something close to the 95 %-bar's value per cwt of cattle insured (positive or negative). The arithmetic mean is sensitive to outliers — particularly extreme indemnity-paid years (cattle-cycle troughs, COVID, post-2022 cash blowouts) — and the median (visible in the page's underlying data via `pipelines/lrp/backtest.aggregate_by_coverage`) is typically smaller in absolute value. Producers who bought LRP only in years they expected a downturn (selection effect) would expect to do better than the unconditional mean shown here.
+**Reading the chart.** Each bar's height is the **arithmetic mean** of the per-endorsement advantage at that coverage level — equally weighted across endorsements regardless of operation size. A producer who bought LRP at 95 % coverage repeatedly over many years would, on average, have realized something close to the 95 %-bar's value per cwt of cattle insured (positive or negative). This averaging strategy follows the academic precedent in [Boyer & Griffith (2022)](https://www.choicesmagazine.org/), which explicitly pools across all coverage levels and contract lengths within a temporal slice; we extend their approach by displaying separate bars per coverage-level range.
+
+**Vertical error bars** on each bar mark the **95 % confidence interval** of the mean, computed as $\bar{x} \pm 1.96 \cdot s/\sqrt{n}$ where $s$ is the sample standard deviation and $n$ is the number of endorsements in the bin. A confidence interval that crosses the zero line means the bar is not statistically distinguishable from break-even. The sample size used is shown above each bar as $n=X$.
+
+**Bins with fewer than 30 endorsements are suppressed** (not displayed). Below this threshold the central-limit-theorem approximation that justifies the 95 % CI computation becomes unreliable, and per-bin means become noisy estimates of the population mean. A note below the chart reports how many bins were suppressed for the current filter; the underlying data including suppressed bins is in the downloadable corpus (link below).
+
+The arithmetic mean is sensitive to outliers — particularly extreme indemnity-paid years (cattle-cycle troughs, COVID, post-2022 cash blowouts) — and the median (in the underlying data via `pipelines/lrp/backtest.aggregate_by_coverage`) is typically smaller in absolute value. Producers who bought LRP only in years they expected a downturn (selection effect) would expect to do better than the unconditional mean shown here.
 :::
 
 ## What the chart does *not* show
@@ -377,7 +471,7 @@ _js_payload = (
     '    function applyAll() {\n'
     '      var current = readState();\n'
     '      var key = current.state + "::" + current.window;\n'
-    '      var agg = window.lrpbtAggByFilter[key] || {coverage_level_pct: [], mean_advantage_per_cwt: []};\n'
+    '      var agg = window.lrpbtAggByFilter[key] || {coverage_level_pct: [], mean_advantage_per_cwt: [], suppressed: [], n_endorsements: [], ci95_lower: [], ci95_upper: [], indemnified_share: []};\n'
     '\n'
     '      // Range-label formatter — mirrors _coverage_range_label in the\n'
     '      // build-figure Python chunk. Keep these two in sync if either changes.\n'
@@ -385,30 +479,71 @@ _js_payload = (
     '        if (c >= 1.00) return "\\u2265100%";\n'
     '        return Math.round(c*100) + "\\u2013" + Math.round((c+0.05)*100) + "%";\n'
     '      }\n'
-    '      var x = (agg.coverage_level_pct || []).map(lrpbtCovLabel);\n'
-    '      var y = agg.mean_advantage_per_cwt || [];\n'
+    '\n'
+    '      // Suppression filter — mirrors _select_visible() in the\n'
+    '      // build-figure Python chunk. Keep them in sync if either changes.\n'
+    '      var keep = [];\n'
+    '      var suppressed = agg.suppressed || [];\n'
+    '      for (var i = 0; i < (agg.coverage_level_pct || []).length; i++) {\n'
+    '        if (!suppressed[i]) { keep.push(i); }\n'
+    '      }\n'
+    '      var x = keep.map(function(i){ return lrpbtCovLabel(agg.coverage_level_pct[i]); });\n'
+    '      var y = keep.map(function(i){ return agg.mean_advantage_per_cwt[i]; });\n'
+    '      var nList = keep.map(function(i){ return agg.n_endorsements[i]; });\n'
+    '      var loList = keep.map(function(i){ return agg.ci95_lower[i]; });\n'
+    '      var hiList = keep.map(function(i){ return agg.ci95_upper[i]; });\n'
+    '      var indemnList = keep.map(function(i){ return agg.indemnified_share[i]; });\n'
     '      var colors = y.map(function(v) {\n'
     '        return (v !== null && v !== undefined && v >= 0) ? "#5FAE6E" : "#C94F4F";\n'
+    '      });\n'
+    '      var text = nList.map(function(n){ return "n=" + (n != null ? n.toLocaleString() : "—"); });\n'
+    '      var errUp = keep.map(function(i){\n'
+    '        var hi = agg.ci95_upper[i], m = agg.mean_advantage_per_cwt[i];\n'
+    '        return (hi != null && m != null) ? (hi - m) : 0;\n'
+    '      });\n'
+    '      var errDn = keep.map(function(i){\n'
+    '        var lo = agg.ci95_lower[i], m = agg.mean_advantage_per_cwt[i];\n'
+    '        return (lo != null && m != null) ? (m - lo) : 0;\n'
+    '      });\n'
+    '      var customdata = keep.map(function(i){\n'
+    '        return [agg.n_endorsements[i], agg.ci95_lower[i], agg.ci95_upper[i], agg.indemnified_share[i]];\n'
     '      });\n'
     '\n'
     '      var stateLabel = (current.state === "All" ? "National" : current.state);\n'
     '      var windowLabel = window.lrpbtWindowLabels[current.window] || current.window;\n'
     '      var titleStr = "LRP advantage by coverage level \\u2014 " + stateLabel + ", " + windowLabel;\n'
     '\n'
-    '      Plotly.restyle(fig, { "x": [x], "y": [y], "marker.color": [colors] });\n'
+    '      Plotly.restyle(fig, {\n'
+    '        "x": [x],\n'
+    '        "y": [y],\n'
+    '        "marker.color": [colors],\n'
+    '        "text": [text],\n'
+    '        "error_y.array": [errUp],\n'
+    '        "error_y.arrayminus": [errDn],\n'
+    '        "customdata": [customdata]\n'
+    '      });\n'
     '      Plotly.relayout(fig, { "title.text": titleStr });\n'
     '\n'
-    '      // Sample summary panel\n'
+    '      // Sample summary panel — also report how many bins were\n'
+    '      // suppressed for low N so the reader knows what was hidden.\n'
+    '      var nSupp = (agg.suppressed || []).filter(function(b){ return b; }).length;\n'
     '      if (summaryEl) {\n'
     '        var s = window.lrpbtSampleByFilter[key];\n'
     '        if (s && s.n_endorsements > 0) {\n'
     '          var yrRange = (s.year_min === s.year_max) ? String(s.year_min) : (s.year_min + "\\u2013" + s.year_max);\n'
+    '          var visibleBars = keep.length;\n'
+    '          var suppNote = (nSupp > 0)\n'
+    '            ? " <span style=\\"color:#888\\">(" + nSupp + " coverage bin" + (nSupp === 1 ? "" : "s") + " suppressed for n &lt; 30)</span>"\n'
+    '            : "";\n'
+    '          var emptyNote = (visibleBars === 0)\n'
+    '            ? " <b style=\\"color:#A14040\\">No coverage bin in this slice has \\u2265 30 endorsements; chart is empty.</b>"\n'
+    '            : "";\n'
     '          summaryEl.innerHTML = (\n'
     '            "<b>Sample for current filter:</b> " + lrpbtFmtInt(s.n_endorsements) +\n'
     '            " endorsements for " + s.state_label + ", reinsurance years " + yrRange + "." +\n'
     '            " Of these, " + lrpbtFmtInt(s.n_indemnified) + " (" + lrpbtFmtPct(s.indemnified_share) +\n'
     '            ") received an indemnity. Overall mean advantage across all coverage levels: <b>" +\n'
-    '            lrpbtFmtAdv(s.mean_advantage_per_cwt) + "</b>."\n'
+    '            lrpbtFmtAdv(s.mean_advantage_per_cwt) + "</b>." + suppNote + emptyNote\n'
     '          );\n'
     '        } else {\n'
     '          summaryEl.innerHTML = (\n'

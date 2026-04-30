@@ -84,6 +84,24 @@ COVERAGE_BIN_EDGES = [0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 1.00, np.inf]
 COVERAGE_BIN_LOWER_EDGES = [0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 1.00]
 
 
+# Minimum sample size for a bin to be considered statistically meaningful.
+#
+# Rationale: with n < 30, the central limit theorem's normality approximation
+# for the sample mean's distribution is weak, and per-bin means become
+# noisy estimates of the population mean. Bins below this threshold are
+# flagged ``suppressed=True`` in :func:`aggregate_by_coverage` output so the
+# chart-rendering code can hide them from the visual (preventing producers
+# and reviewers from comparing a bar built on n=2 endorsements against a
+# bar built on n=150). The full data row remains available in the
+# downloadable CSV for transparency.
+#
+# Choice of 30 follows the conventional "rule of thumb" academic threshold
+# for the CLT to apply to a mean. A stricter (say n=50) or looser (say
+# n=20) choice is defensible; the methodology page documents and justifies
+# whatever value lives here. See ``site/methodology/lrp-backtest.qmd``.
+MIN_BIN_N = 30
+
+
 # --------------------------------------------------------------------------
 # Per-endorsement statistic
 # --------------------------------------------------------------------------
@@ -141,32 +159,48 @@ def aggregate_by_coverage(
     state_abbr: Optional[str] = None,
     year_window: str = DEFAULT_YEAR_WINDOW,
 ) -> pd.DataFrame:
-    """Group the backtest subset by coverage_level_pct (binned to 0.01),
-    return per-bin counts, mean advantage, and the share of endorsements
-    that paid an indemnity.
+    """Group the backtest subset by coverage_level_pct (binned to 0.05),
+    return per-bin counts, mean advantage, standard error of the mean,
+    a 95 % confidence interval, an indemnified-share, and a suppression
+    flag for bins below :data:`MIN_BIN_N`.
 
     Output schema:
-        coverage_level_pct : float (e.g., 0.95)
-        n_endorsements     : int
-        mean_advantage_per_cwt : float ($/cwt; positive = LRP beat cash)
+        coverage_level_pct       : float (bin lower edge, e.g., 0.95)
+        n_endorsements           : int
+        mean_advantage_per_cwt   : float ($/cwt; positive = LRP beat cash)
         median_advantage_per_cwt : float
-        indemnified_share  : float (0..1)
-        total_head         : int
-        total_weight_cwt   : float
+        std_advantage_per_cwt    : float (sample standard deviation)
+        sem_advantage_per_cwt    : float (standard error of the mean = std/sqrt(n))
+        ci95_lower               : float (mean − 1.96·sem; NaN when n<2)
+        ci95_upper               : float (mean + 1.96·sem; NaN when n<2)
+        indemnified_share        : float (0..1)
+        total_head               : int
+        total_weight_cwt         : float
+        suppressed               : bool (True iff n_endorsements < MIN_BIN_N)
+
+    The ``suppressed`` flag is computed but the row is still returned —
+    the chart-rendering code is responsible for hiding suppressed bins
+    from the visual; the downloadable CSV includes them so the underlying
+    data is auditable.
     """
+    out_cols = [
+        "coverage_level_pct",
+        "n_endorsements",
+        "mean_advantage_per_cwt",
+        "median_advantage_per_cwt",
+        "std_advantage_per_cwt",
+        "sem_advantage_per_cwt",
+        "ci95_lower",
+        "ci95_upper",
+        "indemnified_share",
+        "total_head",
+        "total_weight_cwt",
+        "suppressed",
+    ]
+
     sub = backtest_subset(df, state_abbr=state_abbr, year_window=year_window)
     if sub.empty:
-        return pd.DataFrame(
-            columns=[
-                "coverage_level_pct",
-                "n_endorsements",
-                "mean_advantage_per_cwt",
-                "median_advantage_per_cwt",
-                "indemnified_share",
-                "total_head",
-                "total_weight_cwt",
-            ]
-        )
+        return pd.DataFrame(columns=out_cols)
 
     # Drop endorsements with no coverage level OR coverage below 0.70.
     # The product floor is 70% per RMA documentation; values below that
@@ -177,17 +211,7 @@ def aggregate_by_coverage(
         & (sub["coverage_level_pct"] >= 0.70)
     ].copy()
     if sub.empty:
-        return pd.DataFrame(
-            columns=[
-                "coverage_level_pct",
-                "n_endorsements",
-                "mean_advantage_per_cwt",
-                "median_advantage_per_cwt",
-                "indemnified_share",
-                "total_head",
-                "total_weight_cwt",
-            ]
-        )
+        return pd.DataFrame(columns=out_cols)
     # Bin to 5-percentage-point ranges. Lower-edge as the bin identifier
     # so downstream chart code can format "70-75%", "75-80%", etc.
     # uniformly. left-closed, right-open: 0.70 binds [0.70, 0.75).
@@ -203,6 +227,7 @@ def aggregate_by_coverage(
         n_endorsements=("lrp_advantage_per_cwt", "size"),
         mean_advantage_per_cwt=("lrp_advantage_per_cwt", "mean"),
         median_advantage_per_cwt=("lrp_advantage_per_cwt", "median"),
+        std_advantage_per_cwt=("lrp_advantage_per_cwt", "std"),
         n_indemnified=("indemnity_amount", lambda s: (s > 0).sum()),
         total_head=("n_head", "sum"),
         total_weight_cwt=("total_weight_cwt", "sum"),
@@ -210,18 +235,29 @@ def aggregate_by_coverage(
     grouped["indemnified_share"] = (
         grouped["n_indemnified"] / grouped["n_endorsements"]
     ).fillna(0.0)
+
+    # Standard error of the mean: std / sqrt(n). Undefined for n < 2 because
+    # pandas .std() returns NaN when n < 2; sqrt of a positive int is fine.
+    # SEM is therefore NaN for single-observation bins, which propagates to
+    # NaN CI bounds — the suppressed flag will hide them from the chart anyway,
+    # but downstream code must handle NaNs gracefully.
+    n = grouped["n_endorsements"].astype("float64")
+    grouped["sem_advantage_per_cwt"] = grouped["std_advantage_per_cwt"] / np.sqrt(n)
+    # 95 % CI using the normal approximation (z = 1.96). For bins with n >= 30
+    # the normal is a reasonable approximation; for n < 30 the bin is
+    # suppressed so the CI is shown only as an underlying-data column,
+    # not on the chart. A t-distribution-based CI would be marginally
+    # wider for borderline n; we suppress those bins anyway, so the choice
+    # of z-vs-t does not affect what readers see on the chart.
+    grouped["ci95_lower"] = grouped["mean_advantage_per_cwt"] - 1.96 * grouped["sem_advantage_per_cwt"]
+    grouped["ci95_upper"] = grouped["mean_advantage_per_cwt"] + 1.96 * grouped["sem_advantage_per_cwt"]
+
+    # Suppression flag for thinly-populated bins. See MIN_BIN_N rationale
+    # at the top of this module.
+    grouped["suppressed"] = grouped["n_endorsements"] < MIN_BIN_N
+
     grouped = grouped.rename(columns={"coverage_bin": "coverage_level_pct"})
-    grouped = grouped[
-        [
-            "coverage_level_pct",
-            "n_endorsements",
-            "mean_advantage_per_cwt",
-            "median_advantage_per_cwt",
-            "indemnified_share",
-            "total_head",
-            "total_weight_cwt",
-        ]
-    ].sort_values("coverage_level_pct").reset_index(drop=True)
+    grouped = grouped[out_cols].sort_values("coverage_level_pct").reset_index(drop=True)
     return grouped
 
 

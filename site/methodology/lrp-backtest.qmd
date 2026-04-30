@@ -70,11 +70,35 @@ The advantage formula treats every endorsement as an i.i.d. observation. The unc
 
 This is a feature of any historical backtest of an option-like product, not a flaw in the formula.
 
-### Variance is not shown
+## Sample size and confidence intervals
 
-The chart shows the mean per coverage-level bin. The per-endorsement advantage is highly variable — particularly in cattle-cycle-trough years (2009, 2016, 2020, parts of 2024), when indemnity payments were large, and in cycle-peak years, when premiums were paid but no indemnity arrived. Two coverage-level bins with the same mean can have very different distributions; the median, computed in [`pipelines/lrp/backtest.aggregate_by_coverage`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/lrp/backtest.py), is typically smaller in absolute value than the mean for both signs.
+The chart's per-bin mean is supported by a vertical **95 % confidence interval** error bar and a sample-size label. Both reflect the underlying statistical reliability of the bar.
 
-A future enhancement (candidate v2) is to add an error bar showing the inter-quartile range or a percentile band so the chart conveys spread directly.
+### 95 % CI computation
+
+Each bar's confidence interval is computed as
+$$
+\bar{x} \pm 1.96 \cdot \frac{s}{\sqrt{n}}
+$$
+where $\bar{x}$ is the bin's per-endorsement arithmetic mean, $s$ is the sample standard deviation of per-endorsement advantage within the bin, and $n$ is the number of endorsements. The factor 1.96 corresponds to a 95 % two-tailed normal interval.
+
+When a bar's CI crosses the zero line, the bar's mean is **not statistically distinguishable from zero** at the 95 % level. Visually: a green bar whose lower error-bar end dips below zero, or a red bar whose upper error-bar end rises above zero, should be read as "directionally suggestive but not strong evidence" rather than "LRP paid more / cost more on average."
+
+### Suppression of small-N bins
+
+Coverage-level bins where the slice contains fewer than 30 endorsements are **suppressed** from the chart visual. A note below the chart reports how many bins were hidden for the current filter; the underlying data including suppressed bins is in the downloadable corpus.
+
+The 30-endorsement threshold is the conventional rule-of-thumb minimum for the central-limit-theorem normality approximation underlying the 95 % CI calculation. Below that threshold, the CI bounds become unreliable estimates of the true population mean's interval; the per-bin mean itself becomes a noisy estimate.
+
+For a state like Arizona — the platform's producer-reference state, which has fewer LRP endorsements per year than larger cattle states — this rule means several coverage-level bars routinely disappear from the chart. **This is intentional.** Showing a bar built on, say, two endorsements as visually equivalent to a bar built on 153 endorsements is the kind of visual error that ends a presentation. The honest position is: when the slice doesn't have enough data to support a coverage tier's bar, no bar is shown.
+
+If the chart looks sparse for a particular state and year window, switching to a wider year window ("All available years") or comparing against "National (all states aggregated)" usually fills more bars.
+
+### Why mean and not median
+
+The chart shows the mean per coverage-level bin rather than the median. The per-endorsement advantage is highly variable — particularly in cattle-cycle-trough years (2009, 2016, 2020, parts of 2024), when indemnity payments were large, and in cycle-peak years, when premiums were paid but no indemnity arrived. Two coverage-level bins with the same mean can have very different distributions; the median, computed in [`pipelines/lrp/backtest.aggregate_by_coverage`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/lrp/backtest.py), is typically smaller in absolute value than the mean for both signs.
+
+The mean is the right summary statistic for a *long-run average* question (which is what the chart asks: "across the years and producers in this slice, what was the average per-cwt advantage?"). For a producer who would buy LRP only once or twice in a career, the median or a percentile-based summary may be more relevant; the underlying-data column for `median_advantage_per_cwt` supports that view.
 
 ## Type-code subset
 
