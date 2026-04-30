@@ -118,6 +118,14 @@ For each weight class × bin, the page shows where this week's actual Clovis pri
 *"This week" anchored on Clovis auction date: **`{python} latest_clovis_auction`**.* If a regular weekly auction was missed (holiday, USDA reporting delay, ingest failure), this is the most recent published auction — not necessarily the most recent calendar week.
 :::
 
+::: {.callout-tip appearance="simple" icon="false"}
+**[→ Heading to the sale or a banker meeting? Download the producer reference card (PDF)](one-pager.pdf)**
+
+One printable sheet with the latest auction's M&L 1 prices by weight bin × class, a 26-week mini-trend per class, source citation, snapshot SHA, and a vintage stamp. Stands on its own as a citable artifact — a banker who asks where the numbers came from gets the URL, the methodology link, and a SHA they can verify.
+
+Refreshed every time the Clovis pipeline commits a new snapshot. Anchor: auction date **`{python} latest_clovis_auction`**.
+:::
+
 ## Four views of the same dataset
 
 The chart shelf decomposes weekly Clovis prices and CME-feeder basis along four orthogonal axes — pick the page that matches the question you're asking. Each is exploratory; the sell-now compare above is decision-anchored.
@@ -158,6 +166,12 @@ All four pages share the same year-window selector (All / Last 5 yrs / Last 3 yr
 **[→ Livestock Risk Protection (LRP): what does the program look like?](lrp.qmd)**
 
 The chart shelf above describes weekly Clovis cash auction data and its relationship to CME GF feeder futures. The LRP page describes a different kind of producer choice — federal price-floor insurance for feeder cattle (USDA RMA's [Livestock Risk Protection program](https://www.rma.usda.gov/policy-and-procedure/insurance-plans/livestock-risk-protection-policy)). The State dropdown defaults to Arizona; the Year window button row toggles between All available years, Last 5 yrs, Last 3 yrs, and Latest. Four groups of information are surfaced: participation, cost/subsidy, coverage design, and outcome/payout. The page is descriptive — it shows what the program looks like, not whether to buy it.
+:::
+
+::: {.callout-note appearance="simple" icon="false"}
+**[→ LRP-vs-cash backtest: did LRP pay more than it cost?](lrp-backtest.qmd)**
+
+The companion analytical page. For each LRP endorsement in the corpus, computes the per-cwt advantage of having bought LRP versus not — `(indemnity − producer-paid premium) / total weight cwt`. Aggregates by coverage-level percent so a producer can see *did the 95 % bar pay off historically? what about 80 %?* Filters on State and Year window match the LRP page above. Mathematically clean: the producer's cash market drops out of the LRP-vs-no-LRP delta, which is why no Clovis-specific assumption appears in the chart.
 :::
 
 ## Producer reference card (PDF)

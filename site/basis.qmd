@@ -13,6 +13,10 @@ toc-depth: 2
 **Caveat before scrolling.** Strict basis (700–799 lb Steers) is the gap between local cash and the relevant futures contract for the **same animal type the contract specifies** — what a producer hedging actual 700-lb steers realizes when they offset a futures position with a cash sale. The wider weight-class spreads on this chart are price-level relationships between calves or heavier feeders and the 750-lb-feeder futures benchmark — useful for understanding the cattle cycle and for cross-hedge thinking, but with much higher year-to-year variance than strict basis. The chart shows the historical record; it is not a forecast.
 :::
 
+::: {.callout-tip appearance="simple"}
+**How to read this page (60-second guide).** Below: a two-panel chart with **Steers** above and **Heifers** below. The x-axis is week-of-year (1–52); the y-axis is basis ($/cwt = cash − futures settle). The default view shows **strict basis only** — the single hedgeable line (700–799 lb Steers vs the CME GF feeder-cattle settle). Click **Show: All weights & classes** to expose the full 12-line view of cross-weight cash–futures spreads. Four button rows above the chart: **Show selector**, **Mode** (Nominal vs Real $), **Contract month** (May / November / Nearby), and **Year window**. If "basis", "strict basis", or "CME GF" are unfamiliar, see the [glossary](glossary.qmd).
+:::
+
 ## About this page
 
 A producer who hedges 700–799 lb feeder steers on the CME — or a producer who reads futures as a forward-price reference for the same population — needs to know the **strict basis**: the typical gap between local Clovis cash for that weight-and-class combination and the futures settle on the same date. Lock in futures + sell cash gives you `settle + basis`, and a producer who knows their typical basis at week 22 for 700–799 lb Steers selling against the May contract has a defensible expected price for that scenario. The default chart view answers exactly that question — single line, single bin, strict basis.

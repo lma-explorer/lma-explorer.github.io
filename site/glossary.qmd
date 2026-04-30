@@ -1,0 +1,178 @@
+---
+title: "Glossary"
+subtitle: "Plain-language definitions of every term used on this site, grouped by topic."
+toc: true
+toc-depth: 2
+---
+
+This page collects the technical terms that show up across the chart shelf and the methodology pages. Each definition starts with a producer-readable sentence; the second sentence (where present) gives the precise definition for Extension peers and researchers.
+
+If a term you encountered on the site isn't here, that's a bug — open an [issue](https://github.com/lma-explorer/lma-explorer.github.io/issues/new/choose).
+
+## Cattle and grades
+
+### Feeder cattle
+Calves and yearlings sold for placement in a feedlot to finish for slaughter, typically 300–999 lb. The platform's chart shelf focuses on feeder cattle at the Clovis, NM auction; LRP coverage is also for feeder cattle.
+
+### Steers
+Castrated male cattle. Sold separately from heifers because they grow faster and finish heavier; cash prices for steers run higher than for heifers of the same weight.
+
+### Heifers
+Female cattle that have not had a calf. Heifer prices are typically below steer prices for the same weight (a "steer-heifer discount"); the gap varies by weight class and through the cattle cycle.
+
+### Frame
+The skeletal-size category of a feeder animal. USDA-AMS classifies feeders into Small, Medium, Medium-and-Large, and Large frame. Larger-framed cattle reach higher finished weights.
+
+### Muscle grade (muscle thickness)
+The body-condition grade reflecting expected meat yield. USDA-AMS quotes 1, 1-2, 2, and lower combinations. Grade 1 indicates the muscling reflective of the indicated frame; lower grades reflect lighter muscling.
+
+### M&L 1 (Medium and Large, muscle grade 1)
+The dominant grade combination by volume at the Clovis auction and the standard reference grade in agricultural-economics analysis of feeder-cattle prices. The platform's cash chart pages restrict to M&L 1 to keep comparisons apples-to-apples week-over-week. Other frame and muscle-grade combinations are preserved in the underlying parquet for researchers; see [Methodology → Clovis pipeline](methodology/clovis.qmd).
+
+### Weight class
+The 100-pound bin a feeder animal falls into for pricing purposes. The platform's charts use 300–399 lb, 400–499 lb, 500–599 lb, 600–699 lb, 700–799 lb, and 800–899 lb. USDA-AMS quotes prices per cwt within each bin.
+
+### Weight bin / weight break
+Synonyms for the 100-lb pricing class above. The MARS API field `weight_break_low` gives the lower bound of the bin; the chart pages collapse to 100-lb width for clarity. Older pre-2024 MARS data lacks this field; the platform falls back to `avg_weight` and bins from there.
+
+### cwt (hundredweight)
+100 pounds. Feeder-cattle prices are conventionally quoted in dollars per cwt ($/cwt).
+
+## Prices and aggregations
+
+### Head-weighted mean
+A weighted average where each lot's contribution is proportional to the number of head it represents. A lot of 50 head at $200 and a lot of 5 head at $250 average to (50×200 + 5×250) / (50 + 5) = $204.55, not $225. Used on the price-weight, seasonality, sell-now compare, and one-pager pages because it reflects what dollars actually flowed through the auction. The weekly-trends page currently simple-averages instead, which is disclosed prominently in its callout; a head-weighted refactor is a planned roadmap item.
+
+### Simple-averaged mean
+The arithmetic mean across observations, ignoring head count. Faster to compute but biased toward small lots in volatile weeks. The weekly-trends page uses this; the discrepancy with head-weighted means is typically $1-3/cwt.
+
+### Min, max, mean band
+A vertical span on a chart showing, across a window of years for the same week-of-year and weight class, the lowest observation, the highest observation, and the average. Used on the [price-weight](price-weight.qmd) page.
+
+### Percentile band
+A range computed as the 25th and 75th percentile of the historical observations for the same week-of-year. Used on the [sell-now compare](sell-now-compare.qmd) page to define top-25 % / middle-50 % / bottom-25 % buckets.
+
+### Sample size, n
+The count of historical observations behind a per-cell statistic. With 8 historical years available for a given weight class × week-of-year combination, the percentile bands are computed across those 8 values. Smaller n (e.g., n=3 for the "Last 3 years" window) means percentile breakpoints are lumpier and should be treated as directional rather than precise.
+
+### ISO week
+The ISO 8601 week-of-year, numbered 1–52 (occasionally 53). The platform collapses any week-53 observations into week 52 for cross-year comparison. Used on the seasonality, basis, and sell-now compare pages.
+
+## Inflation, deflation, and dollars
+
+### Nominal $
+The dollar amount as quoted at the time, not adjusted for inflation. A 2018 nominal $200 means $200 in 2018 dollars. Defaults on the chart pages because it reflects what a producer actually saw on the auction report.
+
+### Real $ (or "December-2025 $")
+The dollar amount adjusted to a fixed reference month for cross-year comparisons. The platform deflates to **December 2025** as the basis month — chosen at platform launch and held fixed to keep historical chart values stable across BLS revisions. A 2018 nominal $200 deflated to December-2025 dollars is roughly $245.
+
+### Deflator
+The multiplier applied to a nominal price to convert it to real dollars. For an observation in month M, `deflator(M) = CPI(December 2025) / CPI(M)`. The chart pages with a Mode toggle (Nominal / Real) compute this row-by-row at render time.
+
+### CPI-U NSA (`CUUR0000SA0`)
+The U.S. Consumer Price Index for All Urban Consumers, All Items, Not Seasonally Adjusted, U.S. City Average. The series the platform uses to deflate nominal prices. Source: [BLS](https://data.bls.gov/timeseries/CUUR0000SA0). Refreshed monthly on the 16th by the `bls_cpi_refresh` GitHub Actions workflow. See [Methodology → CPI deflation](methodology/cpi.qmd).
+
+### CPI vintage
+The publication date of a specific CPI snapshot. BLS revises the CPI a few times per year; pinning to a specific vintage (the SHA in the manifest) reproduces the exact deflator that was used on a given site build.
+
+### Snapshot vintage
+The most recent date represented in a committed parquet file. For the Clovis auction parquet, the vintage is the most recent auction date; for CPI, it's the most recent monthly period. Surfaced in the chart pages' "Anchored on" lines and on the data catalog's per-snapshot blocks.
+
+## Basis and futures
+
+### Basis
+The local cash price minus the futures settle on the same date. Strictly defined: cash for the *same animal type the futures contract specifies* minus the front-month settle. On this site, **strict basis** is 700–799 lb Steers cash at Clovis minus the CME GF feeder-cattle settle.
+
+### Strict basis
+The hedgeable basis: Clovis cash for 700–799 lb Steers minus the CME GF settle. A producer who hedges actual 700-lb steer feeders on CME and sells at Clovis cash realizes `settle + basis` net per cwt. The default chart on the [Basis page](basis.qmd) is strict basis only.
+
+### Cash–futures spread (weight-class spread)
+The price-level relationship between a non-target weight class (e.g., 400-lb calves, or Heifers) and the CME GF feeder-cattle settle on the same date. The wider Basis page view exposes 11 such spreads. Useful for understanding the cattle cycle (calf-feeder spread, steer-heifer discount); not directly hedgeable because the futures contract specifies a different population.
+
+### CME GF
+The CME Group Feeder Cattle futures contract. Specifies Medium-and-Large frame #1 and #1-2 muscle thickness Steers, 700–899 lb. Settled financially against the [CME Feeder Cattle Index](https://www.cmegroup.com/markets/agriculture/livestock/feeder-cattle.contractSpecs.html). The platform reads daily settles from a local-only file (gitignored) and writes only the derived basis statistic to the public repo (see [`LICENSE-DATA.md`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/LICENSE-DATA.md)).
+
+### Contract month
+The expiration month a futures contract references. The Basis page surfaces three: **May** (canonical spring reference; spring-marketing producers), **November** (canonical fall reference; stockers exiting grass), and **Nearby** (whichever traded contract is closest to expiry on each auction date).
+
+### Settle (settlement price)
+The official end-of-day futures price. Not the last trade price; computed by CME from a window of trading near the close. The number that determines the value of an open futures position.
+
+## LRP (Livestock Risk Protection)
+
+### LRP
+A federal insurance product offered by USDA's [Risk Management Agency](https://www.rma.usda.gov/) that lets feeder-cattle producers insure a coverage price floor for a fixed period. If the actual ending value at the end of the coverage period falls below the elected coverage price, RMA pays an indemnity covering the shortfall.
+
+### Endorsement
+A single LRP coverage application a producer purchases for a defined head count, weight class, coverage period, and coverage price. One LRP transaction = one endorsement.
+
+### Endorsement length
+The number of weeks the LRP coverage period runs, from sale-effective date to end-date. Documented values: 13, 17, 21, 26, 30, 34, 39, 43, 47, or 52 weeks.
+
+### Type code (LRP)
+The RMA-assigned numeric code identifying the exact feeder-cattle population insured. The platform anchors on type codes 809–812 (Steers Weight 1, Steers Weight 2, Heifers Weight 1, Heifers Weight 2 — the four conventional non-Brahman, non-dairy, born-cattle codes). See [Methodology → LRP corpus](methodology/lrp.qmd) for the type-code-evolution discussion.
+
+### Coverage price
+The per-cwt price floor the producer elects when buying the endorsement. If the actual ending value falls below this, RMA pays the difference as an indemnity.
+
+### Coverage level percent
+The percentage of expected end value that the producer's coverage price represents. Higher = more protection but higher premium. Producers typically choose 70-95 % in 5-percentage-point steps; some endorsements quote 99 % or 100 %.
+
+### Expected end value
+RMA's projection at sale-effective date of what the actual ending value will be. Used internally to set the coverage-level reference; the actual ending value at end-date is what triggers indemnity payment.
+
+### Actual end value
+RMA's CME-futures-derived ending value computed at end-date. If this is below the coverage price, an indemnity is paid; if it's at or above, no indemnity.
+
+### Producer-paid premium
+The dollar amount the producer actually pays for the endorsement, *after* the federal subsidy is applied. The "producer premium" column in the corpus and on the LRP page. **Not** the total/gross premium and not the subsidy itself.
+
+### Total premium
+The gross premium for the endorsement, before any subsidy. By design, `total_premium = subsidy + producer_premium`.
+
+### Subsidy
+The federal-government share of the total premium, paid by RMA on behalf of the producer. The 2018 Farm Bill increased subsidy rates substantially, which is visible as the volume jump in 2021 on the LRP time-series chart.
+
+### Indemnity
+The dollar amount RMA actually pays the producer if the actual ending value falls below the coverage price. Zero if the price held above coverage.
+
+### Indemnified-endorsement share
+The percentage of endorsements in a given slice that received any indemnity payment. The red line on the [LRP page](lrp.qmd) time-series chart.
+
+### LRP advantage per cwt (backtest)
+The per-cwt dollar advantage of having bought LRP versus not. Defined as `(indemnity − producer-paid premium) / total weight cwt`. Positive means the indemnity exceeded the premium; negative means the premium exceeded the indemnity. The cash market drops out of the comparison algebraically; see [Methodology → LRP backtest](methodology/lrp-backtest.qmd) for the derivation.
+
+### Liability
+The maximum dollar amount RMA could pay out under the endorsement, equal to coverage price × total weight × insured share.
+
+### Net number of head
+The head count covered by the endorsement, adjusted by the producer's insured share percent.
+
+### Total weight (cwt)
+The total hundredweight covered by the endorsement, computed as target weight × number of head.
+
+## Provenance and reproducibility
+
+### Manifest (MANIFEST.json)
+The append-only record of every committed snapshot for a given pipeline. Each entry has a vintage, a SHA-256, a UTC write timestamp, and a row count. The methodology page's freshness table and the data catalog both read `entries[-1]` to display the latest vintage. See [Methodology](methodology/index.qmd).
+
+### SHA-256
+A 64-character cryptographic hash of a file. Pinning to a specific SHA reproduces the exact bytes of a snapshot — useful for citation if you need DOI-class persistence before annual Zenodo deposits land.
+
+### Vintage stamp
+The visible date on a chart or downloadable file showing when the underlying data was last refreshed. Every chart page on the platform carries one; the producer reference card PDF prints both the auction date and the render UTC.
+
+### Snapshot
+A frozen copy of a pipeline's output at a particular moment. Committed to `data/processed/` as parquet (canonical) plus auto-generated CSV and (where small enough) XLSX for analyst convenience.
+
+### Pipeline
+The Python package under `pipelines/<source>/` that ingests, validates, and writes snapshots from a single upstream data source. Three live pipelines: `pipelines/bls/` (CPI-U), `pipelines/clovis/` (USDA-AMS Market News), `pipelines/lrp/` (USDA RMA Summary of Business).
+
+### Last-known-good
+The platform's commitment that a failed pipeline run never overwrites a good snapshot. The site keeps serving the last successful vintage until the failure is investigated. See [GOVERNANCE](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/GOVERNANCE.md).
+
+## See also
+
+- [Methodology](methodology/index.qmd) — what each chart computes and the choices behind it
+- [Data catalog](data.qmd) — every committed snapshot with vintage, row count, and SHA
+- [About](about.qmd) — who maintains the platform and how to contribute corrections

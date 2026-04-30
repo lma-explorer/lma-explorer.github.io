@@ -1,0 +1,36 @@
+# Ruff configuration.
+#
+# Conservative on purpose: this project values readable, well-commented code
+# over a strict style checker. Ruff is here to catch real bugs (unused
+# imports, undefined names, syntax errors) — not to police line length on
+# rationale-heavy docstrings.
+
+# Long line allowance. The project's docstrings carry rationale; a hard
+# 88-char limit forces awkward line breaks that hurt readability.
+line-length = 100
+
+# Source roots. Tests live at the repo root, pipelines too.
+extend-exclude = [
+    "_site",
+    ".quarto",
+    "_freeze",
+    "data/processed",
+    "site/_site",
+]
+
+[lint]
+# Default rules: pyflakes (F) and pycodestyle errors (E). These are the
+# bug-finding rules. Style rules (W warnings, naming N, complexity C) are
+# off by default to stay reviewer-friendly.
+select = ["E", "F"]
+
+# Per-rule ignores. E501 (line-length-too-long) is already governed by the
+# line-length setting above, but some markdown-embedded URLs and docstring
+# tables exceed 100 chars by design — leave those alone.
+ignore = [
+    "E501",  # let line-length govern; rare exceedances are intentional
+]
+
+[lint.per-file-ignores]
+# Tests use synthetic data with intentionally-long literal expressions.
+"tests/**/*.py" = ["E501"]

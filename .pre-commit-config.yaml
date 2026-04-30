@@ -1,0 +1,61 @@
+# Pre-commit hooks for the Livestock Marketing Alternatives Explorer.
+#
+# Opt-in: run `pip install pre-commit && pre-commit install` once after
+# cloning. Hooks then run automatically on every `git commit` and block
+# the commit if any check fails. Run manually any time with
+# `pre-commit run --all-files`.
+#
+# Hooks:
+#   - debug-detect: catches breakpoint(), pdb imports, /tmp/ writes,
+#     console.log() in .qmd files, # XXX, # TODO: REMOVE. Append
+#     `# debug-allow` to a line if a hit is intentional.
+#   - ruff: lint Python files. Configured by ruff.toml.
+#   - trailing-whitespace + end-of-file-fixer + check-yaml + check-json:
+#     standard hygiene from pre-commit/pre-commit-hooks.
+#
+# CI does not require pre-commit to have run — the GitHub Actions
+# `Quality` workflow catches the same issues at PR time. Pre-commit is a
+# local-only convenience that makes the round-trip faster.
+
+repos:
+  - repo: local
+    hooks:
+      - id: debug-detect
+        name: Catch debug-leftover code
+        description: |
+          Catches breakpoint(), pdb/ipdb imports, /tmp/ writes,
+          console.log() in .qmd files, # XXX comments, and # TODO: REMOVE
+          markers. Inspired by the weekly-trends.qmd debug leak that
+          shipped to main in commit aca3fd3 — this hook is the loud check
+          that should have been there.
+        entry: python3 scripts/check_no_debug.py --staged
+        language: system
+        pass_filenames: false
+        types: [text]
+        always_run: true
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.5.0
+    hooks:
+      - id: ruff
+        # Lint configuration is in ruff.toml at the repo root.
+        # Auto-fix safe issues; reviewer sees the fix as part of the
+        # commit and can revert if undesired.
+        args: [--fix]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        # Quarto's _quarto.yml uses tag values that some YAML parsers
+        # complain about; allow the multi-document form just in case.
+        args: [--allow-multiple-documents]
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        # Block accidental commits of >5 MB files. The og-card.png is
+        # ~95 KB; even the LRP corpus is 7.5 MB committed but it's
+        # already tracked. The threshold catches *new* large files.
+        args: [--maxkb=5000]

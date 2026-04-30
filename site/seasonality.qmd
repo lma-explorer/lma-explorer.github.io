@@ -9,6 +9,10 @@ toc-depth: 2
 **Caveat before scrolling.** Seasonality is a pattern, not a prediction. Any single year can look very different from the weekly average shown here — drought, calf-crop timing, regional demand, and futures-market moves all shift the intra-year curve. See [Methodology](methodology/index.qmd) for how the window was chosen.
 :::
 
+::: {.callout-tip appearance="simple"}
+**How to read this page (60-second guide).** Below: a two-panel chart with **Steers** above and **Heifers** below. The x-axis is week-of-year (1–52); the y-axis is price per cwt. Each line is one weight bin; **click a bin in the legend to hide it, double-click to isolate** so you can read one weight class at a time. The shape of each line shows the typical seasonal pattern — peaks usually around late spring (week 18–22) and a fall recovery. Two button rows above the chart: **Mode** (Nominal vs Real $) and **Year window**. Unfamiliar terms (week-of-year, head-weighted, M&L 1) are in the [glossary](glossary.qmd).
+:::
+
 ## About this page
 
 The companion to the [Price–weight explorer](price-weight.qmd). That page answers *"what does a heavier calf bring?"*; this page answers *"when in the year does a given-weight calf bring the most?"* The chart shows all six 100-lb bins from 300 lb to 899 lb: **click a weight class in the legend to hide it; double-click to isolate it.** Three bins are emphasized in solid colors (400–499, 600–699, 700–799) — they bracket the typical marketing decision (calf-on-the-cow, background/grass-season exit, feedlot-ready) — and the other three are rendered in lighter accents so the chart reads cleanly when all six are visible. Two button rows above the chart let you pick the **mode** (top: Nominal $ / Real December-2025 $) and the **year window** (bottom: All / Last 5 years / Last 3 years / latest calendar year). Each row maintains its own selection independently — at any moment, the chart shows the combination of both highlighted choices.

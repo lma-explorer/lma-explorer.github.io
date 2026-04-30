@@ -1,0 +1,171 @@
+---
+title: "LRP-vs-cash backtest — methodology"
+subtitle: "How the per-cwt LRP advantage is computed, why cash cancels out, and what the formula does and doesn't capture."
+toc: true
+toc-depth: 2
+---
+
+## What is being measured
+
+The [LRP backtest page](../lrp-backtest.qmd) summarizes a single per-endorsement statistic: the dollar advantage, per cwt of cattle insured, of having bought LRP versus not having bought it. The chart aggregates this advantage by coverage-level percent and slices the corpus by state and year window.
+
+This is a deliberately narrow question. The page's [About section](../lrp-backtest.qmd#about-this-page) flags what is and isn't covered; this methodology page expands those points formally.
+
+## The advantage formula
+
+For each LRP endorsement in the [type-code subset](#type-code-subset) of the corpus, the advantage is:
+
+$$
+\text{LRP advantage}_{\text{per cwt}} = \frac{\text{indemnity\_amount} - \text{producer\_premium\_amount}}{\text{total\_weight\_cwt}}
+$$
+
+where the three columns are taken directly from the RMA Summary of Business as documented in [`pipelines/lrp/parse.py`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/lrp/parse.py). The numerator is in dollars; the denominator is in hundredweight; the ratio is in dollars per cwt.
+
+Sign convention:
+
+- **Positive** ⇒ the producer-paid premium was less than the indemnity received. The producer would have been better off buying LRP than not buying it for this endorsement.
+- **Zero** ⇒ break-even. (Mathematically narrow; in practice, exact zeros are rare.)
+- **Negative** ⇒ the producer-paid premium exceeded the indemnity received. The producer would have been better off without LRP for this endorsement.
+
+The page's chart shows the **arithmetic mean** of this statistic across all endorsements in the selected (state, year window) slice, grouped by coverage-level percent. The mean is sensitive to outliers; the corresponding median is computed by `pipelines/lrp/backtest.aggregate_by_coverage` and exposed in the underlying data — the chart shows mean rather than median because the mean is the unbiased estimator of the long-run average advantage that a representative producer would realize across many endorsements.
+
+## Why cash cancels out
+
+The natural framing of the comparison is: *a producer chose between two paths over the same period — either buy LRP and sell at cash on the end-date, or skip LRP and sell at cash on the end-date.* Both paths involve the same cash sale at the same end-date for the same cattle. So:
+
+$$
+\begin{aligned}
+\text{LRP path net} &= \text{cash\_at\_end} \times \text{cwt} + \text{indemnity} - \text{premium} \\
+\text{No-LRP path net} &= \text{cash\_at\_end} \times \text{cwt} \\
+\text{LRP advantage} &= \text{LRP net} - \text{No-LRP net} = \text{indemnity} - \text{premium}
+\end{aligned}
+$$
+
+Per-cwt, this is the formula above. The producer's specific cash market (Clovis, Willcox, Tucumcari, Greeley) does not appear in the advantage computation — it cancels.
+
+This is what makes the backtest mathematically clean and *robust to basis risk*. No matter how far the producer's local cash market diverged from the CME-feeder reference RMA uses to set the LRP `actual_end_value`, the LRP-vs-no-LRP delta on the producer's books was exactly $\text{indemnity} - \text{premium}$. Whether that delta turned out positive or negative depended entirely on the joint behavior of the producer's coverage price (chosen at sale-effective date) and the CME-feeder ending value (realized at end-date) — both of which are observable in the corpus.
+
+## What the formula does *not* capture
+
+### Opportunity cost of capital
+
+The producer pays the premium up front (at sale-effective date) and receives any indemnity later (at end-date). LRP feeder endorsement lengths are 13, 17, 21, 26, 30, 34, 39, 43, 47, or 52 weeks. At a 5 % annual real cost of capital, the discounting effect on a 26-week endorsement is roughly 2.5 % of the premium amount. The advantage formula treats indemnity and premium as time-equivalent; for a producer running tight cash flow, the practical advantage is slightly worse than the page reports.
+
+This omission is small but consistent. A producer who wants to apply a discount factor can do so directly from the published producer-paid premium and indemnity columns; the corpus is fully reproducible.
+
+### Basis-risk surprise
+
+RMA's `actual_end_value` (the CME-futures-derived ending value used to determine indemnity) and the producer's cash market move together but not perfectly. There are scenarios where:
+
+- The producer's *cash* dropped substantially over the endorsement period, but futures held above the coverage price → no indemnity, premium fully out of pocket. The producer might have *wanted* protection (because cash dropped) but the LRP product, by design, does not cover cash drops directly.
+- Futures dropped substantially but the producer's cash held → an indemnity was paid even though the producer's local market didn't need it.
+
+The advantage formula measures what the LRP product *did* (paid or didn't pay), not what the producer might have *wanted* given their cash market. A producer who is mostly worried about a cash-market crash specific to their auction or region needs to think about basis risk separately. The [Basis](../basis.qmd) page is the platform's view on Clovis-vs-CME-GF futures basis dynamics; the [Basis methodology](basis.qmd) page documents the formal distinction between strict basis and weight-class spreads.
+
+### Selection effects
+
+The corpus contains every LRP endorsement that was actually sold. Producers who bought LRP did so because, at the moment of purchase, they expected a downturn in the cattle market or wanted to hedge a specific marketing decision. These are not random samples of cattle-marketing situations.
+
+The advantage formula treats every endorsement as an i.i.d. observation. The unconditional mean reported on the chart is therefore a *lower bound* on the conditional value to the producers who actually self-selected into the program with information about their own situation that the historical data doesn't capture. A producer with strong forward-looking views about price direction may well do better than the unconditional mean shown.
+
+This is a feature of any historical backtest of an option-like product, not a flaw in the formula.
+
+### Variance is not shown
+
+The chart shows the mean per coverage-level bin. The per-endorsement advantage is highly variable — particularly in cattle-cycle-trough years (2009, 2016, 2020, parts of 2024), when indemnity payments were large, and in cycle-peak years, when premiums were paid but no indemnity arrived. Two coverage-level bins with the same mean can have very different distributions; the median, computed in [`pipelines/lrp/backtest.aggregate_by_coverage`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/lrp/backtest.py), is typically smaller in absolute value than the mean for both signs.
+
+A future enhancement (candidate v2) is to add an error bar showing the inter-quartile range or a percentile band so the chart conveys spread directly.
+
+## Type-code subset
+
+The chart restricts to four RMA type codes — the same subset the descriptive [LRP page](../lrp.qmd) and its [methodology page](lrp.qmd) use:
+
+| Code | Type name (modern) | Why included |
+|---|---|---|
+| **809** | Steers Weight 1 | Conventional non-Brahman, non-dairy, born |
+| **810** | Steers Weight 2 | Conventional non-Brahman, non-dairy, born |
+| **811** | Heifers Weight 1 | Conventional non-Brahman, non-dairy, born |
+| **812** | Heifers Weight 2 | Conventional non-Brahman, non-dairy, born |
+
+Excluded: Brahman (813/814), Dairy (815/816), Unborn variants (817/818/819), and the new Unborn Calves type 823 (which uses $/head pricing rather than $/cwt and would corrupt the per-cwt advantage formula). See the [LRP methodology page](lrp.qmd) for the full type-code-evolution discussion.
+
+## State and year-window filters
+
+State filtering is applied directly on `state_abbr`. The chart's "All" option aggregates all states (excluding the `XX` national-aggregate placeholder; see the LRP methodology page for the schema-evolution notes on `XX`).
+
+Year-window filtering uses the same `apply_year_window` helper as the LRP page, with bounds computed relative to the corpus's most recent year (so "Last 5" stays current as new RMA Summary-of-Business years land). See [`pipelines/lrp/load.py`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/lrp/load.py) for the bound-computation logic.
+
+The chart's default "All available years" includes the full 2003-present span, but pre-2021 data is sparse for most states (RMA's state-level reporting matured around 2020–2021; before that, many endorsements landed in `XX`). Producers and Extension peers reading state-specific bars in earlier years should treat them with a small-sample caveat.
+
+## Coverage-level binning
+
+The corpus stores `coverage_level_pct` as a float64 column. **It is not a discrete menu choice** — RMA does *not* require LRP-Feeder Cattle producers to select a coverage level from a fixed menu of percentages. Producers choose a specific `coverage_price` in dollars per cwt (subject to a 70%–100% floor-relative-to-`expected_end_value` band), and the corpus records `coverage_level_pct` as the derived ratio:
+
+$$
+\text{coverage\_level\_pct} = \frac{\text{coverage\_price}}{\text{expected\_end\_value}}
+$$
+
+Empirically, this means `coverage_level_pct` is **continuous, not discrete**. Approximately 44 % of TX endorsements (reinsurance years 2022–2026) land on round 5 % values like 0.7500, 0.8000, 0.8500, 0.9000, 0.9500 — suggesting many producers anchor on those round-number coverage prices. The remaining 56 % spread continuously across the 0.70–1.00 range, with values like 0.8807, 0.8936, 0.9063 each typically held by 1–3 endorsements.
+
+The chart therefore **does not snap to a fixed menu** (which would erase real producer-choice signal) and does not bin at 1 % resolution (which produces noisy bars with tiny per-bar samples). Instead, it bins continuous coverage choices into **5-percentage-point ranges**:
+
+- 70–75 % (i.e., 0.70 ≤ x < 0.75)
+- 75–80 %
+- 80–85 %
+- 85–90 %
+- 90–95 %
+- 95–100 %
+- ≥ 100 %
+
+Bins are left-closed, right-open. Each bin's lower edge serves as its identifier in the underlying data structure; the chart's x-axis labels show the human-readable range. A producer reading "90–95 %" on the chart is reading the average of all endorsements whose `coverage_level_pct` falls in `[0.90, 0.95)` for the selected slice — a population that includes both the round 0.9000 anchors and the 0.9001, 0.9047, 0.9105, ... continuous selections.
+
+This range-binning is methodologically defensible because:
+
+1. **It does not erase real signal.** A producer who chose `coverage_price = $241.50` against an `expected_end_value` of $267.00 (yielding `coverage_level_pct = 0.9045`) made a real distinct choice from a producer who chose `coverage_price = $254.00` against the same `expected_end_value` (`coverage_level_pct = 0.9513`). Their premiums differ; their indemnities differ. Snapping both to "90 %" or "95 %" would mask that.
+2. **It matches how producers think.** The coverage-level decision producers walk through with an Extension agent or insurance agent is "do I want to insure 80 %, 85 %, 90 % …" of the expected ending value. 5-percentage-point ranges align directly with that decision frame.
+3. **It pools enough endorsements per bar for the mean to be stable.** With 7 bins across ~12,000 TX endorsements, each bar represents roughly 1,700 endorsements on average — enough that the mean is a useful statistic.
+4. **It is robust to data evolution.** If RMA changes its coverage-price quoting practice in future years (finer or coarser increments), 5 % range bins continue to work without re-binning every prior year.
+
+The implementation is in [`pipelines/lrp/backtest.aggregate_by_coverage`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/lrp/backtest.py), using `pandas.cut` with edges `[0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 1.00, ∞)`. Endorsements with `coverage_level_pct < 0.70` (rare; typically corrupt early-year rows) are dropped, as are rows with NaN coverage levels.
+
+## Reproducing the chart
+
+The full pipeline is in two files:
+
+- [`pipelines/lrp/backtest.py`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/lrp/backtest.py) — `compute_advantage`, `backtest_subset`, `aggregate_by_coverage`, `aggregate_by_year`, and `sample_summary`.
+- [`site/lrp-backtest.qmd`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/site/lrp-backtest.qmd) — the chart page itself, including the JS sync layer.
+
+To reproduce the chart locally:
+
+```python
+import pandas as pd
+from pipelines.lrp.load import load_corpus
+from pipelines.lrp.backtest import aggregate_by_coverage
+
+loaded = load_corpus(Path("data/processed"))
+df = loaded.df
+
+# AZ, all available years, coverage-level bar means
+agg = aggregate_by_coverage(df, state_abbr="AZ", year_window="all")
+print(agg[["coverage_level_pct", "n_endorsements", "mean_advantage_per_cwt"]])
+```
+
+## Future work
+
+Tracked as candidate v2 items:
+
+- **`v2.lrp-backtest-by-type`** — Drill down by type code (809/810/811/812 individually). Producers buying LRP for heavier feeders may see different advantage distributions than producers buying for lighter calves.
+- **`v2.lrp-backtest-spread`** — Add an error bar or percentile band to each coverage-level bar to show the inter-quartile range of advantage at that coverage level. The mean alone hides a lot of variance.
+- **`v2.lrp-backtest-cycle-overlay`** — Overlay the cattle cycle (e.g., USDA cow inventory year-over-year change) so a reader can see whether high-advantage years cluster in cycle troughs.
+- **`v2.lrp-backtest-discount`** — Apply a discount factor for the time between premium-paid and indemnity-received. Small effect at typical endorsement lengths but worth surfacing for completeness.
+
+## Code
+
+- Chart page source: [`site/lrp-backtest.qmd`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/site/lrp-backtest.qmd)
+- This methodology page's source: [`site/methodology/lrp-backtest.qmd`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/site/methodology/lrp-backtest.qmd)
+- Backtest pipeline module: [`pipelines/lrp/backtest.py`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/lrp/backtest.py)
+- Underlying corpus parser: [`pipelines/lrp/parse.py`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/lrp/parse.py)
+
+## Contact
+
+Spotted an error or a methodological disagreement? Open a [new issue](https://github.com/lma-explorer/lma-explorer.github.io/issues/new/choose) with the `methodology` label.

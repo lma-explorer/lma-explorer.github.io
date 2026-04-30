@@ -9,6 +9,10 @@ toc-depth: 2
 **Caveat before scrolling.** Clovis is one auction in one region. These prices are not representative of national feeder-cattle prices. Treat this page as a regional reference, not a market index. See [Methodology](methodology/index.qmd) for the data window and deflation choice.
 :::
 
+::: {.callout-tip appearance="simple"}
+**How to read this page (60-second guide).** Below: a two-panel chart with **Steers** above and **Heifers** below. The x-axis is weight bin (300–399 lb through 800–899 lb); the y-axis is price per cwt. For each weight bin you see a min–mean–max band over the years in the selected window — wider band = more variability. Two button rows above the chart: **Mode** (Nominal $ vs Real December-2025 $) and **Year window** (All / Last 5 / Last 3 / Latest). New here? Try **Last 3 yrs · Real $** for "what's the current normal?", and check the [glossary](glossary.qmd) for any unfamiliar terms (M&L 1, head-weighted, real $).
+:::
+
 ## About this page
 
 This page shows weekly feeder-cattle pricing by weight class at the Clovis, NM auction, drawn from USDA-AMS Market News and refreshed automatically each week by the `clovis_refresh` GitHub Actions workflow. Two button rows above the chart let you pick the **mode** (top: Nominal $ / Real December-2025 $) and the **year window** (bottom: All / Last 5 years / Last 3 years / latest calendar year). Each row maintains its own selection independently — at any moment, the chart shows the combination of both highlighted choices. The chart is intentionally focused: a single auction, a single grade combination, with the producer's "what does a heavier calf bring this week vs. recent years?" question as the question it answers.

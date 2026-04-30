@@ -81,6 +81,8 @@ The Clovis weekly series extends back to October 2017 — the floor of USDA-AMS 
 - [Clovis auction pipeline: slug `AMS_1781`, filters, and schema](clovis.qmd)
 - [Basis derivation: strict basis vs. weight-class cash–futures spreads](basis.qmd)
 - [Sell-now compare: percentile-band design and producer-decision framing](sell-now-compare.qmd)
+- [LRP corpus: filter scope, type-code subset, schema-evolution caveats](lrp.qmd)
+- [LRP backtest: per-cwt advantage formula, why cash cancels, what's not captured](lrp-backtest.qmd)
 
 ## What a methodology page contains
 

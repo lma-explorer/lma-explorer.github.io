@@ -13,6 +13,10 @@ toc-depth: 2
 **Aggregation note for multi-lot weeks.** This page currently simple-averages multiple lots within the same (week, class, weight bin) cell. The other chart-shelf pages (price–weight, seasonality, basis, sell-now compare, one-pager) use head-weighted means. Where lot sizes vary substantially within a week, the simple-average value can differ by ~$1-3/cwt from the head-weighted version. A head-weighted refactor is queued; the methodology page documents the choice.
 :::
 
+::: {.callout-tip appearance="simple"}
+**How to read this page (60-second guide).** Below: a two-panel chart with **Steers** above and **Heifers** below. The x-axis is auction date — a calendar timeline back to October 2017; the y-axis is price per cwt. Each line is one weight bin; gaps in the line are weeks where USDA-AMS didn't publish a report (holidays, light receipts). Two button rows above the chart: **Mode** (Nominal vs Real $) and **Year window**. Use this page when you want to ask *"is this week unusual?"* — compare the rightmost endpoint of a line to the rest of the line. Terms like ISO week, head-weighted, real $ are in the [glossary](glossary.qmd).
+:::
+
 ## About this page
 
 The third view in the chart shelf. The [Price–weight explorer](price-weight.qmd) answers *"what does each weight class fetch on average?"* and the [Weekly seasonality](seasonality.qmd) page answers *"when in the year do these prices peak?"* This page answers a different question: *"how have prices moved week-by-week since October 2017?"* The chart shows actual auction-week observations on a calendar timeline, with one line per weight class so a producer can see at a glance whether this week sits high, low, or middle relative to recent history. Two button rows above the chart let you pick the **mode** (top: Nominal $ / Real December-2025 $) and the **year window** (bottom: All / Last 5 years / Last 3 years / latest calendar year). Each row maintains its own selection independently — at any moment, the chart shows the combination of both highlighted choices.

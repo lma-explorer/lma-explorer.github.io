@@ -1,0 +1,43 @@
+---
+title: "Page not found"
+subtitle: "That URL doesn't resolve to a page on this site. Likely a typo, a stale bookmark, or an old link from before we restructured something."
+toc: false
+---
+
+## Where you might have meant to go
+
+::: {.grid}
+
+::: {.g-col-12 .g-col-md-6}
+**Looking for the cash-side charts?**
+
+- [Price–weight explorer](price-weight.qmd) — what does each weight class fetch on average
+- [Weekly seasonality](seasonality.qmd) — when in the year do prices peak
+- [Weekly trends](weekly-trends.qmd) — calendar timeline since October 2017
+- [Basis](basis.qmd) — Clovis cash vs CME GF feeder futures
+- [Sell-now compare](sell-now-compare.qmd) — is this week high, low, or middle
+:::
+
+::: {.g-col-12 .g-col-md-6}
+**Looking for the LRP charts?**
+
+- [LRP explorer](lrp.qmd) — what does the program look like
+- [LRP backtest](lrp-backtest.qmd) — did LRP pay more than it cost
+
+**Looking for documentation?**
+
+- [Methodology](methodology/index.qmd) — how every figure is computed
+- [Data catalog](data.qmd) — every committed snapshot
+- [Glossary](glossary.qmd) — plain-language definitions
+- [About](about.qmd) — who maintains this and how to engage
+:::
+
+:::
+
+## Or start from the home page
+
+[**→ Livestock Marketing Alternatives Explorer**](/) — the home page lists every chart and document on the site.
+
+## Reporting a broken link
+
+If you got here by clicking a link from somewhere on the site (rather than typing a URL by hand or following an old bookmark), that's a bug. Please [open an issue](https://github.com/lma-explorer/lma-explorer.github.io/issues/new/choose) with the page you were on and the link you clicked, and we'll fix the link.

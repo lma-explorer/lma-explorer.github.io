@@ -1,0 +1,57 @@
+[project]
+name = "lma-explorer"
+version = "0.5.0-prototype"
+description = "Livestock Marketing Alternatives Explorer — public USDA-AMS feeder-cattle data, refreshed every auction week."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Ibrahima Sall" },
+]
+requires-python = ">=3.11"
+
+# Runtime dependencies. The canonical source is `pipelines/requirements.txt`
+# which CI installs via `pip install -r pipelines/requirements.txt`. The
+# list here mirrors that file so `pip install .` from the root also works
+# for tooling that prefers pyproject. Pinned to compatible-major ranges
+# matching pipelines/requirements.txt; bump deliberately and in lockstep.
+dependencies = [
+    "requests>=2.31,<3",
+    "pandas>=2.2,<3",
+    "pyarrow>=15,<20",
+    "numpy>=1.26,<3",
+    "jupyter>=1.0,<2",
+    "plotly>=5.24,<7",
+    "matplotlib>=3.8,<4",
+    "openpyxl>=3.1,<4",
+]
+
+[project.optional-dependencies]
+# Development tooling — install via `pip install .[dev]`. Same versions
+# CI uses in `.github/workflows/quality.yml`.
+dev = [
+    "ruff>=0.5,<1",
+    "pytest>=8,<9",
+    "pre-commit>=3.7,<5",
+    "cairosvg>=2.7,<3",
+]
+
+[project.urls]
+Homepage = "https://lma-explorer.github.io"
+Repository = "https://github.com/lma-explorer/lma-explorer.github.io"
+Documentation = "https://lma-explorer.github.io/methodology/"
+"Bug Tracker" = "https://github.com/lma-explorer/lma-explorer.github.io/issues"
+
+# Note: this project intentionally does not declare itself as an installable
+# package via [build-system]. The `pipelines/` and `tests/` modules are
+# imported via sys.path manipulation (see tests/conftest.py) rather than
+# via a packaged install. If the project ever grows external dependents,
+# add a build-system block and a [tool.setuptools.packages.find] section.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+
+# Ruff configuration lives in ruff.toml at the repo root for clearer
+# discoverability. Both ruff itself and editor integrations pick that up
+# without a [tool.ruff] block here.

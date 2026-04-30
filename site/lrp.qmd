@@ -32,6 +32,10 @@ The default state is **Arizona** (this platform's producer-reference state); the
 **Terminology.** **"Producer premium"** on this page means the **producer-paid** premium — what producers pay *after* the federal subsidy — not the total/gross premium. RMA reports `total_premium_amount`, `subsidy_amount`, and `producer_premium_amount` as separate fields; the chart and tables here use `producer_premium_amount`.
 :::
 
+::: {.callout-note appearance="simple" icon="false"}
+**Looking for the LRP-vs-cash backtest?** This page describes what the program *looks like*. The companion [LRP backtest page](lrp-backtest.qmd) asks the next-step question: *did LRP, on average, pay more in indemnities than producers paid in premiums — and did the answer depend on the coverage level chosen?* The backtest uses the same corpus and the same filter conventions; it just slices the data differently.
+:::
+
 ```{python}
 #| echo: false
 #| label: data-load
@@ -607,7 +611,6 @@ chor_indices_for_js = {w: state_chor_index_map[w] for w in window_list if w in s
 # Jupyter HTML output containers that may interfere with script execution.
 _js_payload = (
     '<script>\n'
-    'console.log("[LRP] sync script loading");\n'
     'window.lrpTsIndices = ' + json.dumps(ts_indices_for_js) + ';\n'
     'window.lrpChorIndices = ' + json.dumps(chor_indices_for_js) + ';\n'
     'window.lrpStates = ' + json.dumps(states_with_all) + ';\n'
@@ -685,7 +688,6 @@ _js_payload = (
     '    // Use the first plotly fig on the page (this page has only one).\n'
     '    var fig = figs[0];\n'
     '    if (!fig || !fig._fullLayout) { return setTimeout(setup, 150); }\n'
-    '    console.log("[LRP] figure found, attaching handlers");\n'
     '\n'
     '    var stateSelect = document.getElementById("lrp-state-select");\n'
     '    var yearBtns = document.querySelectorAll("#lrp-year-buttons .lrp-year-btn");\n'
@@ -763,7 +765,6 @@ _js_payload = (
     '\n'
     '    setActiveYearButton(window.lrpDefault.window);\n'
     '    applyAll();\n'
-    '    console.log("[LRP] initial applyAll done");\n'
     '  }\n'
     '  if (document.readyState === "loading") {\n'
     '    document.addEventListener("DOMContentLoaded", setup);\n'

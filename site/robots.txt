@@ -1,0 +1,20 @@
+# Robots policy for lma-explorer.github.io.
+#
+# This is a public, public-domain-data-driven Extension/research platform.
+# Search-engine indexing is welcome and encouraged — every page is meant
+# to be findable. The default policy is therefore "allow everything."
+#
+# What's deliberately not exposed:
+#   - The internal Quarto build cache (.quarto/, _freeze/) — never
+#     served by GitHub Pages anyway.
+#   - The repository's GitHub admin pages — those live on github.com,
+#     not lma-explorer.github.io.
+#
+# Sitemap reference helps crawlers discover every rendered page,
+# including methodology and data catalog pages that aren't naturally
+# crawl-prominent. Quarto auto-generates the sitemap from `site-url`.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://lma-explorer.github.io/sitemap.xml

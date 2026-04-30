@@ -13,6 +13,11 @@ project:
     - python3 ../scripts/prepare_downloads.py --phase pre
   post-render:
     - python3 ../scripts/prepare_downloads.py --phase post
+  # Static files that ship to the deployed site as-is. robots.txt sits
+  # next to _quarto.yml; Quarto needs an explicit `resources` entry to
+  # know it should land at the site root.
+  resources:
+    - "robots.txt"
 
 website:
   title: "Livestock Marketing Alternatives Explorer"
@@ -56,8 +61,12 @@ website:
         href: sell-now-compare.qmd
       - text: "LRP"
         href: lrp.qmd
+      - text: "LRP backtest"
+        href: lrp-backtest.qmd
       - text: "Methodology"
         href: methodology/index.qmd
+      - text: "Glossary"
+        href: glossary.qmd
       - text: "Data"
         href: data.qmd
       - text: "About"
@@ -93,5 +102,13 @@ execute:
   freeze: auto
   echo: false
   warning: false
+
+# Author byline — Quarto emits this as <meta name="author"> in the HTML
+# head of every rendered page, which LinkedIn's Post Inspector and other
+# social-card validators read to populate the author field of a shared
+# link preview. Placed at the top level (rather than inside `website:`)
+# because that's where Quarto's per-document author key lives; setting
+# it here applies as a default to all pages without per-page overrides.
+author: "Ibrahima Sall"
 
 editor: source

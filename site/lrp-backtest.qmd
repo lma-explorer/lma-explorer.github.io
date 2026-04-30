@@ -1,0 +1,457 @@
+---
+title: "Did LRP pay more than it cost?"
+subtitle: "LRP-vs-cash backtest · USDA RMA Summary of Business · feeder cattle, Steers/Heifers Weight 1+2 · 2003-present"
+toc: true
+toc-depth: 2
+---
+
+::: {.callout-tip appearance="simple"}
+**This page is descriptive, not prescriptive.** Historical LRP outcomes are summaries of what *did* happen, not predictions of what *will* happen. The chart shows the per-endorsement advantage of having bought LRP versus not, computed from the public RMA Summary of Business. It does not adjust for opportunity cost of capital, basis-risk surprise, or the producer's actual marketing channel; it is one input to an LRP-buying decision, not a recommendation.
+:::
+
+::: {.callout-note appearance="simple" icon="false"}
+**Terminology.** **"LRP advantage per cwt"** on this page means $(\text{indemnity} - \text{producer-paid premium}) / \text{total weight cwt}$ for each endorsement — positive when the indemnity received exceeded the producer-paid premium, negative when the premium exceeded the indemnity. The producer's actual cash sale price drops out of the algebra (see [methodology](methodology/lrp-backtest.qmd) for the derivation), which is what makes the comparison robust to basis risk and end-week cash volatility.
+:::
+
+## About this page
+
+The [LRP explorer](lrp.qmd) describes the program: how many endorsements were sold, how much premium was paid, how often the indemnified-share line moved with the cattle cycle. This page asks the next question a producer or Extension peer naturally arrives at: **on average, did LRP pay more in indemnities than producers paid in premiums — and did the answer depend on the coverage level chosen?**
+
+The math turns out to be cleaner than it looks. Whether or not a producer bought LRP, they sold the calves at some point at some cash price. That cash price drops out of the LRP-vs-no-LRP comparison entirely:
+
+$$\text{LRP advantage} = (\text{cash} + \text{indemnity} - \text{premium}) - (\text{cash}) = \text{indemnity} - \text{premium}.$$
+
+So we can answer the question without ever joining LRP to a specific cash market — every endorsement carries its own indemnity and premium amounts, and the per-cwt advantage is computed directly. The two filters above the chart (State dropdown defaulting to **Arizona**; Year window defaulting to **All available years**) slice the corpus to the population the reader cares about.
+
+::: {.callout-tip appearance="simple"}
+**How to read this page (60-second guide).** Below you'll find a bar chart with one bar per coverage-level percent (70 %, 75 %, 80 %, 85 %, 90 %, 95 %, sometimes 99 %) showing the **mean LRP advantage in $/cwt** across all endorsements at that coverage level. **Above zero = LRP paid more than it cost on average. Below zero = LRP cost more than it paid on average.** The two filters at the top let you slice by state and year window. A small text panel below the chart reports the sample size and how often LRP paid an indemnity at all in the current slice.
+:::
+
+```{python}
+#| echo: false
+#| label: data-load
+
+from pathlib import Path
+import sys
+import math
+
+import numpy as np
+import pandas as pd
+
+PROCESSED = Path("..") / "data" / "processed"
+sys.path.insert(0, str(Path("..").resolve()))
+
+from pipelines.lrp.load import (  # noqa: E402
+    load_corpus, available_states, YEAR_WINDOWS, DEFAULT_STATE_ABBR,
+)
+from pipelines.lrp.backtest import (  # noqa: E402
+    aggregate_by_coverage, sample_summary,
+)
+
+data_is_placeholder = False
+data_source_label = None
+
+_loaded = load_corpus(PROCESSED)
+if _loaded is not None:
+    df = _loaded.df
+    data_source_label = _loaded.data_source_label
+else:
+    # Synthetic stand-in. Reuses the LRP page's stand-in shape.
+    rng = np.random.default_rng(seed=2026)
+    rows = []
+    states_demo = ["AZ", "TX", "NE", "KS", "OK", "SD"]
+    years = list(range(2018, 2027))
+    for y in years:
+        for s in states_demo:
+            for tc in ["809", "810", "811", "812"]:
+                for cov in [0.70, 0.80, 0.90, 0.95]:
+                    n = int(rng.integers(20, 100))
+                    weight = n * 7
+                    premium = n * float(rng.integers(800, 4000))
+                    # Make indemnity-vs-premium track plausible cycle behavior
+                    indemn = premium * float(rng.uniform(0.0, 1.6))
+                    rows.append({
+                        "reinsurance_year": y,
+                        "state_abbr": s,
+                        "type_code": tc,
+                        "commodity_code": "0801",
+                        "plan_code": "81",
+                        "coverage_level_pct": cov,
+                        "total_weight_cwt": float(weight),
+                        "n_head": n,
+                        "producer_premium_amount": premium,
+                        "indemnity_amount": indemn,
+                    })
+    df = pd.DataFrame(rows)
+    data_is_placeholder = True
+    data_source_label = "synthetic stand-in (no live data available)"
+```
+
+```{python}
+#| echo: false
+#| label: precompute
+
+# Pre-compute aggregate-by-coverage results for every (state, year_window)
+# combination the filter bar can produce. Embed as JSON; the JS sync layer
+# below uses Plotly.restyle to swap x/y/colors on each filter change.
+
+state_list = available_states(df)
+states_with_all = ["All"] + state_list
+window_list = list(YEAR_WINDOWS)
+
+DEFAULT_STATE = DEFAULT_STATE_ABBR if DEFAULT_STATE_ABBR in state_list else (
+    state_list[0] if state_list else "All"
+)
+DEFAULT_WINDOW = "all"
+
+# Build per-(state, window) aggregate lookup
+agg_by_filter = {}
+sample_by_filter = {}
+for s in states_with_all:
+    state_arg = None if s == "All" else s
+    for w in window_list:
+        key = f"{s}::{w}"
+        agg_df = aggregate_by_coverage(df, state_abbr=state_arg, year_window=w)
+        agg_by_filter[key] = {
+            "coverage_level_pct": agg_df["coverage_level_pct"].tolist(),
+            "n_endorsements": agg_df["n_endorsements"].tolist(),
+            "mean_advantage_per_cwt": [
+                None if pd.isna(v) else float(v)
+                for v in agg_df["mean_advantage_per_cwt"].tolist()
+            ],
+            "median_advantage_per_cwt": [
+                None if pd.isna(v) else float(v)
+                for v in agg_df["median_advantage_per_cwt"].tolist()
+            ],
+            "indemnified_share": [
+                None if pd.isna(v) else float(v)
+                for v in agg_df["indemnified_share"].tolist()
+            ],
+            "total_head": [int(v) for v in agg_df["total_head"].tolist()],
+        }
+        sample_by_filter[key] = sample_summary(df, state_abbr=state_arg, year_window=w)
+```
+
+```{python}
+#| echo: false
+#| label: filter-bar
+#| output: asis
+
+# Mirror lrp.qmd's filter bar exactly: State dropdown (HTML <select>) plus
+# Year-window button row with aria-pressed/role=group. Same focus-visible
+# CSS rule from styles.css applies (.lrp-year-btn) so we re-use the class.
+
+window_label_map = {
+    "all": "All",
+    "last_5": "Last 5 yrs",
+    "last_3": "Last 3 yrs",
+    "latest": "Latest",
+}
+
+print('<div id="lrpbt-filter-bar" style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.4em 1.2em; margin: 1em 0 0.6em 0; padding: 0.45em 0.7em; background: #F7F7F7; border: 1px solid #DDD; border-radius: 4px;">')
+
+# State control
+print('<div style="display: flex; align-items: center; gap: 0.4em;">')
+print('<label for="lrpbt-state-select" style="font-weight: 600; white-space: nowrap;">State:</label>')
+print('<select id="lrpbt-state-select" style="padding: 0.25em 0.5em; font-size: 0.95em; min-width: 180px; border: 1px solid #BBB; border-radius: 3px; background: white;">')
+for s in states_with_all:
+    label = ("National (all states aggregated)" if s == "All" else s)
+    selected = ' selected' if s == DEFAULT_STATE else ''
+    print(f'  <option value="{s}"{selected}>{label}</option>')
+print('</select>')
+print('</div>')
+
+# Year-window control
+print('<div style="display: flex; align-items: center; gap: 0.4em;">')
+print('<span id="lrpbt-year-window-label" style="font-weight: 600; white-space: nowrap;">Year window:</span>')
+print('<div id="lrpbt-year-buttons" role="group" aria-labelledby="lrpbt-year-window-label" style="display: inline-flex; border: 1px solid #BBB; border-radius: 3px; overflow: hidden; background: white;">')
+for w in window_list:
+    is_active = (w == DEFAULT_WINDOW)
+    bg = "#4F88C9" if is_active else "white"
+    fg = "white" if is_active else "#222"
+    fw = "600" if is_active else "400"
+    border_left = "" if w == window_list[0] else "border-left: 1px solid #BBB;"
+    pressed = "true" if is_active else "false"
+    print(
+        f'<button type="button" class="lrp-year-btn lrpbt-year-btn" data-window="{w}" '
+        f'aria-pressed="{pressed}" '
+        f'style="padding: 0.3em 0.75em; font-size: 0.92em; cursor: pointer; '
+        f'background: {bg}; color: {fg}; font-weight: {fw}; border: 0; {border_left}">'
+        f'{window_label_map[w]}</button>'
+    )
+print('</div>')
+print('</div>')
+
+print('</div>')
+print('<p style="color: #666; font-size: 0.85em; margin: 0.2em 0 0.8em 0.2em;">Default is Arizona (this platform\'s producer-reference state). Choose <em>National</em> for the country-wide aggregate. The chart updates immediately when either control changes.</p>')
+```
+
+```{python}
+#| echo: false
+#| label: build-figure
+#| fig-cap: ""
+#| fig-alt: "LRP-vs-cash backtest bar chart for the selected state and year window. Bar per coverage-level percent (70-95+%) on the x-axis, mean LRP advantage in $/cwt on the y-axis. Above-zero bars (green) mean LRP paid out more than it cost on average; below-zero bars (red) mean LRP cost more than it paid. A horizontal zero line marks the break-even point. State dropdown and Year-window button row above the chart drive the filter; sample size and indemnified share are reported below the chart."
+
+import plotly.graph_objects as go
+
+# Default-state aggregate for the initial render
+_default_key = f"{DEFAULT_STATE}::{DEFAULT_WINDOW}"
+def _coverage_range_label(low: float) -> str:
+    """Format a bin's lower-edge as a human-readable range label.
+    0.70 → '70-75%'; 0.95 → '95-100%'; 1.00 → '≥100%'.
+    Mirrored in JS in the js-sync chunk; keep the two implementations
+    in sync if one changes."""
+    if low >= 1.00:
+        return "≥100%"
+    return f"{int(round(low * 100))}–{int(round((low + 0.05) * 100))}%"
+
+
+_init = agg_by_filter[_default_key]
+_x = [_coverage_range_label(c) for c in _init["coverage_level_pct"]]
+_y = _init["mean_advantage_per_cwt"]
+_colors = [
+    "#5FAE6E" if (v is not None and v >= 0) else "#C94F4F"
+    for v in _y
+]
+
+fig = go.Figure(
+    data=[
+        go.Bar(
+            x=_x,
+            y=_y,
+            marker_color=_colors,
+            name="Mean LRP advantage",
+            hovertemplate=(
+                "<b>%{x} coverage</b><br>"
+                "Mean advantage: $%{y:.2f}/cwt<extra></extra>"
+            ),
+        ),
+    ]
+)
+
+# Zero line
+fig.add_hline(y=0, line_color="#222", line_width=1)
+
+fig.update_layout(
+    height=520,
+    margin=dict(l=60, r=40, t=80, b=60),
+    plot_bgcolor="white",
+    paper_bgcolor="white",
+    title=dict(
+        text=f"LRP advantage by coverage level — {DEFAULT_STATE}, all available years",
+        x=0.5, y=0.95, xanchor="center", yanchor="top",
+        font=dict(size=14),
+    ),
+    xaxis=dict(
+        title="Coverage level percent",
+        showgrid=False,
+        linecolor="#888", mirror=False, ticks="outside",
+    ),
+    yaxis=dict(
+        title="Mean LRP advantage ($/cwt)",
+        showgrid=True, gridcolor="#EEE",
+        zeroline=True, zerolinecolor="#222", zerolinewidth=1,
+        tickprefix="$",
+    ),
+    showlegend=False,
+)
+fig.show()
+```
+
+```{python}
+#| echo: false
+#| label: sample-default
+#| output: asis
+
+# Pre-bake the AZ-default sample-summary line below the chart. JS updates it
+# on filter change.
+
+_s = sample_by_filter[_default_key]
+_indemn_pct = f"{_s['indemnified_share']*100:.1f}%" if _s["n_endorsements"] > 0 else "—"
+_mean_adv = f"${_s['mean_advantage_per_cwt']:+.2f}/cwt" if _s["n_endorsements"] > 0 else "—"
+_yr_range = (
+    f"{_s['year_min']}–{_s['year_max']}"
+    if _s["n_endorsements"] > 0 and _s["year_min"] != _s["year_max"]
+    else (str(_s["year_min"]) if _s["n_endorsements"] > 0 else "—")
+)
+
+print('<div id="lrpbt-sample-summary" style="margin: 0.5em 0 1.5em 0; padding: 0.7em 1em; background: #F0F4F8; border-left: 4px solid #4F88C9; border-radius: 2px; font-size: 0.95em; color: #333;">')
+print(
+    f'<b>Sample for current filter:</b> {_s["n_endorsements"]:,} endorsements'
+    f' for {_s["state_label"]}, reinsurance years {_yr_range}.'
+    f' Of these, {_s["n_indemnified"]:,} ({_indemn_pct}) received an indemnity.'
+    f' Overall mean advantage across all coverage levels: <b>{_mean_adv}</b>.'
+)
+print('</div>')
+```
+
+::: {.callout-note appearance="simple"}
+**Reading the chart.** Each bar's height is the **arithmetic mean** of the per-endorsement advantage at that coverage level — equally weighted across endorsements regardless of size. A producer who bought LRP at 95 % coverage repeatedly over many years would, on average, have realized something close to the 95 %-bar's value per cwt of cattle insured (positive or negative). The arithmetic mean is sensitive to outliers — particularly extreme indemnity-paid years (cattle-cycle troughs, COVID, post-2022 cash blowouts) — and the median (visible in the page's underlying data via `pipelines/lrp/backtest.aggregate_by_coverage`) is typically smaller in absolute value. Producers who bought LRP only in years they expected a downturn (selection effect) would expect to do better than the unconditional mean shown here.
+:::
+
+## What the chart does *not* show
+
+- **Cash-side outcomes.** The page deliberately doesn't compare to a specific cash market because, as the terminology callout notes, cash cancels out of the LRP-vs-no-LRP delta. The [Sell-now compare](sell-now-compare.qmd) page is the platform's view of "is this week's cash high or low?", and the [Basis](basis.qmd) page is "how do Clovis cash and CME GF futures relate?" The backtest here is intentionally narrower: it answers only the LRP product's payment-vs-premium question.
+- **Coverage-price-vs-cash basis risk.** RMA's `actual_end_value` is derived from CME futures, not from the producer's cash market. A producer whose cash dropped while futures held would still pay the LRP premium without receiving an indemnity — and the bar at that coverage level would reflect that as part of the historical average. The advantage formula measures what the LRP product *did*, not what a producer might have *wanted*.
+- **Type-code variation.** The chart aggregates Steers Weight 1+2 and Heifers Weight 1+2 (RMA type codes 809–812) together. Drilling down by type code (e.g., is LRP advantage at 95 % coverage different for heavier feeders vs lighter ones?) is a candidate v2 enhancement.
+- **Coverage-price-vs-coverage-level-percent.** This page bins endorsements by `coverage_level_pct` (the producer's choice in 5-percentage-point steps). Two endorsements at the same coverage-level percent but different `coverage_price` levels (different points in the cattle cycle) are pooled together. A second view binning by `coverage_price` directly is also a candidate v2.
+
+## Methodology and downloads
+
+Full methodology: [Methodology → LRP backtest](methodology/lrp-backtest.qmd) — the (indemnity − producer-paid-premium) derivation, the type-code subset rationale, and the caveats above expanded into formal language with worked examples.
+
+Downloads:
+
+**LRP corpus** (long-format, 31 columns, every endorsement 2003-present, ~210k rows):
+[Parquet](../data/processed/lrp_latest.parquet) · [CSV](../data/processed/lrp_latest.csv)
+
+**Manifest** (vintage stamps, SHAs, annual breakdown):
+[lrp_MANIFEST.json](../data/processed/lrp_MANIFEST.json)
+
+The backtest is computed at render time from the corpus parquet — there is no separate "backtest snapshot" file. To reproduce the chart, load `lrp_latest.parquet`, filter to `commodity_code == "0801" & plan_code == "81" & type_code in {"809","810","811","812"}`, and apply the per-cwt advantage formula above.
+
+```{python}
+#| echo: false
+#| label: js-sync
+#| output: asis
+
+import json
+
+window_label_map_for_title = {
+    "all": "all available years",
+    "last_5": "last 5 years",
+    "last_3": "last 3 years",
+    "latest": "latest year",
+}
+
+_js_payload = (
+    '<script>\n'
+    'window.lrpbtAggByFilter = ' + json.dumps(agg_by_filter) + ';\n'
+    'window.lrpbtSampleByFilter = ' + json.dumps(sample_by_filter) + ';\n'
+    'window.lrpbtWindows = ' + json.dumps(list(window_list)) + ';\n'
+    'window.lrpbtWindowLabels = ' + json.dumps(window_label_map_for_title) + ';\n'
+    'window.lrpbtDefault = {"state": ' + json.dumps(DEFAULT_STATE) +
+    ', "window": ' + json.dumps(DEFAULT_WINDOW) + '};\n'
+    '\n'
+    'function lrpbtFmtPct(v) { if (v === null || v === undefined) return "—"; return (v*100).toFixed(1) + "%"; }\n'
+    'function lrpbtFmtAdv(v) { if (v === null || v === undefined) return "—"; var sign = v >= 0 ? "+" : "−"; return "$" + sign + Math.abs(v).toFixed(2) + "/cwt"; }\n'
+    'function lrpbtFmtInt(v) { if (v === null || v === undefined) return "—"; return v.toLocaleString(); }\n'
+    '\n'
+    '(function() {\n'
+    '  function setup() {\n'
+    '    var figs = document.querySelectorAll(".plotly-graph-div");\n'
+    '    if (!figs.length || typeof Plotly === "undefined") {\n'
+    '      return setTimeout(setup, 150);\n'
+    '    }\n'
+    '    var fig = figs[0];\n'
+    '    if (!fig || !fig._fullLayout) { return setTimeout(setup, 150); }\n'
+    '\n'
+    '    var stateSelect = document.getElementById("lrpbt-state-select");\n'
+    '    var yearBtns = document.querySelectorAll("#lrpbt-year-buttons .lrpbt-year-btn");\n'
+    '    var summaryEl = document.getElementById("lrpbt-sample-summary");\n'
+    '\n'
+    '    function setActiveYearButton(winKey) {\n'
+    '      for (var i = 0; i < yearBtns.length; i++) {\n'
+    '        var b = yearBtns[i];\n'
+    '        var active = (b.getAttribute("data-window") === winKey);\n'
+    '        b.style.background = active ? "#4F88C9" : "white";\n'
+    '        b.style.color = active ? "white" : "#222";\n'
+    '        b.style.fontWeight = active ? "600" : "400";\n'
+    '        b.setAttribute("aria-pressed", active ? "true" : "false");\n'
+    '        b.dataset.lrpbtActive = active ? "1" : "0";\n'
+    '      }\n'
+    '    }\n'
+    '\n'
+    '    function readState() {\n'
+    '      var st = (stateSelect && stateSelect.value) ? stateSelect.value : window.lrpbtDefault.state;\n'
+    '      var win = window.lrpbtDefault.window;\n'
+    '      for (var i = 0; i < yearBtns.length; i++) {\n'
+    '        if (yearBtns[i].dataset.lrpbtActive === "1") {\n'
+    '          win = yearBtns[i].getAttribute("data-window") || win;\n'
+    '          break;\n'
+    '        }\n'
+    '      }\n'
+    '      return { state: st, window: win };\n'
+    '    }\n'
+    '\n'
+    '    function applyAll() {\n'
+    '      var current = readState();\n'
+    '      var key = current.state + "::" + current.window;\n'
+    '      var agg = window.lrpbtAggByFilter[key] || {coverage_level_pct: [], mean_advantage_per_cwt: []};\n'
+    '\n'
+    '      // Range-label formatter — mirrors _coverage_range_label in the\n'
+    '      // build-figure Python chunk. Keep these two in sync if either changes.\n'
+    '      function lrpbtCovLabel(c) {\n'
+    '        if (c >= 1.00) return "\\u2265100%";\n'
+    '        return Math.round(c*100) + "\\u2013" + Math.round((c+0.05)*100) + "%";\n'
+    '      }\n'
+    '      var x = (agg.coverage_level_pct || []).map(lrpbtCovLabel);\n'
+    '      var y = agg.mean_advantage_per_cwt || [];\n'
+    '      var colors = y.map(function(v) {\n'
+    '        return (v !== null && v !== undefined && v >= 0) ? "#5FAE6E" : "#C94F4F";\n'
+    '      });\n'
+    '\n'
+    '      var stateLabel = (current.state === "All" ? "National" : current.state);\n'
+    '      var windowLabel = window.lrpbtWindowLabels[current.window] || current.window;\n'
+    '      var titleStr = "LRP advantage by coverage level \\u2014 " + stateLabel + ", " + windowLabel;\n'
+    '\n'
+    '      Plotly.restyle(fig, { "x": [x], "y": [y], "marker.color": [colors] });\n'
+    '      Plotly.relayout(fig, { "title.text": titleStr });\n'
+    '\n'
+    '      // Sample summary panel\n'
+    '      if (summaryEl) {\n'
+    '        var s = window.lrpbtSampleByFilter[key];\n'
+    '        if (s && s.n_endorsements > 0) {\n'
+    '          var yrRange = (s.year_min === s.year_max) ? String(s.year_min) : (s.year_min + "\\u2013" + s.year_max);\n'
+    '          summaryEl.innerHTML = (\n'
+    '            "<b>Sample for current filter:</b> " + lrpbtFmtInt(s.n_endorsements) +\n'
+    '            " endorsements for " + s.state_label + ", reinsurance years " + yrRange + "." +\n'
+    '            " Of these, " + lrpbtFmtInt(s.n_indemnified) + " (" + lrpbtFmtPct(s.indemnified_share) +\n'
+    '            ") received an indemnity. Overall mean advantage across all coverage levels: <b>" +\n'
+    '            lrpbtFmtAdv(s.mean_advantage_per_cwt) + "</b>."\n'
+    '          );\n'
+    '        } else {\n'
+    '          summaryEl.innerHTML = (\n'
+    '            "<b>Sample for current filter:</b> no endorsements found in " +\n'
+    '            (s ? s.state_label : "this slice") + " for the selected year window."\n'
+    '          );\n'
+    '        }\n'
+    '      }\n'
+    '    }\n'
+    '\n'
+    '    // Wire up handlers\n'
+    '    for (var i = 0; i < yearBtns.length; i++) {\n'
+    '      var b = yearBtns[i];\n'
+    '      b.dataset.lrpbtActive = (b.getAttribute("data-window") === window.lrpbtDefault.window) ? "1" : "0";\n'
+    '      b.addEventListener("click", function() {\n'
+    '        for (var j = 0; j < yearBtns.length; j++) { yearBtns[j].dataset.lrpbtActive = "0"; }\n'
+    '        this.dataset.lrpbtActive = "1";\n'
+    '        setActiveYearButton(this.getAttribute("data-window"));\n'
+    '        applyAll();\n'
+    '      });\n'
+    '    }\n'
+    '    if (stateSelect) { stateSelect.addEventListener("change", applyAll); }\n'
+    '\n'
+    '    setActiveYearButton(window.lrpbtDefault.window);\n'
+    '    applyAll();\n'
+    '  }\n'
+    '  if (document.readyState === "loading") {\n'
+    '    document.addEventListener("DOMContentLoaded", setup);\n'
+    '  } else {\n'
+    '    setup();\n'
+    '  }\n'
+    '})();\n'
+    '</script>\n'
+)
+print(_js_payload)
+```
+
+```{python}
+#| echo: false
+#| label: data-source-caption
+
+if data_is_placeholder:
+    print(f"Note — synthetic data shown: {data_source_label}")
+else:
+    print(f"Data source: {data_source_label}")
+```

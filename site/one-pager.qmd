@@ -1,6 +1,12 @@
 ---
 title: "Clovis Auction · This Week"
 subtitle: "Producer reference card · Livestock Marketing Alternatives Explorer"
+# Per-document author override. The site-wide default in _quarto.yml is
+# "Ibrahima Sall" (no title), which is the right call for HTML pages and
+# social cards. The producer reference card is the only artifact a
+# producer physically carries to a banker; credentialing here helps a
+# third-party reader size up the source quickly.
+author: "Ibrahima Sall, Ph.D."
 format:
   typst:
     papersize: us-letter

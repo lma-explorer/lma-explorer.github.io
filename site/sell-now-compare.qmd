@@ -13,6 +13,10 @@ toc-depth: 2
 **Small-sample caveat.** Percentile bands are descriptive and can be unstable when the same-week historical sample is small. Treat any cell with fewer than 5 historical years (`n=` shown in the tooltip and the summary table below) as directional rather than precise. The default *All available years* window has the largest sample; *Last 3 years* has the smallest.
 :::
 
+::: {.callout-tip appearance="simple"}
+**How to read this page (60-second guide).** Below: a two-panel chart with **Steers** above and **Heifers** below. For each weight bin × class on the x-axis you see (1) a gray vertical bar = the historical min-to-max range for the same calendar week of past years, (2) a small horizontal tick on the bar = the historical average, and (3) a colored dot = **this week's actual price**. Dot color: 🟢 = top 25 % of past years, ⚪ = middle 50 %, 🔴 = bottom 25 %. Two button rows above the chart: **Mode** (Nominal vs Real $) and **Comparison window** (All / Last 5 / Last 3). The static summary table further down gives exact dollars in the default view. Terms like *percentile band*, *ISO week*, *n=* are in the [glossary](glossary.qmd).
+:::
+
 ## About this page
 
 The chart shelf's other pages explore patterns across years (price–weight, seasonality, weekly-trends, basis). This page does the opposite — it pins to **this week** and asks: *given how prices have looked in this same calendar week of past years, is this week high, low, or middle?*
