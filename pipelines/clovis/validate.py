@@ -187,7 +187,9 @@ def check_value_sanity(body: Any) -> None:
         if r.get("price_unit") != "Per Cwt":
             continue
         feeder_rows += 1
-        row_bad = False
+        # Per-row issues are appended to the `bad` list; no per-row flag is
+        # tracked because nothing downstream consumes one (the original
+        # `row_bad` counter was removed during a refactor).
         for field in ("avg_price", "avg_price_min", "avg_price_max"):
             v = r.get(field)
             if v in SUPPRESSION_MARKERS:
@@ -196,23 +198,19 @@ def check_value_sanity(body: Any) -> None:
                 fv = float(v)
             except (TypeError, ValueError):
                 bad.append(f"row {i} ({r.get('report_date')}): non-numeric {field}={v!r}")
-                row_bad = True
                 continue
             if not (MIN_PLAUSIBLE_PRICE <= fv <= MAX_PLAUSIBLE_PRICE):
                 bad.append(
                     f"row {i} ({r.get('report_date')}): {field}={fv} outside "
                     f"[{MIN_PLAUSIBLE_PRICE}, {MAX_PLAUSIBLE_PRICE}] $/cwt"
                 )
-                row_bad = True
         hc = r.get("head_count")
         if hc is not None and hc not in SUPPRESSION_MARKERS:
             try:
                 if int(hc) < 0:
                     bad.append(f"row {i}: negative head_count={hc}")
-                    row_bad = True
             except (TypeError, ValueError):
                 bad.append(f"row {i}: non-numeric head_count={hc!r}")
-                row_bad = True
         lo, hi = r.get("weight_break_low"), r.get("weight_break_high")
         if lo is not None and hi is not None:
             try:
@@ -224,8 +222,6 @@ def check_value_sanity(body: Any) -> None:
                     f"row {i}: weight_break span {span} lb outside "
                     f"(0, {MAX_WEIGHT_BREAK_SPAN_LBS}]"
                 )
-                row_bad = True
-        del row_bad  # counter not needed; 'bad' list already tracks cases
 
     for line in bad[:20]:
         print(f"[validate] WARNING: {line}", file=sys.stderr)

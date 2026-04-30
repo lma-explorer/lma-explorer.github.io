@@ -74,7 +74,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import sys
 import zipfile
 from io import TextIOWrapper
 from pathlib import Path

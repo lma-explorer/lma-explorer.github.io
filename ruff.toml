@@ -24,11 +24,18 @@ extend-exclude = [
 # off by default to stay reviewer-friendly.
 select = ["E", "F"]
 
-# Per-rule ignores. E501 (line-length-too-long) is already governed by the
-# line-length setting above, but some markdown-embedded URLs and docstring
-# tables exceed 100 chars by design — leave those alone.
+# Per-rule ignores.
 ignore = [
-    "E501",  # let line-length govern; rare exceedances are intentional
+    "E501",   # let line-length govern; rare exceedances are intentional.
+    # F541 catches `f"text"` (f-string with no placeholders). Frequent
+    # in pipeline `print` statements written before the chart shelf
+    # stabilized — the `f` prefix is leftover from a stage when those
+    # strings interpolated values that have since been moved into
+    # neighbouring lines. Style issue, not a bug. Addressing the ~90
+    # instances is queued as a separate cosmetic sweep; for now we
+    # tolerate them so ruff stays useful for the bug-finding rules
+    # (F401, F811, F841).
+    "F541",
 ]
 
 [lint.per-file-ignores]
