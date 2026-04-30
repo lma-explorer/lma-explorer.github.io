@@ -59,14 +59,8 @@ import numpy as np
 import pandas as pd
 
 from pipelines.lrp.load import (
-    DEFAULT_STATE_ABBR,
     DEFAULT_YEAR_WINDOW,
-    YEAR_WINDOWS,
     _backtest_subset,
-    apply_year_window,
-)
-from pipelines.lrp.parse import (
-    FEEDER_CATTLE_TYPE_CODES_BACKTEST,
 )
 
 

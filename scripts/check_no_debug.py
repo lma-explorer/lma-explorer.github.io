@@ -52,7 +52,6 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Iterable
 
 
 # Pattern definitions. Each tuple is (regex, human-readable description,
