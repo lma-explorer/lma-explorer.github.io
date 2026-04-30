@@ -37,8 +37,6 @@ import pandas as pd
 
 from pipelines.lrp.parse import (
     FEEDER_CATTLE_TYPE_CODES_BACKTEST,
-    FEEDER_CATTLE_COMMODITY_CODE,
-    LRP_PLAN_CODE,
 )
 
 # State-level rollup default lower bound. Pre-2021 RMA reporting was

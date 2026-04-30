@@ -54,7 +54,7 @@ from __future__ import annotations
 
 import re
 import sys
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, asdict
 from datetime import date
 from pathlib import Path
 
