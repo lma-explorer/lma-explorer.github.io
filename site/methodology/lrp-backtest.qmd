@@ -72,6 +72,43 @@ The advantage formula treats every endorsement as an i.i.d. observation. The unc
 
 This is a feature of any historical backtest of an option-like product, not a flaw in the formula. It is also one reason our chart's analysis differs from offered-rate-sheet retrospectives like Boyer & Griffith (2021), which compute averages across all LRP contracts on offer rather than across actual purchases — the latter (our approach) carries selection information from real producer decisions, while the former does not.
 
+## Regime changes within the data window
+
+The data window (RY 2003 onward) spans two regulatory changes that materially affect what "the same coverage level" means or costs across years. The chart's "All available years" view aggregates across both changes silently; readers comparing slices that span these boundaries should know the underlying program was structured differently on either side.
+
+### The 2020 subsidy regime change
+
+The producer-paid share of LRP-Feeder Cattle premium has changed twice within our data window. Per [Boyer & Griffith (2021)](https://www.choicesmagazine.org/choices-magazine/submitted-articles/livestock-risk-protection-payments-for-feeder-cattle-during-covid-19), citing USDA RMA, the subsidy structure has been:
+
+- **2003–2018:** 13% premium subsidy (producer pays 87% of total premium).
+- **2019:** 20% subsidy (producer pays 80%).
+- **2020 onward:** Tiered subsidy by coverage level — 35% for 95–100% coverage, 40% for 90–94.99%, 45% for 85–89.99%, 50% for 80–84.99%, 55% for 70–79.99%. Producer pays 45–65% of total premium depending on coverage choice.
+
+Our pipeline ingests `producer_premium_amount` directly from each endorsement's RMA record, so each row correctly reflects the subsidy regime in effect when it was sold. The data is internally consistent.
+
+**What this pooling does not show** is that pooling 2003–2018 endorsements (low subsidy, high producer cost) with 2025–2026 endorsements (tiered higher subsidy, lower producer cost) mixes producers who faced different premium economics. The same nominal coverage level was substantially more affordable to a 2025 producer than to a 2014 producer; the per-cwt advantage is correspondingly less negative on average in the post-2020 era for any given coverage level.
+
+For analyses that should isolate one subsidy regime, use the **Year window** filter:
+
+- "Latest" (current RY only) is always within a single regime.
+- "Last 3 yrs" and "Last 5 yrs" are within the post-2020 tiered regime as of RY 2024 and beyond.
+- "All available years" pools across all three regimes.
+
+### The 2025 coverage-level menu regime change
+
+The semantics of `coverage_level_pct` (the chart's x-axis variable) changed materially between RY 2024 and RY 2025.
+
+**Pre-2025 (RY 2003 through 2024):** `coverage_level_pct` is a derived ratio — the producer's chosen coverage_price divided by the expected end value at sale. It is continuous. Our corpus contains hundreds of unique values per year in this period; only 0.2–3.3% of pre-2025 endorsements happen to land on what is now the 2026 fixed menu.
+
+**2025 onward:** Per the [2026 LRP Insurance Standards Handbook (FCIC-20010 §22.B.3)](https://www.rma.usda.gov/policy-procedure/crop-underwriting-standards/livestock-risk-protection-handbook-2026), authorized coverage levels are a fixed 12-value menu: 75%, 80%, 85%, 87.5%, 90%, 92.5%, 95%, 96%, 97%, 98%, 99%, and 100%. Empirically, RY 2025–2026 endorsements in our corpus land 100% on this menu (12 unique values total).
+
+The chart's 5-percentage-point range bins (70–75%, 75–80%, …, 95–100%, ≥100%) are the right binning strategy for both regimes. **What this pooling does not show** is the meaning of a given bar:
+
+- A pre-2025 "90–95%" bar pools producers whose chosen coverage_price happened to fall in [0.90, 0.95) of expected end value — a continuous distribution that naturally clusters near round percentages but is not a menu choice.
+- A 2025+ "90–95%" bar pools producers who explicitly elected 90% or 92.5% from the menu — a finite set of identical decisions across the population.
+
+Both are legitimate aggregations of "endorsements where the producer wanted approximately 90–95% coverage," but the underlying decision process is different. Readers comparing pre-2025 and 2025+ slices should know they are comparing two different decision regimes pooled into the same bin label.
+
 ## Sample size and confidence intervals
 
 The chart's per-bin mean is supported by a vertical **95 % confidence interval** error bar and a sample-size label. Both reflect the underlying statistical reliability of the bar.
