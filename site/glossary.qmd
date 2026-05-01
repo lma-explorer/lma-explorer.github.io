@@ -140,7 +140,7 @@ The dollar amount RMA actually pays the producer if the actual ending value fall
 The percentage of endorsements in a given slice that received any indemnity payment. The red line on the [LRP page](lrp.qmd) time-series chart.
 
 ### LRP advantage per cwt (backtest)
-The per-cwt dollar advantage of having bought LRP versus not. Defined as `(indemnity − producer-paid premium) / total weight cwt`. Positive means the indemnity exceeded the premium; negative means the premium exceeded the indemnity. The cash market drops out of the comparison algebraically; see [Methodology → LRP backtest](methodology/lrp-backtest.qmd) for the derivation.
+The per-cwt dollar **net LRP cash flow** from buying LRP versus not. Defined as `(indemnity − producer-paid premium) / total weight cwt`. Positive means the indemnity exceeded the premium; negative means the premium exceeded the indemnity. Under the assumption that the producer's cash sale would have been identical with or without LRP, the cash market drops out of the comparison algebraically; see [Methodology → LRP backtest](methodology/lrp-backtest.qmd) for the derivation and the assumption it requires.
 
 ### Liability
 The maximum dollar amount RMA could pay out under the endorsement, equal to coverage price × total weight × insured share.

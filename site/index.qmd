@@ -171,7 +171,7 @@ The chart shelf above describes weekly Clovis cash auction data and its relation
 ::: {.callout-note appearance="simple" icon="false"}
 **[→ LRP-vs-cash backtest: did LRP pay more than it cost?](lrp-backtest.qmd)**
 
-The companion analytical page. For each LRP endorsement in the corpus, computes the per-cwt advantage of having bought LRP versus not — `(indemnity − producer-paid premium) / total weight cwt`. Aggregates by coverage-level percent so a producer can see *did the 95 % bar pay off historically? what about 80 %?* Filters on State and Year window match the LRP page above. Mathematically clean: the producer's cash market drops out of the LRP-vs-no-LRP delta, which is why no Clovis-specific assumption appears in the chart.
+The companion analytical page. For each LRP endorsement in the corpus, computes the per-cwt **net LRP cash flow** to the producer — `(indemnity − producer-paid premium) / total weight cwt`. Aggregates by coverage-level percent so a producer can see *did the 95 % bar pay off historically? what about 80 %?* Filters on State and Year window match the LRP page above. Algebraically clean: the producer's cash market drops out of the per-cwt difference, *under the assumption that the producer's cash sale would have been identical with or without LRP* — see the [methodology page](methodology/lrp-backtest.qmd) for the assumption it requires.
 :::
 
 ## Producer reference card (PDF)

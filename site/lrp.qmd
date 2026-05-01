@@ -33,7 +33,7 @@ The default state is **Arizona** (this platform's producer-reference state); the
 :::
 
 ::: {.callout-note appearance="simple" icon="false"}
-**Looking for the LRP-vs-cash backtest?** This page describes what the program *looks like*. The companion [LRP backtest page](lrp-backtest.qmd) asks the next-step question: *did LRP, on average, pay more in indemnities than producers paid in premiums — and did the answer depend on the coverage level chosen?* The backtest uses the same corpus and the same filter conventions; it just slices the data differently.
+**Looking for the LRP-vs-cash backtest?** This page describes what the program *looks like*. The companion [LRP backtest page](lrp-backtest.qmd) asks the next-step question: *did LRP's net payout to producers — indemnity received minus producer-paid premium — exceed zero on average, and did the answer depend on the coverage level chosen?* The backtest uses the same corpus and the same filter conventions; it just slices the data differently.
 :::
 
 ```{python}
