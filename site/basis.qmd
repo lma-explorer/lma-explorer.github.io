@@ -891,12 +891,12 @@ A producer who hedges 700-lb feeders, or who reads futures as a forward-price re
 
 **Basis snapshot** (long-format: one row per `auction_date × class × frame × muscle_grade × weight_break × contract_month`. Only the derived `basis` is committed; the underlying CME `settle` column is computed in memory and not persisted — see [data licensing](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/LICENSE-DATA.md)):
 
-[Parquet](../data/processed/clovis_basis_latest.parquet) · [CSV](../data/processed/clovis_basis_latest.csv) · [XLSX](../data/processed/clovis_basis_latest.xlsx)
+[Parquet](../data/processed/clovis_basis_latest.parquet) · [CSV](../data/processed/clovis_basis_latest.csv)
 
 **Manifest** (vintage stamps and SHAs for each derived basis snapshot):
 [clovis_basis_MANIFEST.json](../data/processed/clovis_basis_MANIFEST.json)
 
-Parquet is the canonical format and the smallest on disk. CSV opens in any text editor or spreadsheet app. XLSX opens directly in Excel/Numbers/LibreOffice. See the [data catalog](data.qmd) for the full inventory and per-file row counts.
+Parquet is the canonical format and the smallest on disk. CSV opens in any text editor or spreadsheet app. See the [data catalog](data.qmd) for the full inventory and per-file row counts.
 
 The platform does not redistribute raw CME GF settle data. Producers wanting raw settles must source them directly from CME DataMine.
 

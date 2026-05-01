@@ -131,7 +131,7 @@ The dollar amount the producer actually pays for the endorsement, *after* the fe
 The gross premium for the endorsement, before any subsidy. By design, `total_premium = subsidy + producer_premium`.
 
 ### Subsidy
-The federal-government share of the total premium, paid by RMA on behalf of the producer. The 2018 Farm Bill increased subsidy rates substantially, which is visible as the volume jump in 2021 on the LRP time-series chart.
+The federal-government share of the total premium, paid by RMA on behalf of the producer. The structure has changed twice within the LRP-Feeder Cattle data window: 13 % 2003–2018, 20 % in 2019, and a tiered 35–55 % (by coverage level) from 2020 onward. The 2019 increase corresponds with the volume jump in 2021 on the LRP time-series chart. See [Methodology → LRP backtest](methodology/lrp-backtest.qmd#regime-changes-within-the-data-window) for the regime-change discussion.
 
 ### Indemnity
 The dollar amount RMA actually pays the producer if the actual ending value falls below the coverage price. Zero if the price held above coverage.
@@ -141,6 +141,9 @@ The percentage of endorsements in a given slice that received any indemnity paym
 
 ### LRP advantage per cwt (backtest)
 The per-cwt dollar **net LRP cash flow** from buying LRP versus not. Defined as `(indemnity − producer-paid premium) / total weight cwt`. Positive means the indemnity exceeded the premium; negative means the premium exceeded the indemnity. Under the assumption that the producer's cash sale would have been identical with or without LRP, the cash market drops out of the comparison algebraically; see [Methodology → LRP backtest](methodology/lrp-backtest.qmd) for the derivation and the assumption it requires.
+
+### Net LRP cash flow (or "net LRP payment", "net payout")
+The precise label for what the LRP backtest computes per endorsement: indemnity received from RMA minus producer-paid premium, normalized per cwt of insured weight. Same quantity as **LRP advantage per cwt** above; "advantage" is the producer-friendly chart label, "net cash flow" / "net payout" is the academically standard term used in the LRP retrospective literature ([Burdine & Halich, 2014](https://www.jstor.org/stable/10.2307/jasfmra.2014.160); [Boyer & Griffith, 2021](https://www.choicesmagazine.org/choices-magazine/submitted-articles/livestock-risk-protection-payments-for-feeder-cattle-during-covid-19)).
 
 ### Liability
 The maximum dollar amount RMA could pay out under the endorsement, equal to coverage price × total weight × insured share.
