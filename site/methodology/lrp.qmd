@@ -12,7 +12,7 @@ The [LRP page](../lrp.qmd) summarizes USDA Risk Management Agency's [Livestock R
 1. **Annual scale** — total producer-paid premium and indemnity received, plus the indemnity rate (share of endorsements receiving any indemnity), per reinsurance year, 2003 through the current year.
 2. **Geographic concentration** — total producer-paid premium summed by state, reinsurance years 2021 through current.
 
-The page is descriptive: it shows what LRP looks like, not whether to buy it. A backtest comparing LRP outcomes to selling at cash auction is a candidate v2 feature but is not built.
+The page is descriptive: it shows what LRP looks like, not whether to buy it. The companion [LRP backtest page](../lrp-backtest.qmd) asks the next question — did LRP, on average, pay more than it cost? — with its own [methodology page](lrp-backtest.qmd).
 
 ## Where the data comes from
 
@@ -88,7 +88,7 @@ The 2021+ surge tracks the [2018 Farm Bill](https://www.fsa.usda.gov/programs-an
 
 ## What is deliberately left out
 
-- **No comparison to cash auction.** The chart shelf's other pages describe Clovis cash directly (price-weight, seasonality, weekly-trends) or compare it to CME GF feeder futures (basis). A backtest that would say *"would a producer have done better holding LRP than selling at cash on the same week"* requires careful design choices (type-code → Clovis weight-bin mapping, end-date → Clovis week alignment, NM-only vs broader regional scope) that benefit from collaborator review before being baked into a public chart. See *Future work* below.
+- **No direct comparison to a specific cash market.** The companion [LRP-vs-cash backtest page](../lrp-backtest.qmd) takes the cash-cancels-out approach: under the assumption that the producer's cash sale would have been identical with or without LRP, the LRP-vs-no-LRP delta simplifies to (indemnity − producer-paid premium) per cwt and no specific cash market enters the formula. A *strict* cash-join analysis — explicitly comparing LRP outcomes to selling at the Clovis auction in the same week, without the cash-cancels-out assumption — would require additional design choices (type-code → Clovis weight-bin mapping, end-date → Clovis week alignment, NM-only vs broader regional scope) and remains a candidate v2 enhancement; see *Future work* below.
 - **No producer-side decision tool.** The platform's [sell-now compare page](../sell-now-compare.qmd) is the closest analog — a "is this a good time to act?" framing. An LRP-specific decision tool (*"is now a good time to buy LRP?"*) would require modeling RMA's coverage-price-setting mechanism, which itself derives from CME futures. That's a Phase 2 candidate, not a Phase 1 deliverable.
 - **No subsidy-rate-vs-cycle analysis.** The Farm Bill's premium-subsidy schedule changed over time and is observable in the data (`subsidy_amount` divided by `total_premium_amount`). A page showing how subsidy rates moved with the cattle cycle would be informative; it's a candidate v2 addition.
 - **No county-level choropleth.** RMA reports at county granularity (`county_fips`, `county_name`) but Plotly's bundled US-state geometry doesn't extend to counties without an external topojson. A county-level map is a candidate v2 feature.
@@ -97,7 +97,7 @@ The 2021+ surge tracks the [2018 Farm Bill](https://www.fsa.usda.gov/programs-an
 
 Tracked as candidate v2 items:
 
-- **`v2.lrp-clovis-backtest`** — Compare LRP outcomes to selling at cash on the end-date week. Requires (a) NM-or-broader scope decision, (b) type-code → Clovis weight-bin mapping, (c) end-date → Clovis week alignment rule. Benefits from co-author / Extension review of the design choices before implementation.
+- **`v2.lrp-clovis-strict-cashjoin`** — A strict-cash-join companion to the live [LRP backtest](../lrp-backtest.qmd), comparing LRP outcomes to selling at the Clovis auction without the cash-cancels-out assumption. Requires (a) NM-or-broader scope decision, (b) type-code → Clovis weight-bin mapping, (c) end-date → Clovis week alignment rule. Benefits from co-author / Extension review of the design choices before implementation.
 - **`v2.lrp-county-choropleth`** — County-level granularity using a topojson layer. Adds non-trivial CI weight; defer until state-level is well-received.
 - **`v2.lrp-subsidy-trajectory`** — Time-series of subsidy share of total premium, to make the 2018 Farm Bill change visible directly.
 

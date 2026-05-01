@@ -14,9 +14,9 @@ A Sall & Tronstad extension article analyzing the same dataset is in preparation
 
 ## What's currently in development
 
-The [USDA RMA Livestock Risk Protection (LRP) explorer](lrp.qmd) is now live — a filterable explorer for ~210k feeder-cattle LRP endorsements (2003-present), defaulting to Arizona with state and year-window filters. County-level drill-down is a planned v2 enhancement.
+The [USDA RMA Livestock Risk Protection (LRP) explorer](lrp.qmd) is now live — a filterable explorer for ~210k feeder-cattle LRP endorsements (2003-present), defaulting to Arizona with state and year-window filters. Its companion [LRP-vs-cash backtest](lrp-backtest.qmd) is also live: it shows the average per-cwt net advantage (indemnity minus producer-paid premium) by coverage-level range, with 95 % confidence intervals and per-bin sample sizes. County-level drill-down for the LRP explorer is a planned v2 enhancement.
 
-Currently in development: an **LRP-vs-cash backtest** comparing realized LRP outcomes to selling at the Clovis cash auction over matched windows; **methodology-style explainer pages** for marketing alternatives that are described in the research literature but not yet built into the platform; and **additional regional auction integrations** (Willcox AZ, Utah feeders) so producers outside the four-corners region have closer benchmarks.
+Currently in development: **methodology-style explainer pages** for marketing alternatives that are described in the research literature but not yet built into the platform; and **additional regional auction integrations** (Willcox AZ, Utah feeders) so producers outside the four-corners region have closer benchmarks.
 
 ## Who maintains it
 
