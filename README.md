@@ -1,8 +1,6 @@
 # Livestock Marketing Alternatives Explorer
 
-An interactive, continuously-updated explorer of public-domain weekly feeder-cattle price data for the four-corners region (AZ, NM, UT, CO). This repository is the code, data pipelines, and published website (`https://lma-explorer.github.io/`) for the platform.
-
-A Sall & Tronstad extension article analyzing the same dataset is in preparation. The platform develops its own methodology and is not bound to any particular published comparison; see [`site/methodology/`](site/methodology/) for design rationales.
+An interactive, continuously-updated explorer of public-domain weekly feeder-cattle price data for the four-corners region (AZ, NM, UT, CO). This repository is the code, data pipelines, and published website (`https://lma-explorer.github.io/`) for the platform. The platform develops its own methodology; see [`site/methodology/`](site/methodology/) for design rationales.
 
 **Status**: active prototype. Live chart pages: price–weight, weekly seasonality, weekly trends, basis, sell-now compare (Clovis, NM feeder-cattle auction), and **LRP** (USDA RMA Summary of Business, all states, AZ default). Live data feeds: USDA-AMS Clovis (sale-week), BLS CPI-U (monthly), USDA RMA (annual). Additional regional auctions (Willcox AZ, Utah feeders) are roadmap items.
 

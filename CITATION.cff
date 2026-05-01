@@ -15,10 +15,9 @@ abstract: >-
   Ingests public-domain USDA-AMS Market News, BLS CPI, and
   USDA RMA Livestock Risk Protection on a scheduled refresh
   and publishes producer-facing figures, methodology, and
-  versioned data snapshots. A Sall & Tronstad extension
-  article analyzing the same dataset is in preparation as
-  related work; the platform's design choices are documented
-  and stand on their own merits.
+  versioned data snapshots. The platform's design choices
+  are documented under site/methodology/ and stand on their
+  own merits.
 keywords:
   - livestock marketing
   - feeder cattle
