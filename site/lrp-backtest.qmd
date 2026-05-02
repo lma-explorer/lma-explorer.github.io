@@ -24,7 +24,7 @@ $$\text{LRP advantage} = (\text{cash} + \text{indemnity} - \text{premium}) - (\t
 So we can answer the question without ever joining LRP to a specific cash market — every endorsement carries its own indemnity and premium amounts, and the per-cwt advantage is computed directly. The two filters above the chart (State dropdown defaulting to **Arizona**; Year window defaulting to **All available years**) slice the corpus to the population the reader cares about.
 
 ::: {.callout-tip appearance="simple"}
-**How to read this page (60-second guide).** Below you'll find a bar chart with one bar per 5-percentage-point coverage-level range (70–75 %, 75–80 %, …, 95–100 %, plus ≥100 % for the maximum-coverage choice available since 2025), showing the **mean LRP advantage in $/cwt** across all endorsements at that coverage range. **Above zero = LRP paid more than it cost on average. Below zero = LRP cost more than it paid on average.** Each bar carries a vertical **95 % confidence interval** error bar — when the error bar crosses the zero line, the bar is not statistically distinguishable from break-even. Above each bar, a small **n = X** label shows how many endorsements that bar's mean is built from. **Bars with fewer than 30 endorsements are suppressed** (not displayed) because per-bin means become unreliable below that sample size; a note below the chart counts the suppressed bins for the current filter. The two filters at the top let you slice by state and year window.
+**How to read this page (60-second guide).** Below you'll find a bar chart with one bar per 5-percentage-point coverage-level range (70–75 %, 75–80 %, …, 95–100 %, plus a **100 %** bar for the maximum-coverage choice available since 2025), showing the **mean LRP advantage in $/cwt** across all endorsements at that coverage range. **Above zero = LRP paid more than it cost on average. Below zero = LRP cost more than it paid on average.** Each bar carries a vertical **95 % confidence interval** error bar — when the error bar crosses the zero line, the bar is not statistically distinguishable from break-even. Above each bar, a small **n = X** label shows how many endorsements that bar's mean is built from. **Bars with fewer than 30 endorsements are suppressed** (not displayed) because per-bin means become unreliable below that sample size; a note below the chart counts the suppressed bins for the current filter. The two filters at the top let you slice by state and year window.
 :::
 
 ```{python}
@@ -33,9 +33,7 @@ So we can answer the question without ever joining LRP to a specific cash market
 
 from pathlib import Path
 import sys
-import math
 
-import numpy as np
 import pandas as pd
 
 PROCESSED = Path("..") / "data" / "processed"
@@ -48,43 +46,19 @@ from pipelines.lrp.backtest import (  # noqa: E402
     aggregate_by_coverage, sample_summary,
 )
 
-data_is_placeholder = False
-data_source_label = None
-
+# This page is producer-facing. We do NOT silently fall back to synthetic
+# data — a fabricated chart that looks real would be worse than a build
+# failure. If the live LRP corpus is missing, fail loudly so the page
+# is never rendered with stand-in numbers.
 _loaded = load_corpus(PROCESSED)
-if _loaded is not None:
-    df = _loaded.df
-    data_source_label = _loaded.data_source_label
-else:
-    # Synthetic stand-in. Reuses the LRP page's stand-in shape.
-    rng = np.random.default_rng(seed=2026)
-    rows = []
-    states_demo = ["AZ", "TX", "NE", "KS", "OK", "SD"]
-    years = list(range(2018, 2027))
-    for y in years:
-        for s in states_demo:
-            for tc in ["809", "810", "811", "812"]:
-                for cov in [0.70, 0.80, 0.90, 0.95]:
-                    n = int(rng.integers(20, 100))
-                    weight = n * 7
-                    premium = n * float(rng.integers(800, 4000))
-                    # Make indemnity-vs-premium track plausible cycle behavior
-                    indemn = premium * float(rng.uniform(0.0, 1.6))
-                    rows.append({
-                        "reinsurance_year": y,
-                        "state_abbr": s,
-                        "type_code": tc,
-                        "commodity_code": "0801",
-                        "plan_code": "81",
-                        "coverage_level_pct": cov,
-                        "total_weight_cwt": float(weight),
-                        "n_head": n,
-                        "producer_premium_amount": premium,
-                        "indemnity_amount": indemn,
-                    })
-    df = pd.DataFrame(rows)
-    data_is_placeholder = True
-    data_source_label = "synthetic stand-in (no live data available)"
+if _loaded is None:
+    raise FileNotFoundError(
+        f"LRP backtest page requires the live RMA corpus at {PROCESSED.resolve()} "
+        "(expected lrp_endorsements_*.parquet). Run `python -m pipelines.lrp.snapshot` "
+        "to refresh the corpus before rendering this page."
+    )
+df = _loaded.df
+data_source_label = _loaded.data_source_label
 ```
 
 ```{python}
@@ -191,7 +165,7 @@ print('<p style="color: #666; font-size: 0.85em; margin: 0.2em 0 0.8em 0.2em;">D
 #| echo: false
 #| label: build-figure
 #| fig-cap: ""
-#| fig-alt: "LRP-vs-cash backtest bar chart for the selected state and year window. Bar per coverage-level range on the x-axis, mean LRP advantage in $/cwt on the y-axis. Above-zero bars (green) mean LRP paid out more than it cost on average; below-zero bars (red) mean LRP cost more than it paid. A horizontal zero line marks the break-even point. Each bar carries a vertical 95% confidence interval error bar showing the statistical uncertainty in its mean, and a sample-size label of the form 'n=X' above the bar showing how many endorsements that mean is built on. Coverage-level bins where fewer than 30 endorsements are available in the slice are suppressed (not displayed) because per-bin means become unreliable below that sample-size threshold; a note below the chart reports the suppressed-bin count for the current filter. State dropdown and Year-window button row above the chart drive the filter."
+#| fig-alt: "LRP-vs-cash backtest bar chart for the selected state and year window. Bar per coverage-level range on the x-axis (70-75%, 75-80%, 80-85%, 85-90%, 90-95%, 95-100%, and 100%, the maximum-coverage choice available since 2025), mean LRP advantage in $/cwt on the y-axis. Above-zero bars (green) mean LRP paid out more than it cost on average; below-zero bars (red) mean LRP cost more than it paid. A horizontal zero line marks the break-even point. Each bar carries a vertical 95% confidence interval error bar showing the statistical uncertainty in its mean, and a sample-size label of the form 'n=X' above the bar showing how many endorsements that mean is built on. Coverage-level bins where fewer than 30 endorsements are available in the slice are suppressed (not displayed) because per-bin means become unreliable below that sample-size threshold; a note below the chart reports the suppressed-bin count for the current filter. State dropdown and Year-window button row above the chart drive the filter."
 
 import plotly.graph_objects as go
 
@@ -199,11 +173,20 @@ import plotly.graph_objects as go
 _default_key = f"{DEFAULT_STATE}::{DEFAULT_WINDOW}"
 def _coverage_range_label(low: float) -> str:
     """Format a bin's lower-edge as a human-readable range label.
-    0.70 → '70-75%'; 0.95 → '95-100%'; 1.00 → '≥100%'.
+    0.70 → '70-75%'; 0.95 → '95-100%'; 1.00 → '100%'.
     Mirrored in JS in the js-sync chunk; keep the two implementations
-    in sync if one changes."""
+    in sync if one changes.
+
+    The 1.00 bin's underlying pd.cut edge is ``[1.00, ∞)`` for forward-
+    compatibility, but the corpus has zero endorsements with
+    coverage_level_pct > 1.0 (per the LRP-Feeder Cattle handbook
+    FCIC-20010 §22.B.3, the 2025+ menu caps coverage at 100 %, and
+    pre-2025 derived ratios never exceeded 1.0). So the label is
+    written as '100%' rather than '≥100%' to match what is actually
+    in the data; if RMA ever raises the cap, the bin still catches
+    over-100 % values and we'll need to update the label."""
     if low >= 1.00:
-        return "≥100%"
+        return "100%"
     return f"{int(round(low * 100))}–{int(round((low + 0.05) * 100))}%"
 
 
@@ -476,7 +459,7 @@ _js_payload = (
     '      // Range-label formatter — mirrors _coverage_range_label in the\n'
     '      // build-figure Python chunk. Keep these two in sync if either changes.\n'
     '      function lrpbtCovLabel(c) {\n'
-    '        if (c >= 1.00) return "\\u2265100%";\n'
+    '        if (c >= 1.00) return "100%";\n'
     '        return Math.round(c*100) + "\\u2013" + Math.round((c+0.05)*100) + "%";\n'
     '      }\n'
     '\n'
@@ -585,8 +568,8 @@ print(_js_payload)
 #| echo: false
 #| label: data-source-caption
 
-if data_is_placeholder:
-    print(f"Note — synthetic data shown: {data_source_label}")
-else:
-    print(f"Data source: {data_source_label}")
+# data_source_label is guaranteed real-data here — the synthetic-data
+# fallback was removed so the page fails to build rather than display
+# stand-in numbers.
+print(f"Data source: {data_source_label}")
 ```

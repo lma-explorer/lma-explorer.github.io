@@ -102,7 +102,7 @@ The semantics of `coverage_level_pct` (the chart's x-axis variable) changed mate
 
 **2025 onward:** Per the [2026 LRP Insurance Standards Handbook (FCIC-20010 §22.B.3)](https://www.rma.usda.gov/policy-procedure/crop-underwriting-standards/livestock-risk-protection-handbook-2026), authorized coverage levels are a fixed 12-value menu: 75%, 80%, 85%, 87.5%, 90%, 92.5%, 95%, 96%, 97%, 98%, 99%, and 100%. Empirically, RY 2025–2026 endorsements in our corpus land 100% on this menu (12 unique values total).
 
-The chart's 5-percentage-point range bins (70–75%, 75–80%, …, 95–100%, ≥100%) are the right binning strategy for both regimes. **What this pooling does not show** is the meaning of a given bar:
+The chart's 5-percentage-point range bins (70–75%, 75–80%, …, 95–100%, plus a 100% bar for the maximum-coverage choice available since 2025) are the right binning strategy for both regimes. **What this pooling does not show** is the meaning of a given bar:
 
 - A pre-2025 "90–95%" bar pools producers whose chosen coverage_price happened to fall in [0.90, 0.95) of expected end value — a continuous distribution that naturally clusters near round percentages but is not a menu choice.
 - A 2025+ "90–95%" bar pools producers who explicitly elected 90% or 92.5% from the menu — a finite set of identical decisions across the population.
