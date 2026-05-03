@@ -39,9 +39,15 @@ from pipelines.lrp.parse import (
     FEEDER_CATTLE_TYPE_CODES_BACKTEST,
 )
 
-# State-level rollup default lower bound. Pre-2021 RMA reporting was
-# mostly national-aggregate (state_abbr == "XX"); the choropleth therefore
-# defaults to 2021+. See pipelines/lrp/README.md "Schema-evolution findings"
+# State-level rollup default lower bound. Pre-2021 LRP-Feeder Cattle
+# participation in our corpus is sparse — the bulk of volume started after
+# the 2020 subsidy expansion. The choropleth therefore defaults to 2021+.
+# (Note on ``XX``: RMA continues to emit ``state_abbr == "XX"`` /
+# ``county_name == "All Other Counties"`` rows in every reinsurance year,
+# including the most recent — see ``pipelines/lrp/README.md``.
+# These rows are excluded from the choropleth because a state map can't
+# render unattributed observations, NOT because they are pre-2021 schema
+# artifacts.) See ``pipelines/lrp/README.md`` "Schema-evolution findings"
 # and the project_lrp_schema_evolution.md memory note.
 CHOROPLETH_DEFAULT_MIN_YEAR = 2021
 
@@ -144,9 +150,13 @@ def apply_year_window(df: pd.DataFrame, window: str) -> pd.DataFrame:
 def available_states(df: pd.DataFrame) -> list[str]:
     """Return the list of state abbreviations present in the corpus, sorted.
     ``DEFAULT_STATE_ABBR`` (Arizona) is moved to the front when present;
-    ``XX`` (national-aggregate placeholder) is excluded. The dropdown also
-    presents an ``All`` option above this list — that's a chart-page
-    concern, not a loader concern, so it isn't returned here.
+    ``XX`` is excluded from this dropdown — it is RMA's "All Other Counties"
+    sentinel for endorsements that RMA does not attribute to a specific
+    state/county, not a real state choice. The dropdown also presents an
+    ``All`` option above this list (a chart-page concern, not a loader
+    concern, so it isn't returned here); that ``All`` aggregate INCLUDES
+    XX rows for chart contexts that don't render a state map. See
+    :func:`_backtest_subset` and the methodology page for the XX policy.
     """
     seen = set(df["state_abbr"].dropna().unique().tolist())
     seen.discard("XX")
@@ -176,8 +186,17 @@ def _backtest_subset(
 ) -> pd.DataFrame:
     """Apply the chart-page's standard filter: backtest type-code subset
     (809-812: Steers/Heifers Weight 1+2), optional state filter, year-window
-    filter, and the ``XX`` exclusion that defaults on for charts that render
-    on a state map.
+    filter, and the optional ``XX`` exclusion.
+
+    XX-row policy: when ``state_abbr`` is ``None`` or ``"All"`` and
+    ``include_xx`` is ``False``, RMA's "All Other Counties" sentinel rows
+    (``state_abbr == "XX"``) are excluded — appropriate for a state-level
+    choropleth or county drill-down, which can't render unattributed rows.
+    Backtest aggregations that don't render a state map should pass
+    ``include_xx=True`` so the National total reflects all real LRP
+    volume, not just the state-attributable share. The descriptive
+    explorer's ``yearly_summary`` and ``summary_metrics`` follow the
+    include-XX policy directly without going through this helper.
     """
     sub = df[df["type_code"].isin(FEEDER_CATTLE_TYPE_CODES_BACKTEST)]
     sub = apply_year_window(sub, year_window)
@@ -203,14 +222,16 @@ def yearly_summary(
 
     Returns one row per reinsurance year, with columns covering all four
     LRP information groups and the four derived ratios. If ``state_abbr``
-    is None, the rollup is national-aggregate (XX excluded — see below);
-    if a state code is given, the rollup is state-specific. ``"All"`` is
-    treated as the national-aggregate request.
+    is None or ``"All"``, the rollup is the National total (XX INCLUDED —
+    see XX-row policy below); if a state code is given, the rollup is
+    state-specific.
 
-    XX-row policy: when ``state_abbr is None``, XX (RMA's national-only
-    aggregate placeholder) is INCLUDED in the year totals — these rows
-    represent real LRP volume reported without state attribution. This is
-    different from the choropleth's exclusion (the map can't render XX).
+    XX-row policy: when ``state_abbr`` is ``None`` or ``"All"``, XX
+    ("All Other Counties") rows are INCLUDED in the year totals — these
+    rows represent real LRP volume that RMA reports without state
+    attribution, and excluding them undercounts the National headline by
+    ~16% of the corpus. This is different from the choropleth's exclusion
+    (a state map can't render unattributed rows).
 
     Returns columns:
         reinsurance_year                   : int
@@ -430,15 +451,17 @@ def summary_metrics(
 
     Used by the chart page's at-a-glance metrics block. If ``year`` is
     None, defaults to the most recent year in the corpus's backtest subset.
-    If ``state_abbr`` is None, returns national-aggregate (XX excluded).
 
-    Returns a dict with keys covering all four groups and the derived ratios.
+    XX-row policy: when ``state_abbr`` is ``None`` or ``"All"``, XX
+    ("All Other Counties") rows are INCLUDED in the National total to
+    match :func:`yearly_summary`. These rows are real LRP volume that
+    RMA reports without state attribution; excluding them undercounts
+    National headline numbers by ~16% of the corpus. Per-state filters
+    naturally exclude them.
     """
     sub = df[df["type_code"].isin(FEEDER_CATTLE_TYPE_CODES_BACKTEST)]
     if state_abbr is not None and state_abbr != "All":
         sub = sub[sub["state_abbr"] == state_abbr]
-    else:
-        sub = sub[sub["state_abbr"] != "XX"]
     if year is None:
         years = sub["reinsurance_year"].dropna()
         year = int(years.max()) if not years.empty else 0

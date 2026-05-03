@@ -311,6 +311,77 @@ def test_aggregate_by_coverage_does_not_suppress_when_n_at_or_above_threshold() 
     )
 
 
+# ---------------------------------------------------------------------------
+# XX-row policy (V7.B-precondition — Path A)
+# ---------------------------------------------------------------------------
+
+
+def test_national_aggregate_includes_xx_rows() -> None:
+    """V7.B-precondition: backtest's National (state_abbr=None or "All")
+    aggregate INCLUDES XX endorsements ("All Other Counties" sentinel).
+
+    These rows are real LRP volume that RMA does not attribute to a
+    specific state; the backtest is per-cwt only and never renders a
+    state map, so they are admissible. Excluding them silently
+    undercount the National headline by ~16% of the corpus. See
+    site/methodology/lrp-backtest.qmd for the disclosure.
+    """
+    rows = [
+        # 30 AZ rows so the bin is unsuppressed
+        *[
+            {"state_abbr": "AZ", "reinsurance_year": 2024, "type_code": "810",
+             "coverage_level_pct": 0.95, "total_weight_cwt": 100.0,
+             "producer_premium_amount": 1500, "indemnity_amount": 2000,
+             "n_head": 100, "commodity_code": "0801", "plan_code": "81"}
+            for _ in range(30)
+        ],
+        # 30 XX rows in the same bin, with a distinctly different advantage
+        # so excluding them would visibly change the National mean.
+        *[
+            {"state_abbr": "XX", "reinsurance_year": 2024, "type_code": "810",
+             "coverage_level_pct": 0.95, "total_weight_cwt": 100.0,
+             "producer_premium_amount": 1500, "indemnity_amount": 0,
+             "n_head": 100, "commodity_code": "0801", "plan_code": "81"}
+            for _ in range(30)
+        ],
+    ]
+    df = pd.DataFrame(rows)
+
+    # National aggregate must include both AZ and XX rows: n_endorsements = 60
+    national = aggregate_by_coverage(df, state_abbr=None, year_window="all")
+    nat_95 = national[national["coverage_level_pct"] == 0.95].iloc[0]
+    assert nat_95["n_endorsements"] == 60, (
+        f"National aggregate dropped XX rows: got n={nat_95['n_endorsements']}, "
+        f"expected 60 (30 AZ + 30 XX)."
+    )
+
+    # And "All" should produce the same result as None
+    national_all = aggregate_by_coverage(df, state_abbr="All", year_window="all")
+    nat_all_95 = national_all[national_all["coverage_level_pct"] == 0.95].iloc[0]
+    assert nat_all_95["n_endorsements"] == 60
+
+
+def test_per_state_filter_still_excludes_xx_rows() -> None:
+    """Per-state filters (state_abbr='AZ', etc.) must NOT include XX rows
+    — we don't know which state to put them in."""
+    rows = [
+        {"state_abbr": "AZ", "reinsurance_year": 2024, "type_code": "810",
+         "coverage_level_pct": 0.95, "total_weight_cwt": 100.0,
+         "producer_premium_amount": 1500, "indemnity_amount": 2000,
+         "n_head": 100, "commodity_code": "0801", "plan_code": "81"},
+        {"state_abbr": "XX", "reinsurance_year": 2024, "type_code": "810",
+         "coverage_level_pct": 0.95, "total_weight_cwt": 100.0,
+         "producer_premium_amount": 1500, "indemnity_amount": 0,
+         "n_head": 100, "commodity_code": "0801", "plan_code": "81"},
+    ]
+    df = pd.DataFrame(rows)
+
+    az = aggregate_by_coverage(df, state_abbr="AZ", year_window="all")
+    az_95 = az[az["coverage_level_pct"] == 0.95].iloc[0]
+    # Only the 1 AZ row should appear, not the XX row
+    assert az_95["n_endorsements"] == 1
+
+
 def test_aggregate_by_coverage_ci_brackets_the_mean() -> None:
     """For any bin with n >= 2, the 95% CI must bracket the mean.
     For bins with n < 2 the CI may be NaN (sem undefined)."""

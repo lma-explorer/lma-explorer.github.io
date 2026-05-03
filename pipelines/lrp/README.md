@@ -97,7 +97,7 @@ These are empirical findings from parsing every year. Captured here so 4.LRP-c (
 
 The 2021+ surge tracks the [2018 Farm Bill](https://www.usda.gov/media/blog/2019/02/26/2018-farm-bill-and-livestock-risk-protection-program) increase to LRP premium subsidies, which made the program substantially more attractive to producers. Any 4.LRP-c historical backtest spanning 2003-2020 will be data-thin; the heaviest, most decision-relevant data is 2021+.
 
-**State-level granularity began in 2004 but stayed sparse until 2021.** State counts and `XX` (national-aggregate) counts:
+**State-level granularity began in 2004 but stayed sparse until 2021.** State counts and `XX` ("All Other Counties") counts:
 
 | Year | Unique states (excl. XX) | Rows in `XX` |
 |---|---|---|
@@ -110,7 +110,9 @@ The 2021+ surge tracks the [2018 Farm Bill](https://www.usda.gov/media/blog/2019
 | 2024 | 37 | 10,252 |
 | 2026 | 39 | 11,488 |
 
-For 4.LRP-d's state-level choropleth, the practical data window is **2021+**. Earlier years are mostly `XX`, which doesn't render usefully on a state-level map.
+**On `XX` / `state_fips=99` / `county_fips=999` / `county_name="All Other Counties"`.** RMA emits this sentinel four-tuple in 16.22% of the LRP-Feeder Cattle SOB corpus (34,129 of 210,375 rows in our 2003–2026 backfill). The sentinel is present in every reinsurance year, including the most recent — it is **not** a pre-2021 schema-evolution artifact. Empirically, the `XX` rows are distinct from per-state observations (~10–12% the volume of per-state, not duplicate aggregates) and have smaller mean per-endorsement characteristics. RMA's published SOB record layout (as of 2021-06-24) does not define the sentinel, and the M13 Handbook P99E FIPS State Code Exhibit lists codes 01–78 only. The most plausible interpretation, by analogy to USDA NASS's documented Combined-Counties practice, is that RMA aggregates endorsements that cannot be attributed to a specific state/county under federal non-disclosure rules — but we cannot confirm this from RMA-authored documentation. Pipeline policy: include `XX` in National aggregates (`yearly_summary`, `summary_metrics`, backtest's `aggregate_by_coverage` when state is `None`/`"All"`); exclude from per-state filters and from the choropleth/county drill-down (which can't render unattributed rows).
+
+For 4.LRP-d's state-level choropleth, the practical data window is **2021+** because pre-2021 LRP-Feeder Cattle participation across all states is sparse (the 2020 subsidy expansion is the load-bearing volume driver, not state-coding maturation).
 
 **NM (Clovis state) data window.** NM rows by year:
 

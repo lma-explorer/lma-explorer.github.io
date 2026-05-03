@@ -143,8 +143,22 @@ def backtest_subset(
     (Steers Weight 1+2 and Heifers Weight 1+2 — the four conventional
     feeder type codes the descriptive LRP explorer also uses), with
     ``lrp_advantage_per_cwt`` populated.
+
+    XX-row policy: when ``state_abbr`` is ``None`` or ``"All"``, RMA's
+    ``XX`` ("All Other Counties") rows are INCLUDED in the National
+    aggregate. The backtest's per-cwt advantage statistic does not
+    require state attribution, so XX endorsements are admissible — they
+    represent real LRP volume that RMA chose not to attribute to a
+    specific state/county. (Per-state filters exclude XX by necessity:
+    we don't know which state to put them in.) The descriptive LRP
+    explorer's ``yearly_summary`` follows the same policy; the state
+    choropleth and county drill-down necessarily exclude XX because a
+    state map can't render unattributed rows. See the methodology page
+    for the empirical evidence and the RMA-documentation gap.
     """
-    sub = _backtest_subset(df, state_abbr=state_abbr, year_window=year_window)
+    sub = _backtest_subset(
+        df, state_abbr=state_abbr, year_window=year_window, include_xx=True
+    )
     return compute_advantage(sub)
 
 

@@ -154,11 +154,23 @@ Excluded: Brahman (813/814), Dairy (815/816), Unborn variants (817/818/819), and
 
 ## State and year-window filters
 
-State filtering is applied directly on `state_abbr`. The chart's "All" option aggregates all states (excluding the `XX` national-aggregate placeholder; see the LRP methodology page for the schema-evolution notes on `XX`).
+State filtering is applied directly on `state_abbr`. The chart's "National" option aggregates across all states.
+
+### The `XX` / "All Other Counties" sentinel
+
+RMA emits a sentinel four-tuple — `state_abbr="XX"`, `state_fips=99`, `county_fips=999`, `county_name="All Other Counties"` — in **16.22% of LRP-Feeder Cattle SOB rows** (34,129 of 210,375 rows in our 2003–2026 corpus). The sentinel is present in **every** reinsurance year, including the most recent (14.3% of RY 2026 rows), so it is not a pre-2021 schema-evolution artifact.
+
+What RMA's documentation says about this sentinel: nothing we could find. The published LRP-SOB record layout (as of 2021-06-24) defines the four state/county fields generically without naming the `XX/99/999` sentinel; the M13 Handbook P99E FIPS State Code Exhibit lists codes 01–78 only; the SOB application Help page is UI-only. RMA Bulletin COM-16-001.1 ("Non-Disclosure Statements") concerns NDA paperwork for AIPs and contractors, not cell-suppression in published SOB data.
+
+What the empirics say: `XX` rows are distinct observations, not duplicate aggregates of per-state rows. They are ~10–12% of per-state premium volume per year (not ~100% as a rollup would be) and have smaller mean per-endorsement characteristics (fewer head, smaller premium, smaller weight) than per-state rows. The most plausible interpretation, by analogy to USDA NASS's [documented "Combined Counties" practice](https://www.nass.usda.gov/Data_and_Statistics/County_Data_Files/Frequently_Asked_Questions/index.php) (NASS aggregates endorsements with "less than three reports for the item or one operation has more than 60 percent of the total" "to avoid disclosure of individual operations"), is that RMA aggregates endorsements that cannot be attributed to a specific state/county under federal non-disclosure rules. We cannot confirm this from RMA-authored documentation; if we eventually receive an authoritative RMA reply we will update this section.
+
+**Pipeline policy on this page:** the chart's "National" option **includes** `XX` rows in the per-cwt advantage aggregation. The backtest is per-endorsement and never renders a state map, so XX endorsements are admissible — they are real LRP volume that just lacks a state attribution. Per-state filters (Arizona, Texas, etc.) necessarily exclude `XX` because we don't know which state the rows belong to. The descriptive [LRP explorer](../lrp.qmd) follows the same policy for its National headline numbers; see its [methodology page](lrp.qmd) for additional context.
+
+### Year-window filter
 
 Year-window filtering uses the same `apply_year_window` helper as the LRP page, with bounds computed relative to the corpus's most recent year (so "Last 5" stays current as new RMA Summary-of-Business years land). See [`pipelines/lrp/load.py`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/lrp/load.py) for the bound-computation logic.
 
-The chart's default "All available years" includes the full 2003-present span, but pre-2021 data is sparse for most states (RMA's state-level reporting matured around 2020–2021; before that, many endorsements landed in `XX`). Producers and Extension peers reading state-specific bars in earlier years should treat them with a small-sample caveat.
+The chart's default "All available years" includes the full 2003-present span, but pre-2021 LRP-Feeder Cattle participation is sparse for most states — the [2018 Farm Bill subsidy expansion](https://www.usda.gov/media/blog/2019/02/26/2018-farm-bill-and-livestock-risk-protection-program) is the load-bearing volume driver, not state-coding maturation. Producers and Extension peers reading state-specific bars in earlier years should treat them with a small-sample caveat (the per-bin suppression rule below already handles this automatically).
 
 ## Coverage-level binning
 
