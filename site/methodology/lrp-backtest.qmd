@@ -11,6 +11,14 @@ The [LRP backtest page](../lrp-backtest.qmd) summarizes a single per-endorsement
 
 This is a deliberately narrow question. The page's [About section](../lrp-backtest.qmd#about-this-page) flags what is and isn't covered; this methodology page expands those points formally.
 
+## Data source: SOB participation, not the offered rate sheet
+
+This page operates on RMA's Summary of Business (SOB) "Livestock and Dairy Participation" file — a record of LRP endorsements that producers actually purchased. Each row is one endorsement, with the producer's chosen coverage level, the producer-paid premium, and the indemnity (if any) that RMA paid out at end-date. We download the annual zip files from `pubfs-rma.fpac.usda.gov`; see [`pipelines/lrp/ingest.py`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/lrp/ingest.py) for the pipeline.
+
+This is a different data source from RMA's daily "offered rate sheet" — the prices RMA was offering on each business day to anyone, regardless of whether a purchase occurred. [Boyer & Griffith (2021)](https://www.choicesmagazine.org/choices-magazine/submitted-articles/livestock-risk-protection-payments-for-feeder-cattle-during-covid-19), the closest published LRP-Feeder Cattle retrospective, use the rate-sheet population (5,128,664 daily offerings in their final 2014–2020 sample after their filters).
+
+The distinction matters in interpretation. SOB rows are real producer purchase decisions and therefore carry selection-effect signal: producers who bought LRP did so because of their perceived downside risk at the moment of purchase, not because RMA was offering a particular price (see [Selection effects](#selection-effects)). Rate-sheet rows are RMA's pricing for everyone and carry no purchase-decision information; they describe the menu of what was on offer, not what producers chose. Modest differences between this page's per-coverage-level means and Boyer & Griffith's published numbers should be expected from this data-source distinction (and from a few methodological choices documented elsewhere on this page), not attributed to error in either approach.
+
 ## The advantage formula
 
 For each LRP endorsement in the [type-code subset](#type-code-subset) of the corpus, the advantage is:
@@ -26,6 +34,16 @@ Sign convention:
 - **Positive** ⇒ the producer-paid premium was less than the indemnity received. The producer would have been better off buying LRP than not buying it for this endorsement.
 - **Zero** ⇒ break-even. (Mathematically narrow; in practice, exact zeros are rare.)
 - **Negative** ⇒ the producer-paid premium exceeded the indemnity received. The producer would have been better off without LRP for this endorsement.
+
+#### Why per cwt, and what it implies
+
+The numerator of the formula (indemnity − premium) is in raw dollars, but raw-dollar advantage depends heavily on how many head an endorsement covered. A 10-head endorsement and a 1,000-head endorsement at the same coverage level can show a 100× difference in raw dollar advantage purely because of scale. Dividing by `total_weight_cwt` normalizes for that, so the resulting statistic is comparable across endorsements regardless of size. This is what makes a coverage-level comparison meaningful — it answers "did LRP at 95% pay better per pound of cattle covered than LRP at 80%?" rather than "did producers who chose 95% happen to insure more cattle than producers who chose 80%?"
+
+A consequence: the per-cwt statistic is **invariant to the share of a producer's herd insured under any one endorsement**. A producer who insures 50% of their herd under one endorsement and a producer who insures 100% of their herd under another — both at the same coverage level, in the same year — produce different `total_weight_cwt`, different indemnity, and different premium values. But the ratio (indemnity − premium) / weight is the same in expectation, because each row scales linearly with the cattle weight under the policy. The per-cwt view isolates the LRP product's economic effect on the head it covered, not the producer's gross dollar exposure to the program. This is intentional: a chart organized by raw dollar advantage would conflate "LRP performed well" with "the producer insured a lot of cattle."
+
+#### Equal-weight averaging across endorsements
+
+When the chart aggregates across endorsements within a coverage-level bin, each endorsement contributes equally to the mean — one row, one observation. This is **decision-level weighting**: every producer's coverage-level choice is treated as one data point, regardless of the number of head behind it. An alternative — sum-of-numerators divided by sum-of-denominators (a head-weighted, or volume-weighted, average) — would weight larger endorsements more heavily, which answers a different question (the program's economic effect on cattle, not on producer decisions). The decision-level view is what producers and Extension peers most naturally read off the bar heights: the average per-cwt outcome across producer choices in that coverage band.
 
 The page's chart shows the **arithmetic mean** of this statistic across all endorsements in the selected (state, year window) slice, grouped by coverage-level percent. The mean is sensitive to outliers; the corresponding median is computed by `pipelines/lrp/backtest.aggregate_by_coverage` and exposed in the underlying data — the chart shows mean rather than median because the mean is the unbiased estimator of the long-run average advantage that a representative producer would realize across many endorsements.
 
@@ -63,6 +81,12 @@ RMA's `actual_end_value` (the CME-futures-derived ending value used to determine
 - Futures dropped substantially but the producer's cash held → an indemnity was paid even though the producer's local market didn't need it.
 
 The advantage formula measures what the LRP product *did* (paid or didn't pay), not what the producer might have *wanted* given their cash market. A producer who is mostly worried about a cash-market crash specific to their auction or region needs to think about basis risk separately. The [Basis](../basis.qmd) page is the platform's view on Clovis-vs-CME-GF futures basis dynamics; the [Basis methodology](basis.qmd) page documents the formal distinction between strict basis and weight-class spreads.
+
+### Variance reduction and the risk-management dimension
+
+The advantage formula measures the LRP product's *cash-flow* impact: indemnity received minus producer-paid premium, normalized to dollars per cwt. It does not measure LRP's effectiveness as a *risk-management instrument* — its ability to reduce the variance of the producer's revenue stream, or to truncate the lower tail of their price-realization distribution. Those are different questions. A producer might rationally pay an actuarially negative-NPV premium for the variance-reduction benefit alone, the same way they pay for fire insurance not expecting to come out ahead in cash terms.
+
+[Feuz (2009)](https://doi.org/10.22004/ag.econ.53046) provides the canonical comparison framework for this dimension, evaluating LRP against futures, options, and AGR-Lite for cow-calf producers in terms of risk-management effectiveness rather than cash-flow advantage. A producer assessing whether LRP is a good risk-management tool — as opposed to whether LRP paid out more than it cost on average — should consult that literature directly. This page does not attempt to replicate or summarize that comparison; the chart's per-cwt advantage is one input to a broader risk-management decision, not the whole question.
 
 ### Selection effects
 
@@ -139,6 +163,12 @@ The chart shows the mean per coverage-level bin rather than the median. The per-
 
 The mean is the right summary statistic for a *long-run average* question (which is what the chart asks: "across the years and producers in this slice, what was the average per-cwt advantage?"). For a producer who would buy LRP only once or twice in a career, the median or a percentile-based summary may be more relevant; the underlying-data column for `median_advantage_per_cwt` supports that view.
 
+### Indemnity probability vs. magnitude
+
+The chart reports the *magnitude* of the LRP advantage in dollars per cwt — the size of the average payout (or net cost) per pound of cattle covered. A complementary statistic is the *probability* of an indemnity at all — the share of endorsements in a bin where `indemnity_amount > 0`. [Merritt et al. (2017)](https://doi.org/10.1017/aae.2016.44) studied this directly for LRP-Feeder Cattle, fitting probit models on the offered-rate-sheet population to estimate how indemnity probability varies with coverage level, contract length, and seasonal factors. They find that higher coverage levels and longer contract lengths both raise indemnity probability, conditional on the rate-sheet pricing.
+
+Our chart's underlying data exposes the same probability statistic per coverage bin as `indemnified_share`, available in the downloadable corpus. We display mean magnitude on the chart visual because that is the dollar-impact question producers most directly ask, but the probability dimension is in the data for any reader who wants to look at it side by side with the magnitude bars.
+
 ## Type-code subset
 
 The chart restricts to four RMA type codes — the same subset the descriptive [LRP page](../lrp.qmd) and its [methodology page](lrp.qmd) use:
@@ -151,6 +181,10 @@ The chart restricts to four RMA type codes — the same subset the descriptive [
 | **812** | Heifers Weight 2 | Conventional non-Brahman, non-dairy, born |
 
 Excluded: Brahman (813/814), Dairy (815/816), Unborn variants (817/818/819), and the new Unborn Calves type 823 (which uses $/head pricing rather than $/cwt and would corrupt the per-cwt advantage formula). See the [LRP methodology page](lrp.qmd) for the full type-code-evolution discussion.
+
+### Comparison with published retrospectives
+
+[Boyer & Griffith (2021)](https://www.choicesmagazine.org/choices-magazine/submitted-articles/livestock-risk-protection-payments-for-feeder-cattle-during-covid-19) restrict their analysis to "feeder cattle … steers and heifers between 600 and 900 pounds" — a weight-range filter rather than a formal type-code restriction. Functionally, that filter implies the Weight 2 class (~700–899 lbs in current RMA pricing tables) and the heavier portion of Weight 1 (~600–699 lbs); it does not include lighter-weight calves. Our type-code subset {809, 810, 811, 812} is the corresponding RMA-coded universe — Steers W1+W2 (809/810) and Heifers W1+W2 (811/812) — and therefore covers a slightly broader weight range on the lighter end. For producers in larger cow-calf operations (the platform's reference state is Arizona) this difference matters in principle, but in our corpus the weight distribution of W1 endorsements skews toward the heavier W1 range, so practical overlap with Boyer & Griffith's population is high. Readers comparing per-coverage-level means against their published numbers should expect modest differences attributable to this and to the [SOB-vs-rate-sheet data-source distinction](#data-source-sob-participation-not-the-offered-rate-sheet).
 
 ## State and year-window filters
 
@@ -202,6 +236,15 @@ This range-binning is methodologically defensible because:
 4. **It is robust to data evolution.** If RMA changes its coverage-price quoting practice in future years (finer or coarser increments), 5 % range bins continue to work without re-binning every prior year.
 
 The implementation is in [`pipelines/lrp/backtest.aggregate_by_coverage`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/lrp/backtest.py), using `pandas.cut` with edges `[0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 1.00, ∞)`. Endorsements with `coverage_level_pct < 0.70` (rare; typically corrupt early-year rows) are dropped, as are rows with NaN coverage levels.
+
+### Floor at 70% and the contrast with Boyer & Griffith
+
+The chart includes endorsements across the full RMA-offered band of `coverage_level_pct ∈ [0.70, 1.00]`. [Boyer & Griffith (2021)](https://www.choicesmagazine.org/choices-magazine/submitted-articles/livestock-risk-protection-payments-for-feeder-cattle-during-covid-19), the closest published LRP-Feeder Cattle retrospective, exclude coverage levels under 85% from their analysis because in their offered-rate-sheet population (2014–2020) endorsements at <85% were less than 2% of the data and they wanted the analysis to reflect the modal coverage-level decision. We retain the 70–85% endorsements for two reasons:
+
+1. **They are real producer choices.** In the SOB participation data this page operates on, endorsements at 70–85% coverage represent a deliberate trade-off (lower premium in exchange for a lower payout trigger). Excluding them would be an analytical choice, not a data-source constraint, and would suppress signal about how producers at the lower end of the coverage band actually fared. The corpus's purpose is descriptive: report what happened, including at the parts of the coverage band that some published analyses omit.
+2. **The per-bin suppression rule already handles small-N transparently.** Bins below `MIN_BIN_N = 30` are visually hidden regardless of where they fall on the coverage axis. A 70–75% bin in a state with very few low-coverage endorsements simply disappears from the chart, with the suppression count noted in the inline disclosure line below the chart. The chart never displays an unreliable bar for the low-coverage range.
+
+The 70% floor itself is the LRP-Feeder Cattle product's RMA-offered minimum, per the [2026 LRP Insurance Standards Handbook (FCIC-20010 §22.B.3)](https://www.rma.usda.gov/policy-procedure/crop-underwriting-standards/livestock-risk-protection-handbook-2026). Endorsements below 0.70 in our corpus are under 0.5% of rows and typically reflect early-year data-quality issues; we drop them along with NaN coverage levels.
 
 ## Reproducing the chart
 
