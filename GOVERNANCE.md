@@ -71,9 +71,13 @@ PRs missing any item above are blocked from merge. The checklist is enforced by 
 
 ## Privacy and analytics
 
-**The deployed site loads no third-party analytics or tracking scripts.** No Google Analytics, no Facebook pixel, no advertising networks, no fingerprinters, no behavioral profiling. No cookies are set, no IP addresses are logged, and no consent banner is required. This stance is binding: any PR that adds a third-party tracker is rejected.
+This site does not use project-added third-party analytics or tracking services. It does not include Google Analytics, Facebook/Meta pixels, advertising networks, browser fingerprinting scripts, or similar tracking tools. The project itself sets no cookies and does not run client-side visitor tracking. This stance is binding: any PR that adds a third-party tracker is rejected.
 
-Repo-level traffic (clones, stars, watchers, referrers to the GitHub repository page) is visible to the maintainer via GitHub's built-in repo Insights and is the only operational signal currently available. If lightweight, privacy-respecting page-view analytics become useful for impact reporting later (for example, documenting Extension reach), a self-hostable or non-commercial-tier service such as [GoatCounter](https://www.goatcounter.com/) would be the candidate — chosen because it sets no cookies, stores no IP addresses, and operates without a GDPR consent banner. Any future addition of analytics ships with a corresponding update to this section and to the About page so the disclosure stays accurate.
+The project maintainer has access to GitHub's built-in, aggregate repository traffic information, such as repository views, clones, referring sites, and popular repository content. These GitHub repository Insights do not identify individual visitors. The maintainer does not receive visitor identities, IP addresses, or page-level behavior logs for the deployed GitHub Pages site.
+
+The site is hosted on GitHub Pages. GitHub states that when a GitHub Pages site is visited, the visitor's IP address is logged and stored by GitHub for security purposes. GitHub may also use cookies or similar technologies as described in [GitHub's Privacy Statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement) and [Cookies Policy](https://docs.github.com/en/site-policy/privacy-policies/github-cookies). The project maintainer does not access or process this hosting-layer data.
+
+If lightweight, privacy-respecting page-view analytics become useful for impact reporting later (for example, documenting Extension reach), a self-hostable or non-commercial-tier service such as [GoatCounter](https://www.goatcounter.com/) would be the candidate — chosen because it sets no cookies, stores no IP addresses, and operates without a GDPR consent banner. Any future addition of analytics ships with a corresponding update to this section and to the About page so the disclosure stays accurate.
 
 ## Annual review
 
