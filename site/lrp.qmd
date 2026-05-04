@@ -447,7 +447,7 @@ print('<span id="lrp-year-window-label" style="font-weight: 600; white-space: no
 print('<div id="lrp-year-buttons" role="group" aria-labelledby="lrp-year-window-label" style="display: inline-flex; border: 1px solid #BBB; border-radius: 3px; overflow: hidden; background: white;">')
 for w in window_list:
     is_active = (w == DEFAULT_WINDOW)
-    bg = "#4F88C9" if is_active else "white"
+    bg = "#2F6FB2" if is_active else "white"
     fg = "white" if is_active else "#222"
     fw = "600" if is_active else "400"
     border_left = "" if w == window_list[0] else "border-left: 1px solid #BBB;"
@@ -696,7 +696,7 @@ _js_payload = (
     '      for (var i = 0; i < yearBtns.length; i++) {\n'
     '        var b = yearBtns[i];\n'
     '        var active = (b.getAttribute("data-window") === winKey);\n'
-    '        b.style.background = active ? "#4F88C9" : "white";\n'
+    '        b.style.background = active ? "#2F6FB2" : "white";\n'
     '        b.style.color = active ? "white" : "#222";\n'
     '        b.style.fontWeight = active ? "600" : "400";\n'
     '        b.setAttribute("aria-pressed", active ? "true" : "false");\n'
@@ -707,8 +707,8 @@ _js_payload = (
     '      var st = (stateSelect && stateSelect.value) ? stateSelect.value : window.lrpDefault.state;\n'
     '      var win = window.lrpDefault.window;\n'
     '      for (var i = 0; i < yearBtns.length; i++) {\n'
-    '        if (yearBtns[i].style.background.indexOf("rgb(79, 136, 201)") !== -1\n'
-    '            || yearBtns[i].style.background === "#4F88C9"\n'
+    '        if (yearBtns[i].style.background.indexOf("rgb(47, 111, 178)") !== -1\n'
+    '            || yearBtns[i].style.background === "#2F6FB2"\n'
     '            || yearBtns[i].dataset.lrpActive === "1") {\n'
     '          win = yearBtns[i].getAttribute("data-window") || win;\n'
     '          break;\n'
