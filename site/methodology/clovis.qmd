@@ -30,7 +30,7 @@ import json
 import pandas as pd
 from IPython.display import Markdown
 
-MANIFEST = Path("..") / "data" / "processed" / "clovis_MANIFEST.json"
+MANIFEST = Path("..") / ".." / "data" / "processed" / "clovis_MANIFEST.json"
 if MANIFEST.exists():
     with MANIFEST.open("r", encoding="utf-8") as f:
         m = json.load(f)
