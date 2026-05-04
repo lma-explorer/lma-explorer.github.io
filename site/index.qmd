@@ -46,7 +46,7 @@ latest_cpi_vintage = _latest_vintage("MANIFEST.json")
 
 ## What this is
 
-A producer-facing, Extension-aligned platform that takes weekly USDA-AMS feeder-cattle market data for the four-corners region and turns it into focused, interactive figures — price-weight relationships, weekly seasonality, basis to the nearby CME feeder-futures contract — refreshed automatically as new public USDA and BLS data land. The cash-side numbers (USDA-AMS, BLS) are sourced from public-domain federal datasets; the basis charts are a derived statistic computed against CME GF settles which are not themselves redistributed (see [data licensing](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/LICENSE-DATA.md)). Every figure is reproducible from versioned code; every page has an **edit on GitHub** link for corrections.
+A producer-facing, Extension-aligned platform that takes weekly USDA-AMS feeder-cattle market data for the four-corners region and turns it into focused, interactive figures — price-weight relationships, weekly seasonality, basis to the nearby CME feeder-futures contract — refreshed automatically as new public USDA and BLS data land. The cash-side numbers (USDA-AMS, BLS) are sourced from public-domain federal datasets; the basis charts are a derived statistic computed against CME GF settles which are not themselves redistributed (see [data licensing](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/LICENSE-DATA.md)). Cash-side figures are fully reproducible from this repository's versioned code; basis figures require the separately licensed CME settle inputs noted above. Every page has an **edit on GitHub** link for corrections.
 
 ## Who this is for
 
