@@ -30,7 +30,7 @@ dependencies = [
 # CI uses in `.github/workflows/quality.yml`.
 dev = [
     "ruff>=0.5,<1",
-    "pytest>=8,<9",
+    "pytest>=8,<10",
     "pre-commit>=3.7,<5",
     "cairosvg>=2.7,<3",
 ]
