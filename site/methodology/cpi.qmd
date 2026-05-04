@@ -43,7 +43,7 @@ import json
 import pandas as pd
 from IPython.display import Markdown
 
-MANIFEST = Path("..") / "data" / "processed" / "MANIFEST.json"
+MANIFEST = Path("..") / ".." / "data" / "processed" / "MANIFEST.json"
 if MANIFEST.exists():
     with MANIFEST.open("r", encoding="utf-8") as f:
         m = json.load(f)
@@ -74,7 +74,7 @@ from pathlib import Path
 import pandas as pd
 import plotly.graph_objects as go
 
-CPI_LATEST = Path("..") / "data" / "processed" / "cpi_latest.parquet"
+CPI_LATEST = Path("..") / ".." / "data" / "processed" / "cpi_latest.parquet"
 
 if CPI_LATEST.exists():
     cpi = pd.read_parquet(CPI_LATEST)
