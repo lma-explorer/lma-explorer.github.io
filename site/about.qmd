@@ -30,7 +30,11 @@ Read [GOVERNANCE.md](https://github.com/lma-explorer/lma-explorer.github.io/blob
 
 ## Privacy
 
-This site does **not** use any third-party analytics or tracking services — no Google Analytics, no Facebook pixel, no advertising networks, no browser fingerprinters. Visitors are not tracked, no cookies are set, and no consent banner is required because there is nothing to consent to. The maintainer has visibility only into repo-level traffic (clones, stars, referrers to the GitHub repository page) via GitHub's built-in repo Insights — not into who visits the deployed site or what they do here.
+This site does not use project-added third-party analytics or tracking services. It does not include Google Analytics, Facebook/Meta pixels, advertising networks, browser fingerprinting scripts, or similar tracking tools. The project itself sets no cookies and does not run client-side visitor tracking.
+
+The project maintainer has access to GitHub's built-in, aggregate repository traffic information, such as repository views, clones, referring sites, and popular repository content. These GitHub repository Insights do not identify individual visitors. The maintainer does not receive visitor identities, IP addresses, or page-level behavior logs for the deployed GitHub Pages site.
+
+The site is hosted on GitHub Pages. GitHub states that when a GitHub Pages site is visited, the visitor's IP address is logged and stored by GitHub for security purposes. GitHub may also use cookies or similar technologies as described in [GitHub's Privacy Statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement) and [Cookies Policy](https://docs.github.com/en/site-policy/privacy-policies/github-cookies). The project maintainer does not access or process this hosting-layer data.
 
 ## Acknowledgments
 
