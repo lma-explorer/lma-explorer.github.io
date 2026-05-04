@@ -157,6 +157,14 @@ For a state like Arizona — the platform's producer-reference state, which has 
 
 If the chart looks sparse for a particular state and year window, switching to a wider year window ("All available years") or comparing against "National (all states aggregated)" usually fills more bars.
 
+### Descriptive vs inferential framing
+
+The 95 % CI formula above assumes endorsements within a bin are independent draws from a stationary distribution. In practice they are not: endorsements cluster by year, market regime, and producer behavior. A 90–95 % bin in a cycle-trough year is dominated by indemnity-paid endorsements; the same bin in a cycle-peak year is dominated by premium-only endorsements. A more careful inferential treatment would correct for this clustering — for example, by computing year-clustered standard errors or by treating year as a random effect — and would typically widen the bands relative to the i.i.d. CI shown here.
+
+The error bars on the chart are therefore best read as **descriptive uncertainty bands around each bin's historical mean**, not as inferential intervals on a forecasted future outcome. The break-even-line cross-check still has signal (a bin whose i.i.d. CI does not cross zero is at minimum directionally supported by its sample), but it should be read as *"the historical sample at this coverage level shows a mean clearly different from zero"* rather than as *"the next endorsement at this coverage level has a 95 % chance of falling within these bounds."*
+
+This is a known limitation of the current implementation. A clustered-SE refactor is queued as `v2.lrp-backtest-clustered-uncertainty`.
+
 ### Why mean and not median
 
 The chart shows the mean per coverage-level bin rather than the median. The per-endorsement advantage is highly variable — particularly in cattle-cycle-trough years (2009, 2016, 2020, parts of 2024), when indemnity payments were large, and in cycle-peak years, when premiums were paid but no indemnity arrived. Two coverage-level bins with the same mean can have very different distributions; the median, computed in [`pipelines/lrp/backtest.aggregate_by_coverage`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/lrp/backtest.py), is typically smaller in absolute value than the mean for both signs.
