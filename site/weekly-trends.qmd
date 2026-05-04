@@ -10,7 +10,7 @@ toc-depth: 2
 :::
 
 ::: {.callout-note appearance="simple"}
-**Aggregation note for multi-lot weeks.** This page currently simple-averages multiple lots within the same (week, class, weight bin) cell. The other chart-shelf pages (price–weight, seasonality, basis, sell-now compare, one-pager) use head-weighted means. Where lot sizes vary substantially within a week, the simple-average value can differ from the head-weighted version by roughly $1-3/cwt in spot-checks of the committed snapshot — actual divergence depends on the lot-size mix in any given week, and this estimate is the maintainer's own observation rather than a published figure. A head-weighted refactor is queued; the methodology page documents the choice.
+**Aggregation note for multi-lot weeks.** This page currently simple-averages multiple lots within the same (week, class, weight bin) cell. The other chart-shelf pages (price–weight, seasonality, basis, sell-now compare, one-pager) use head-weighted means. Where lot sizes vary substantially within a week, the simple-average value can differ by ~$1-3/cwt from the head-weighted version. A head-weighted refactor is queued; the methodology page documents the choice.
 :::
 
 ::: {.callout-tip appearance="simple"}

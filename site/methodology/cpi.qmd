@@ -9,7 +9,7 @@ toc-depth: 2
 
 When a figure on this site says it shows **real dollars**, it means nominal prices have been divided by a Consumer Price Index value to remove the effect of general price-level change. The CPI series used is the **CPI-U, All Items, U.S. City Average, Not Seasonally Adjusted** ([BLS series `CUUR0000SA0`](https://data.bls.gov/timeseries/CUUR0000SA0); see also the [BLS Handbook of Methods, CPI chapter](https://www.bls.gov/opub/hom/cpi/home.htm) for the underlying construction).
 
-NSA is used rather than seasonally adjusted CPI because the BLS seasonal-adjustment factors are constructed for a general consumer basket and are not designed to model livestock-price seasonality; the actual price level a producer faced in a given month is what NSA reports. This is a maintainer methodological choice rather than a settled standard — readers preferring the SA series can substitute BLS's `CUSR0000SA0` for the platform's `CUUR0000SA0` deflator.
+NSA is used rather than seasonally adjusted CPI because seasonal-adjustment patterns reflect a general consumer basket and do not cleanly transfer to livestock prices; the actual price level a producer faced in a given month is what NSA reports.
 
 ## Where the data comes from
 

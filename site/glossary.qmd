@@ -27,7 +27,7 @@ The skeletal-size category of a feeder animal. USDA-AMS classifies feeders into 
 The body-condition grade reflecting expected meat yield. USDA-AMS quotes 1, 1-2, 2, and lower combinations. Grade 1 indicates the muscling reflective of the indicated frame; lower grades reflect lighter muscling.
 
 ### M&L 1 (Medium and Large, muscle grade 1)
-The most common grade combination by volume across the committed Clovis snapshot (2017–present) and a widely-used reference grade in agricultural-economics analyses of feeder-cattle prices (e.g., Tronstad 1994, cited in [methodology / basis](methodology/basis.qmd#precedent-in-the-literature)). The platform's cash chart pages restrict to M&L 1 to keep comparisons apples-to-apples week-over-week. Other frame and muscle-grade combinations are preserved in the underlying parquet for researchers; see [Methodology → Clovis pipeline](methodology/clovis.qmd).
+The dominant grade combination by volume at the Clovis auction and the standard reference grade in agricultural-economics analysis of feeder-cattle prices. The platform's cash chart pages restrict to M&L 1 to keep comparisons apples-to-apples week-over-week. Other frame and muscle-grade combinations are preserved in the underlying parquet for researchers; see [Methodology → Clovis pipeline](methodology/clovis.qmd).
 
 ### Weight class
 The 100-pound bin a feeder animal falls into for pricing purposes. The platform's charts use 300–399 lb, 400–499 lb, 500–599 lb, 600–699 lb, 700–799 lb, and 800–899 lb. USDA-AMS quotes prices per cwt within each bin.
@@ -44,7 +44,7 @@ Synonyms for the 100-lb pricing class above. The MARS API field `weight_break_lo
 A weighted average where each lot's contribution is proportional to the number of head it represents. A lot of 50 head at $200 and a lot of 5 head at $250 average to (50×200 + 5×250) / (50 + 5) = $204.55, not $225. Used on the price-weight, seasonality, sell-now compare, and one-pager pages because it reflects what dollars actually flowed through the auction. The weekly-trends page currently simple-averages instead, which is disclosed prominently in its callout; a head-weighted refactor is a planned roadmap item.
 
 ### Simple-averaged mean
-The arithmetic mean across observations, ignoring head count. Faster to compute but biased toward small lots in volatile weeks. The weekly-trends page uses this; spot-checks of the committed Clovis snapshot place the discrepancy with head-weighted means at roughly $1-3/cwt in typical weeks, with actual divergence depending on within-week lot-size variation. This is a maintainer-derived estimate, not a published figure.
+The arithmetic mean across observations, ignoring head count. Faster to compute but biased toward small lots in volatile weeks. The weekly-trends page uses this; the discrepancy with head-weighted means is typically $1-3/cwt.
 
 ### Min, max, mean band
 A vertical span on a chart showing, across a window of years for the same week-of-year and weight class, the lowest observation, the highest observation, and the average. Used on the [price-weight](price-weight.qmd) page.

@@ -1,0 +1,52 @@
+# Dependabot configuration for the Livestock Marketing Alternatives Explorer.
+#
+# Why this exists: the project depends on third-party Python packages
+# (pipelines/requirements.txt, pyproject.toml) and third-party GitHub
+# Actions (.github/workflows/). Without automation, security advisories
+# and version bumps drift. Dependabot opens scheduled PRs surfacing
+# updates so the maintainer reviews them on a predictable cadence
+# rather than discovering issues mid-deploy.
+#
+# Cadence: weekly. The platform is a research prototype with a small
+# surface area; daily would be noise. Monthly would let real CVEs sit
+# too long. Weekly matches the data-refresh cadence and the typical
+# Extension review rhythm.
+#
+# Scope:
+#   - pip ecosystem covers pipelines/requirements.txt and pyproject.toml.
+#   - github-actions ecosystem covers all .github/workflows/*.yml and
+#     will surface action-version bumps (eventually pairs with the
+#     SHA-pinning hardening work tracked separately).
+#
+# Reviewer assignment: Dependabot PRs land in the regular review queue
+# alongside contributor PRs; CODEOWNERS catches them automatically.
+#
+# Flagged in the 2026-05-04 independent audit (item #8).
+
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore(actions)"
+      include: "scope"
