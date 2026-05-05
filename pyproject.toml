@@ -16,7 +16,7 @@ requires-python = ">=3.11"
 # matching pipelines/requirements.txt; bump deliberately and in lockstep.
 dependencies = [
     "requests>=2.31,<3",
-    "pandas>=2.2,<3",
+    "pandas>=2.2,<4",
     "pyarrow>=15,<20",
     "numpy>=1.26,<3",
     "jupyter>=1.0,<2",
