@@ -9,7 +9,7 @@
 # Pipeline
 requests>=2.31,<3
 pandas>=2.2,<4
-pyarrow>=15,<20
+pyarrow>=15,<25
 numpy>=1.26,<3       # explicit (transitively installed via pandas, but
                      # site/sell-now-compare.qmd imports it directly for
                      # numpy.percentile in the percentile-band logic)
