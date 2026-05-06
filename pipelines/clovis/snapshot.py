@@ -216,7 +216,15 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Write a validated Clovis (AMS_1781) vintage snapshot.",
     )
-    parser.parse_args(argv)
+    parser.add_argument(
+        "--skip-clean",
+        action="store_true",
+        help="Skip the post-snapshot cleaned-weekly aggregate step. "
+        "Use when re-running the snapshot in isolation; the cleaner is "
+        "normally invoked as the final step so the cleaned-weekly artifact "
+        "stays in lockstep with the per-pen snapshot.",
+    )
+    args = parser.parse_args(argv)
 
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     payload = _load_raw()
@@ -240,6 +248,24 @@ def main(argv: list[str] | None = None) -> int:
     print(f"[snapshot] wrote {snapshot_path} ({len(df)} rows)")
     print(f"[snapshot] wrote {latest_path}")
     print(f"[snapshot] updated {MANIFEST_PATH}")
+
+    # Refresh the cleaned-weekly aggregate so the chart pages and the
+    # methodology page see consistent inputs after every per-pen snapshot.
+    # Imported lazily to avoid pulling numpy when only the per-pen step is
+    # needed (tests, debugging).
+    if not args.skip_clean:
+        from pipelines.clovis import clean as _clean
+
+        rc = _clean.main([])
+        if rc != 0:
+            print(
+                "[snapshot] cleaner returned non-zero; per-pen snapshot still "
+                "written. Re-run `python -m pipelines.clovis.clean` after "
+                "diagnosing.",
+                file=sys.stderr,
+            )
+            return rc
+
     return 0
 
 

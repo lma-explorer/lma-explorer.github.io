@@ -103,6 +103,63 @@ Two reasons to restrict the chart to M&L 1:
 
 All other frame-and-grade combinations (`Medium`, `Large`, `Small and Medium`, muscle grades 2 and 1-2, etc.) are preserved in the snapshot but filtered out in the site's chart code rather than in the pipeline. Adding those as reader-selectable filters is a Phase 2 enhancement.
 
+## Spike screening on the cleaned weekly aggregate
+
+The per-pen snapshot above is the raw artifact. A separate downstream step aggregates pens to a head-count-weighted weekly mean per (sex, weight-class) bin, deflates each weekly observation to December 2025 dollars using the BLS CPI-U series, and applies a symmetric rolling-median ratio test to replace obvious data-reporting spikes. The output is a separate parquet at `data/processed/clovis_weekly_cleaned_latest.parquet` with one row per (auction date, sex, 100-lb bin); every replacement is logged to `clovis_spike_log_<vintage>.csv` alongside it.
+
+The detection rule is symmetric — the same threshold catches both implausibly low and implausibly high observations:
+
+- For each (sex, weight-class) bin, compute a 13-week centered rolling median of `price_real` (the deflated weekly mean).
+- A weekly observation is flagged if its ratio to the local median is at or beyond `[0.60, 1/0.60 ≈ 1.67]` **and** its absolute deviation from the local median exceeds `$50/cwt`.
+- A flagged value is replaced with the local median; the corresponding nominal value is recomputed via the observation's CPI ratio so the two series stay internally consistent.
+- The threshold and window are pipeline-level parameters in `pipelines/clovis/clean.py` (`CleanConfig`); changing them is a deliberate, reviewed action.
+
+The rationale for each piece of the rule:
+
+- **The 13-week centered window.** Wide enough that a single bad weekly cell cannot pull the median (the focal week contributes 1/13 to its own neighborhood). Narrow enough to track real seasonal price movement; a longer window would treat normal cyclical lows/highs as spikes.
+- **The `0.60 / 1.67` ratio band.** A weekly mean that is roughly half (or twice) the local median is implausible for feeder-cattle prices, which move on cycle and seasonal scales much slower than that. The two thresholds are reciprocals so the same statistic catches drops and spikes symmetrically.
+- **The `$50/cwt` absolute floor.** A noise floor: when the local median is itself small (rare on this series, but possible if a bin is quiet), small absolute fluctuations should not trip the ratio test. `$50/cwt` is loose enough to never flag legitimate variation in a normal-priced week and strict enough to catch every reporting anomaly observed in our reference samples.
+- **Replace, not drop.** The cleaned weekly artifact is meant to feed continuous time-series charts; dropping a row leaves a gap that a downstream renderer would fill silently. Replacing with the local median preserves the line and is more honest about the pipeline's hand on the chart. The original (unreplaced) per-pen rows are preserved in `clovis_latest.parquet` and `clovis_historical_era_b_latest.parquet`; nothing is lost from the underlying record.
+
+The rule is symmetric and unambiguous, so the audit trail is the test of integrity: every row of every spike log is the rule's complete output for that vintage. An empty log is the same kind of evidence as a long log — it publishes "no anomalies in this vintage" rather than implying a silent pass.
+
+```{python}
+#| echo: false
+#| label: clovis-cleaned-freshness
+
+from pathlib import Path
+import json
+from IPython.display import Markdown
+
+CLEAN_MANIFEST = Path("..") / ".." / "data" / "processed" / "clovis_weekly_cleaned_MANIFEST.json"
+if CLEAN_MANIFEST.exists():
+    with CLEAN_MANIFEST.open("r", encoding="utf-8") as f:
+        m = json.load(f)
+    entries = m.get("entries", [])
+    if entries:
+        e = entries[-1]
+        freshness = (
+            f"- **Cleaned-weekly vintage**: `{e.get('vintage','—')}`  \n"
+            f"- **Rows in the cleaned artifact**: {e.get('rows','—'):,}  \n"
+            f"- **Spike replacements in this vintage**: {e.get('spikes_replaced','—')}  \n"
+            f"- **Deflation basis**: {e.get('deflation_basis','—')}  \n"
+            f"- **Rule**: window={e.get('rolling_window_weeks','—')}w, "
+            f"ratio∈[{e.get('ratio_lo','—')}, {e.get('ratio_hi','—')}], "
+            f"min |dev|=${e.get('min_abs_dev','—')}/cwt"
+        )
+    else:
+        freshness = "_No cleaned-weekly vintages committed yet. Will populate after the next snapshot run that invokes `pipelines/clovis/clean.py`._"
+else:
+    freshness = "_Cleaned-weekly manifest not yet created. Expected path: `data/processed/clovis_weekly_cleaned_MANIFEST.json`._"
+Markdown(freshness)
+```
+
+What this rule does **not** do:
+
+- It does not address fragile summary statistics built on top of the cleaned series. A `min` or `max` of weekly means over many years is an order statistic and stays sensitive to whichever single week did not trip the ratio band; a `p5 / mean / p95` band is the more honest summary and is recommended for any chart that exposes "extreme" values to readers.
+- It does not detect cross-bin structural inversions (e.g., a heavier weight-class trading higher per-cwt than a lighter one in the same week). In every reference sample to date, such inversions also failed the ratio test on the cleaner's own bin and were caught for that reason; a future enhancement could add a cross-bin consistency check explicitly.
+- It does not deflate using a producer-side index. The current basis is CPI-U All Items NSA, which expresses prices in general-consumer purchasing power; a producer-receipts deflator (e.g., PPI Farm Products) is a Phase 2 candidate.
+
 ## The schema-hash validator
 
 Before any new vintage is snapshotted, the pipeline computes a SHA-256 over the sorted key sets at the root of the MARS response envelope *and* the first row of `results`. That hash is compared to `pipelines/clovis/expected_schema.sha256`. Any change — a renamed field, an added field, a removed field — produces a mismatch and fails the pipeline.
