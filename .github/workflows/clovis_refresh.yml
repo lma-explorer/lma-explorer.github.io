@@ -31,6 +31,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # Use a fine-grained PAT so the workflow's git push is attributed to
+          # the repository admin (covered by the "protect main" ruleset's
+          # bypass list) rather than github-actions[bot] (not exempted from
+          # rulesets in the GitHub UI as of 2026-05). Without this, the
+          # snapshot commit step is rejected with GH013 / repository rule
+          # violations and the new vintage never lands on main.
+          token: ${{ secrets.BYPASS_PAT }}
 
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
