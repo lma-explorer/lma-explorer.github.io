@@ -1,0 +1,20 @@
+{
+  "slug": "clovis_weekly_cleaned",
+  "entries": [
+    {
+      "vintage": "2026-05-08",
+      "file": "data/processed/clovis_weekly_cleaned_2026-05-08.parquet",
+      "spike_log": "data/processed/clovis_spike_log_2026-05-08.csv",
+      "sha256": "24de0e1184f345824a0f77a3302211b688ed7669de3492fe9436c6f2c7ad39ca",
+      "rows": 4339,
+      "spikes_replaced": 0,
+      "deflation_basis": "2025-12",
+      "cpi_base": 324.054,
+      "rolling_window_weeks": 13,
+      "ratio_lo": 0.6,
+      "ratio_hi": 1.6667,
+      "min_abs_dev": 50.0,
+      "written_at_utc": "2026-05-08T01:02:53+00:00"
+    }
+  ]
+}
