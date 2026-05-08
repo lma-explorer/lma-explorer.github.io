@@ -70,3 +70,10 @@ PLAN_*.md
 # Quarto's `resources:` config). Never committed; regenerated on every build.
 data/processed/*.csv
 data/processed/*.xlsx
+
+# Exception: the spike-replacement audit log written by pipelines/clovis/clean.py
+# is a primary output (not a regenerated companion of a parquet). It is
+# referenced by the cleaned-weekly manifest and documents which weekly
+# observations were replaced — an empty file is itself evidence of a clean
+# vintage. Track it in version control alongside the parquet it audits.
+!data/processed/clovis_spike_log_*.csv
