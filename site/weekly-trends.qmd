@@ -181,6 +181,10 @@ else:
 
 Each line is the average price for one weight class at each auction week from October 2017 to the most recent published report. The top panel shows Steers; the bottom shows Heifers. Multiple lots within a single (week, class, weight bin) are simple-averaged so each line has one point per week. Hover any point to see the exact value and the count of lots behind it.
 
+::: {.callout-tip appearance="simple"}
+**To filter weight classes:** click any weight bin in the legend above the chart to hide that line; click again to show it. **Double-click one weight bin to view it alone**, and double-click any visible bin to restore all lines.
+:::
+
 ```{python}
 #| echo: false
 #| fig-alt: "Weekly-trends chart for the Clovis, NM feeder-cattle auction. Two stacked panels (Steers above, Heifers below) plot $/cwt against an auction-date timeline running from October 2017 to the most recent published report. Each line traces one weight bin (300-399 through 800-899 lb) at weekly resolution; gaps in the line indicate weeks where no observations were published. Two button rows above the chart toggle year window and currency mode."
