@@ -185,6 +185,10 @@ else:
 
 Each line is the average price for a weight class at each week of the calendar year, averaged across every year in the selected window. The top panel shows Steers; the bottom shows Heifers. Two button rows above the panels let the reader pick the **mode** (Nominal or Real Dec-2025 dollars) and the **year window** (All, Last 5 years, Last 3 years, or the latest calendar year); each row keeps its own highlight, so the chart at any moment reflects the combination of both selections. Hover any point to see the exact value and the number of observations behind it.
 
+::: {.callout-tip appearance="simple"}
+**To filter weight classes:** click any weight bin in the legend above the chart to hide that line; click again to show it. **Double-click one weight bin to view it alone**, and double-click any visible bin to restore all lines.
+:::
+
 ```{python}
 #| echo: false
 #| fig-alt: "Weekly seasonality chart for the Clovis, NM feeder-cattle auction. Two stacked panels (Steers above, Heifers below) overlay every weight bin (300-399 through 800-899 lb) on a 1-52 week-of-year x-axis. Each line traces the average $/cwt for one weight bin across the calendar year, with the lines for the lighter weight classes generally sitting higher than the heavier ones. The shape of each line shows the intra-year price pattern (typical seasonal peaks around late spring and late fall). Two button rows above the chart toggle year window (All, Last 5 yrs, Last 3 yrs, Latest) and currency mode (Nominal vs Real $)."
