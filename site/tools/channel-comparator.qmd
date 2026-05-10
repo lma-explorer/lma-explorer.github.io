@@ -1,0 +1,862 @@
+---
+title: "Marketing-channel cost comparator"
+subtitle: "Side-by-side cost-structure comparison of five cash-marketing channels for feeder cattle. Same base price, different deductions — see where the friction goes."
+toc: true
+toc-depth: 2
+---
+
+## What this tool does
+
+When a producer chooses among feeder-cattle cash channels — local auction, special feeder sale, video auction, internet auction, or private treaty — the headline price quoted at each channel is rarely the price the producer actually nets. Commission, yardage, shrink, and hauling all chip away at the gross at different rates depending on the channel.
+
+This tool compares the **cost structure** of the five cash channels under a single base price the producer enters. It shows what each channel costs in commission, yardage, shrink loss, fees, and hauling — and what's left after the deductions, expressed as a net price per cwt of gross weight.
+
+**The tool does not pick a winner.** Per-cwt differences between channels are typically small ($1–5/cwt) and can be dominated by factors the calculator cannot see — cattle quality, marketing-calendar fit, payment-risk tolerance, distance to a video-auction representative, the producer's own time and labor cost. Use the spread to inform the decision; consult Parish et al. (2021), *Marketing feeder calves* (Mississippi State Extension Pub 2552), for the channel-fit framework that complements this cost analysis.
+
+::: {.callout-warning appearance="simple"}
+**The default cost values below are illustrative ranges from regional Extension literature, not Arizona-verified figures.** Commission rates, yardage fees, and brand-inspection charges vary across barns, regions, and years. Before relying on this calculator for a real marketing decision, obtain current commission rates and fees from your specific barn, video-auction representative, or order buyer. Every default is editable in the form below.
+:::
+
+## Inputs
+
+```{=html}
+<form id="chan-comp" novalidate>
+  <fieldset>
+    <legend>Your cattle and base price</legend>
+    <div class="chan-comp-grid">
+      <label>
+        <span>Number of head</span>
+        <input type="number" id="lotSize" value="25" step="1" min="1" max="10000" inputmode="numeric" required>
+      </label>
+      <label>
+        <span>Average weight (lb)</span>
+        <input type="number" id="avgWeight" value="525" step="1" min="100" max="2000" inputmode="numeric" required>
+      </label>
+      <label>
+        <span>Expected base cash price ($/cwt)</span>
+        <input type="number" id="basePrice" value="285" step="0.01" min="0" max="2000" inputmode="decimal" required>
+      </label>
+      <label>
+        <span>Distance to local barn (miles, one way)</span>
+        <input type="number" id="distanceLocal" value="50" step="1" min="0" max="1000" inputmode="numeric" required>
+      </label>
+      <label>
+        <span>Distance for video-rep on-ranch visit (miles)</span>
+        <input type="number" id="distanceVideo" value="0" step="1" min="0" max="500" inputmode="numeric" required>
+      </label>
+      <label>
+        <span>Hauling rate ($/loaded mile)</span>
+        <input type="number" id="haulingRate" value="3.50" step="0.10" min="0" max="20" inputmode="decimal" required>
+      </label>
+    </div>
+  </fieldset>
+
+  <details class="overrides">
+    <summary><strong>Adjust default cost assumptions per channel</strong> (click to expand)</summary>
+    <p class="overrides-note">All default values come from regional Extension literature and trade-press surveys. Edit any cell to match your local market; the comparator updates live.</p>
+    <div id="overrides-grid"></div>
+    <button type="button" id="resetOverrides">Reset all channel defaults</button>
+  </details>
+
+  <div id="input-error" class="input-error" style="display:none;"></div>
+</form>
+
+<div id="results" class="results-card">
+  <h3>Per-channel net price ($/cwt of gross weight)</h3>
+  <p class="results-note">Net price expressed per hundredweight of <em>gross</em> (pre-shrink) weight, so it is directly comparable to the base price you entered above.</p>
+  <div id="channel-cards"></div>
+
+  <div class="spread-summary">
+    <h4>Spread across channels</h4>
+    <p id="spread-text">—</p>
+  </div>
+
+  <div class="results-actions">
+    <button type="button" id="copyShareLink">Copy share link</button>
+    <button type="button" id="resetAll">Reset everything to defaults</button>
+    <span id="copyConfirm" class="copy-confirm" style="display:none;">Link copied.</span>
+  </div>
+</div>
+
+<details id="show-math">
+  <summary><strong>Show the math (per channel, step by step)</strong></summary>
+  <div id="math-steps">—</div>
+</details>
+
+<style>
+  /* Scoped styles for the comparator. Mobile-first. */
+  #chan-comp fieldset {
+    border: 1px solid #BBB;
+    border-radius: 4px;
+    margin-bottom: 1em;
+    padding: 0.75em 1em 1em 1em;
+  }
+  #chan-comp legend {
+    padding: 0 0.5em;
+    font-weight: 600;
+    color: #2F6FB2;
+  }
+  #chan-comp label {
+    display: block;
+    margin-bottom: 0.6em;
+  }
+  #chan-comp label > span {
+    display: block;
+    font-size: 0.92em;
+    margin-bottom: 0.15em;
+    color: #444;
+  }
+  #chan-comp input[type="number"],
+  #chan-comp select {
+    width: 100%;
+    max-width: 28em;
+    padding: 0.4em 0.5em;
+    font-size: 1em;
+    border: 1px solid #999;
+    border-radius: 3px;
+    background: #FFF;
+    box-sizing: border-box;
+  }
+  #chan-comp input[type="number"]:invalid {
+    border-color: #C03;
+    background: #FFF8F7;
+  }
+  .chan-comp-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  @media (min-width: 720px) {
+    .chan-comp-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 1em;
+    }
+  }
+  .input-error {
+    padding: 0.6em 1em;
+    background: #FFE5E0;
+    border: 1px solid #C03;
+    border-radius: 4px;
+    color: #800;
+    margin-top: 0.5em;
+  }
+  details.overrides {
+    margin-bottom: 1em;
+    padding: 0.5em 1em;
+    background: #FAFAFA;
+    border: 1px solid #DDD;
+    border-radius: 4px;
+  }
+  details.overrides summary {
+    cursor: pointer;
+    padding: 0.25em 0;
+  }
+  .overrides-note {
+    font-size: 0.9em;
+    color: #555;
+    font-style: italic;
+    margin: 0.5em 0;
+  }
+  #overrides-grid {
+    overflow-x: auto;
+    margin: 0.75em 0;
+  }
+  #overrides-grid table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92em;
+  }
+  #overrides-grid th, #overrides-grid td {
+    padding: 0.4em 0.5em;
+    border: 1px solid #DDD;
+    text-align: right;
+  }
+  #overrides-grid th {
+    background: #EAEAEA;
+    text-align: left;
+  }
+  #overrides-grid th:first-child, #overrides-grid td:first-child {
+    text-align: left;
+  }
+  #overrides-grid input[type="number"] {
+    width: 5em;
+    padding: 0.2em 0.3em;
+    border: 1px solid #BBB;
+    border-radius: 2px;
+    font-size: 0.95em;
+    background: #FFF8DC;
+    text-align: right;
+  }
+  #resetOverrides {
+    padding: 0.3em 0.7em;
+    font-size: 0.9em;
+    border: 1px solid #999;
+    background: #FFF;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  #resetOverrides:hover { background: #EEF; }
+
+  .results-card {
+    margin-top: 1.5em;
+    padding: 1em 1.25em;
+    background: #F4F8FC;
+    border: 1px solid #DCE5F0;
+    border-radius: 4px;
+  }
+  .results-note {
+    font-size: 0.9em;
+    color: #555;
+    margin: 0.25em 0 1em 0;
+  }
+
+  #channel-cards {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75em;
+    margin: 0.5em 0 1em 0;
+  }
+  @media (min-width: 900px) {
+    #channel-cards {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  .channel-card {
+    background: #FFF;
+    border: 1px solid #CCC;
+    border-radius: 4px;
+    padding: 0.7em 0.9em;
+  }
+  .channel-card h5 {
+    margin: 0 0 0.5em 0;
+    color: #2F6FB2;
+    font-size: 1.05em;
+  }
+  .channel-card .net-price {
+    font-size: 1.4em;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: #1A1A1A;
+    margin: 0.25em 0;
+  }
+  .channel-card .net-per-head {
+    font-size: 0.95em;
+    color: #444;
+    margin: 0 0 0.5em 0;
+  }
+  .channel-card .breakdown {
+    margin: 0.5em 0 0 0;
+    font-size: 0.9em;
+    border-top: 1px solid #EEE;
+    padding-top: 0.5em;
+  }
+  .channel-card .breakdown div {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.1em 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .channel-card .breakdown .label { color: #444; }
+  .channel-card .breakdown .value { color: #1A1A1A; }
+  .channel-card .breakdown .shrink-line {
+    margin-top: 0.4em;
+    padding-top: 0.3em;
+    border-top: 1px dotted #E8E8E8;
+  }
+  .channel-card .breakdown .shrink-line .label { color: #555; font-style: italic; }
+  .channel-card .caveat {
+    font-size: 0.85em;
+    color: #555;
+    font-style: italic;
+    margin-top: 0.5em;
+    border-top: 1px dashed #DDD;
+    padding-top: 0.4em;
+  }
+
+  .spread-summary {
+    margin-top: 1em;
+    padding: 0.8em 1em;
+    background: #FFF;
+    border: 1px solid #E0E0E0;
+    border-radius: 4px;
+  }
+  .spread-summary h4 {
+    margin: 0 0 0.4em 0;
+    color: #2F6FB2;
+    font-size: 1em;
+  }
+  .spread-summary p {
+    margin: 0;
+    font-size: 0.95em;
+  }
+
+  .results-actions {
+    display: flex;
+    gap: 0.5em;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 1em;
+  }
+  .results-actions button {
+    padding: 0.35em 0.75em;
+    font-size: 0.95em;
+    border: 1px solid #999;
+    border-radius: 3px;
+    background: #FFF;
+    cursor: pointer;
+  }
+  .results-actions button:hover { background: #EEF; }
+  .copy-confirm { color: #2A7; font-size: 0.9em; }
+
+  #show-math {
+    margin-top: 1em;
+    padding: 0.5em 1em;
+    background: #FAFAFA;
+    border-radius: 4px;
+  }
+  #show-math summary { cursor: pointer; padding: 0.25em 0; }
+  #math-steps { font-size: 0.92em; }
+  #math-steps h5 {
+    margin: 0.75em 0 0.25em 0;
+    color: #2F6FB2;
+    font-size: 1em;
+  }
+  #math-steps ol {
+    margin: 0.25em 0 0.5em 0;
+    padding-left: 1.5em;
+  }
+  #math-steps li {
+    margin-bottom: 0.2em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media print {
+    #chan-comp input, #chan-comp select {
+      border: 1px solid #000;
+    }
+    .results-actions { display: none; }
+    details.overrides { display: none; }
+    #show-math[open] summary { display: none; }
+  }
+</style>
+
+<script>
+(function () {
+  'use strict';
+
+  // -------------------------------------------------------------------
+  // Channel definitions and defaults.
+  // Each channel has a default cost structure. All defaults are editable
+  // in the per-channel override table; the values here are the "reset
+  // baseline" the override table refreshes to.
+  // -------------------------------------------------------------------
+  var CHANNEL_DEFS = [
+    {
+      id: 'local',
+      name: 'Local auction',
+      defaults: {
+        commission: 3.0, yardage: 7, brandInspect: 1, fees: 0, shrink: 4
+      },
+      hauls: 'local',
+      caveat: 'Bonded under the Packers and Stockyards Act. Commission and yardage rates vary across barns; verify with your local barn before committing.'
+    },
+    {
+      id: 'special',
+      name: 'Special feeder sale',
+      defaults: {
+        commission: 4.0, yardage: 8, brandInspect: 1, fees: 0, shrink: 4
+      },
+      hauls: 'local',
+      caveat: 'Bonded under the Packers and Stockyards Act. Pre-conditioned cattle in a graded special sale typically receive a $1–3/cwt premium not modeled here; the calculator compares cost structure only, not gross-price differentials.'
+    },
+    {
+      id: 'video',
+      name: 'Video auction',
+      defaults: {
+        commission: 2.0, yardage: 0, brandInspect: 0, fees: 10, shrink: 2
+      },
+      hauls: 'video',
+      caveat: 'Cattle stay on the ranch until the pre-arranged delivery date (FOB origin); hauling to the buyer is typically paid by the buyer. Most video auctions require a full truckload per consignment (~80–100 head at calf weight, or roughly 50,000 lb). Producers below that scale typically reach video channels through pooled or cooperative consignment rather than direct video listing.'
+    },
+    {
+      id: 'internet',
+      name: 'Internet auction',
+      defaults: {
+        commission: 1.5, yardage: 0, brandInspect: 0, fees: 0, shrink: 2
+      },
+      hauls: 'video',
+      caveat: 'Like video auction, cattle stay on the ranch until delivery (FOB origin). Some platforms require accurate digital descriptions or photographs; reputation matters in the absence of an in-person rep visit.'
+    },
+    {
+      id: 'private',
+      name: 'Private treaty',
+      defaults: {
+        commission: 0, yardage: 0, brandInspect: 0, fees: 0, shrink: 2
+      },
+      hauls: 'none',
+      caveat: 'Not bonded under the Packers and Stockyards Act; insist on wire transfer, cashier\'s check, or letter of credit before release. Hauling terms vary by contract; the default assumes FOB-destination with the buyer paying delivery (a common pattern with order buyers and feedlot direct sales). The 2% default shrink models in-transit shrink to the buyer\'s scale; for FOB-origin sales weighed on the producer\'s scale, set shrink to 0%. Important framing note: producers using private treaty typically negotiate at or below the local-auction headline price. The comparator holds base price constant across all channels, so the apparent advantage of private treaty in the cards reflects only its lower modeled deductions, not a higher gross price.'
+    }
+  ];
+
+  // -------------------------------------------------------------------
+  // Math: deterministic per-channel cost computation.
+  // -------------------------------------------------------------------
+  function computeChannel(channel, inputs) {
+    var grossWeight = inputs.lotSize * inputs.avgWeight;
+    var grossWeightCwt = grossWeight / 100;
+    var grossAtFullWeight = inputs.basePrice * grossWeightCwt;
+
+    var payWeight = grossWeight * (1 - channel.shrink / 100);
+    var payWeightCwt = payWeight / 100;
+    var grossAtPayWeight = inputs.basePrice * payWeightCwt;
+
+    var commission = grossAtPayWeight * (channel.commission / 100);
+    var yardage = channel.yardage * inputs.lotSize;
+    var brandInspect = channel.brandInspect * inputs.lotSize;
+    var fees = channel.fees * inputs.lotSize;
+
+    var distance = 0;
+    if (channel.hauls === 'local')      distance = inputs.distanceLocal;
+    else if (channel.hauls === 'video') distance = inputs.distanceVideo;
+    var hauling = distance * inputs.haulingRate;
+
+    var totalDeductions = commission + yardage + brandInspect + fees + hauling;
+    var shrinkDollarLoss = (grossWeight - payWeight) / 100 * inputs.basePrice;
+    var netRevenue = grossAtPayWeight - totalDeductions;
+
+    return {
+      grossWeight: grossWeight,
+      grossWeightCwt: grossWeightCwt,
+      grossAtFullWeight: grossAtFullWeight,
+      payWeight: payWeight,
+      grossAtPayWeight: grossAtPayWeight,
+      commission: commission,
+      yardage: yardage,
+      brandInspect: brandInspect,
+      fees: fees,
+      hauling: hauling,
+      haulingDistance: distance,
+      shrinkDollarLoss: shrinkDollarLoss,
+      totalDeductions: totalDeductions,
+      netRevenue: netRevenue,
+      netPerCwtGross: netRevenue / grossWeightCwt,  // comparable to entered base price
+      netPerCwtPay:   netRevenue / payWeightCwt,
+      netPerHead:     netRevenue / inputs.lotSize
+    };
+  }
+
+  // -------------------------------------------------------------------
+  // DOM helpers
+  // -------------------------------------------------------------------
+  function $(id) { return document.getElementById(id); }
+  // Formatters: emit a leading minus *before* the dollar sign for negative
+  // values (matches standard accounting style; see slide-calculator.qmd).
+  function _signed(n, fn) { return (n < 0 ? '−' : '') + fn(Math.abs(n)); }
+  function fmtMoney(n)   { return _signed(n, function (v) { return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }); }
+  function fmtCwtPrice(n){ return _signed(n, function (v) { return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '/cwt'; }); }
+  function fmtPct(n)     { return n.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%'; }
+
+  // -------------------------------------------------------------------
+  // Build override-grid HTML
+  // -------------------------------------------------------------------
+  function buildOverrideGrid() {
+    var hdr = ['Channel', 'Commission (%)', 'Yardage ($/head)', 'Brand inspect ($/head)', 'Other fees ($/head)', 'Pre-sale shrink (%)'];
+    var html = '<table><thead><tr>';
+    for (var i = 0; i < hdr.length; i++) html += '<th>' + hdr[i] + '</th>';
+    html += '</tr></thead><tbody>';
+    for (var c = 0; c < CHANNEL_DEFS.length; c++) {
+      var ch = CHANNEL_DEFS[c];
+      html += '<tr><td><strong>' + ch.name + '</strong></td>';
+      var fields = ['commission', 'yardage', 'brandInspect', 'fees', 'shrink'];
+      for (var f = 0; f < fields.length; f++) {
+        var val = ch.defaults[fields[f]];
+        var step = (fields[f] === 'commission' || fields[f] === 'shrink') ? '0.1' : '0.01';
+        html += '<td><input type="number" id="ovr_' + ch.id + '_' + fields[f] + '" value="' + val + '" step="' + step + '" min="0" max="100" inputmode="decimal"></td>';
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    $('overrides-grid').innerHTML = html;
+  }
+
+  function readOverrides() {
+    var out = {};
+    for (var c = 0; c < CHANNEL_DEFS.length; c++) {
+      var ch = CHANNEL_DEFS[c];
+      out[ch.id] = {
+        id: ch.id,
+        name: ch.name,
+        hauls: ch.hauls,
+        commission: Number($('ovr_' + ch.id + '_commission').value),
+        yardage: Number($('ovr_' + ch.id + '_yardage').value),
+        brandInspect: Number($('ovr_' + ch.id + '_brandInspect').value),
+        fees: Number($('ovr_' + ch.id + '_fees').value),
+        shrink: Number($('ovr_' + ch.id + '_shrink').value)
+      };
+    }
+    return out;
+  }
+
+  function resetOverrides() {
+    for (var c = 0; c < CHANNEL_DEFS.length; c++) {
+      var ch = CHANNEL_DEFS[c];
+      var fields = ['commission', 'yardage', 'brandInspect', 'fees', 'shrink'];
+      for (var f = 0; f < fields.length; f++) {
+        $('ovr_' + ch.id + '_' + fields[f]).value = ch.defaults[fields[f]];
+      }
+    }
+  }
+
+  function readGlobalInputs() {
+    return {
+      lotSize:        Number($('lotSize').value),
+      avgWeight:      Number($('avgWeight').value),
+      basePrice:      Number($('basePrice').value),
+      distanceLocal:  Number($('distanceLocal').value),
+      distanceVideo:  Number($('distanceVideo').value),
+      haulingRate:    Number($('haulingRate').value)
+    };
+  }
+
+  // -------------------------------------------------------------------
+  // URL state sync
+  // -------------------------------------------------------------------
+  var URL_KEYS = {
+    n: 'lotSize', w: 'avgWeight', p: 'basePrice',
+    dl: 'distanceLocal', dv: 'distanceVideo', hr: 'haulingRate'
+  };
+  // Override fields are encoded as <channel-prefix>_<field-key>=<value>.
+  // Channel prefixes are deliberately one-letter for compact URLs; the
+  // mapping is: l=local, p=special (s already used by 'shrink' prefix
+  // logic), v=video, i=internet, r=private (p already used). If a
+  // future channel is added, extend this map and document the new
+  // prefix below before changing OVERRIDE_KEYS.
+  var OVERRIDE_KEYS = {
+    'l_c': 'local.commission',  'l_y': 'local.yardage',  'l_b': 'local.brandInspect',  'l_f': 'local.fees',  'l_s': 'local.shrink',
+    'p_c': 'special.commission','p_y': 'special.yardage','p_b': 'special.brandInspect','p_f': 'special.fees','p_s': 'special.shrink',
+    'v_c': 'video.commission',  'v_y': 'video.yardage',  'v_b': 'video.brandInspect',  'v_f': 'video.fees',  'v_s': 'video.shrink',
+    'i_c': 'internet.commission','i_y': 'internet.yardage','i_b': 'internet.brandInspect','i_f': 'internet.fees','i_s': 'internet.shrink',
+    'r_c': 'private.commission','r_y': 'private.yardage','r_b': 'private.brandInspect','r_f': 'private.fees','r_s': 'private.shrink'
+  };
+
+  function applyUrlState() {
+    var params = new URLSearchParams(window.location.search);
+    Object.keys(URL_KEYS).forEach(function (k) {
+      if (params.has(k)) { var el = $(URL_KEYS[k]); if (el) el.value = params.get(k); }
+    });
+    // Override values: only apply if present (otherwise leave at default).
+    Object.keys(OVERRIDE_KEYS).forEach(function (k) {
+      if (params.has(k)) {
+        var path = OVERRIDE_KEYS[k].split('.');
+        var el = $('ovr_' + path[0] + '_' + path[1]);
+        if (el) el.value = params.get(k);
+      }
+    });
+  }
+
+  function buildShareUrl() {
+    var inputs = readGlobalInputs();
+    var ovr = readOverrides();
+    var params = new URLSearchParams();
+    Object.keys(URL_KEYS).forEach(function (k) {
+      params.set(k, inputs[URL_KEYS[k]]);
+    });
+    Object.keys(OVERRIDE_KEYS).forEach(function (k) {
+      var path = OVERRIDE_KEYS[k].split('.');
+      params.set(k, ovr[path[0]][path[1]]);
+    });
+    return window.location.origin + window.location.pathname + '?' + params.toString();
+  }
+
+  // -------------------------------------------------------------------
+  // Render
+  // -------------------------------------------------------------------
+  function render() {
+    var inputs = readGlobalInputs();
+    var overrides = readOverrides();
+
+    var errMsg = validate(inputs);
+    var errEl = $('input-error');
+    if (errMsg) {
+      errEl.textContent = errMsg;
+      errEl.style.display = '';
+      return;
+    } else {
+      errEl.style.display = 'none';
+    }
+
+    var results = [];
+    for (var c = 0; c < CHANNEL_DEFS.length; c++) {
+      var ch = overrides[CHANNEL_DEFS[c].id];
+      var r = computeChannel(ch, inputs);
+      results.push({ channel: ch, def: CHANNEL_DEFS[c], result: r });
+    }
+
+    renderCards(results, inputs);
+    renderSpread(results, inputs);
+    renderMath(results, inputs);
+  }
+
+  function validate(inputs) {
+    function check(val, name, min, max) {
+      if (!isFinite(val)) return name + ' must be a number.';
+      if (val < min) return name + ' must be at least ' + min + '.';
+      if (val > max) return name + ' must be at most ' + max + '.';
+      return null;
+    }
+    var checks = [
+      [inputs.lotSize, 'Number of head', 1, 10000],
+      [inputs.avgWeight, 'Average weight', 100, 2000],
+      [inputs.basePrice, 'Base cash price', 0, 2000],
+      [inputs.distanceLocal, 'Distance to local barn', 0, 1000],
+      [inputs.distanceVideo, 'Video-rep distance', 0, 500],
+      [inputs.haulingRate, 'Hauling rate', 0, 20]
+    ];
+    for (var i = 0; i < checks.length; i++) {
+      var msg = check.apply(null, checks[i]);
+      if (msg) return msg;
+    }
+    return null;
+  }
+
+  function renderCards(results, inputs) {
+    var html = '';
+    for (var i = 0; i < results.length; i++) {
+      var r = results[i].result;
+      var ch = results[i].channel;
+      var def = results[i].def;
+      html += '<div class="channel-card">';
+      html += '<h5>' + ch.name + '</h5>';
+      html += '<div class="net-price">' + fmtCwtPrice(r.netPerCwtGross) + ' net</div>';
+      html += '<div class="net-per-head">' + fmtMoney(r.netPerHead) + ' per head — total ' + fmtMoney(r.netRevenue) + '</div>';
+      html += '<div class="breakdown">';
+      html += card_row('Gross at pay weight',    fmtMoney(r.grossAtPayWeight));
+      html += card_row('Commission (' + fmtPct(ch.commission) + ')', '−' + fmtMoney(r.commission));
+      if (r.yardage > 0)      html += card_row('Yardage', '−' + fmtMoney(r.yardage));
+      if (r.brandInspect > 0) html += card_row('Brand inspection', '−' + fmtMoney(r.brandInspect));
+      if (r.fees > 0)         html += card_row('Other fees', '−' + fmtMoney(r.fees));
+      if (r.hauling > 0)      html += card_row('Hauling (' + r.haulingDistance + ' mi × ' + fmtMoney(inputs.haulingRate) + '/mi)', '−' + fmtMoney(r.hauling));
+      // Shrink is visually separated from the deductions because it is
+      // already netted into grossAtPayWeight (the gross is computed on
+      // pay weight, not full delivered weight). Showing it in the same
+      // visual block as commission/yardage risks double-counting in the
+      // reader's mental model.
+      html += '<div class="shrink-line"><span class="label">Implicit shrink cost (' + fmtPct(ch.shrink) + ', already netted into gross at pay weight)</span><span class="value">≈ ' + fmtMoney(r.shrinkDollarLoss) + '</span></div>';
+      html += '</div>';
+      html += '<div class="caveat">' + def.caveat + '</div>';
+      html += '</div>';
+    }
+    $('channel-cards').innerHTML = html;
+  }
+  function card_row(label, value) {
+    return '<div><span class="label">' + label + '</span><span class="value">' + value + '</span></div>';
+  }
+
+  function renderSpread(results, inputs) {
+    var prices = results.map(function (r) { return r.result.netPerCwtGross; });
+    var minVal = Math.min.apply(null, prices);
+    var maxVal = Math.max.apply(null, prices);
+    var spread = maxVal - minVal;
+    var highName = results[prices.indexOf(maxVal)].channel.name;
+    var lowName  = results[prices.indexOf(minVal)].channel.name;
+    // Deliberately neutral: the calculator holds base price constant across channels,
+    // so "ranking" by net-of-deductions is a cost-structure ranking only, not a
+    // marketing-decision ranking. We report the range without naming a winner.
+    var msg = 'Under your inputs, modeled net price ranges from <strong>' + fmtCwtPrice(minVal) + '</strong> (' + lowName + ') to <strong>' + fmtCwtPrice(maxVal) + '</strong> (' + highName + '), a spread of ' + fmtCwtPrice(spread) + '. ';
+    if (spread < 3) {
+      msg += 'This is a small spread under the calculator\'s constant-base-price assumption. Channel-fit considerations (lot size, marketing calendar, payment risk, channel access) likely dominate the cost-structure difference at this scenario.';
+    } else if (spread < 8) {
+      msg += 'This is a moderate spread under the calculator\'s constant-base-price assumption. Channel-fit considerations still matter and may move the practical ordering.';
+    } else {
+      msg += 'This is a wide spread under the calculator\'s constant-base-price assumption. Real-world gross-price differentials between channels — for example, video-auction premiums for uniform load-lots or private-treaty discounts negotiated below the local benchmark — are NOT modeled here and can offset some or all of this spread in practice.';
+    }
+    msg += ' This calculator does not pick a winner; channel-fit considerations beyond cost structure are summarized in Parish et al. (2021), <em>Marketing feeder calves</em> (Mississippi State Extension Pub 2552).';
+    $('spread-text').innerHTML = msg;
+  }
+
+  function renderMath(results, inputs) {
+    var html = '';
+    for (var i = 0; i < results.length; i++) {
+      var r = results[i].result;
+      var ch = results[i].channel;
+      html += '<h5>' + ch.name + '</h5><ol>';
+      html += '<li>Gross weight = ' + inputs.lotSize + ' head × ' + inputs.avgWeight + ' lb = ' + r.grossWeight.toLocaleString() + ' lb (' + r.grossWeightCwt.toFixed(2) + ' cwt).</li>';
+      html += '<li>Pay weight after ' + fmtPct(ch.shrink) + ' shrink = ' + r.payWeight.toLocaleString() + ' lb.</li>';
+      html += '<li>Gross at pay weight = ' + r.payWeight.toLocaleString() + ' lb × ' + fmtCwtPrice(inputs.basePrice) + ' = ' + fmtMoney(r.grossAtPayWeight) + '.</li>';
+      html += '<li>Commission ' + fmtPct(ch.commission) + ' on ' + fmtMoney(r.grossAtPayWeight) + ' = ' + fmtMoney(r.commission) + '.</li>';
+      if (ch.yardage > 0)      html += '<li>Yardage ' + fmtMoney(ch.yardage) + '/head × ' + inputs.lotSize + ' = ' + fmtMoney(r.yardage) + '.</li>';
+      if (ch.brandInspect > 0) html += '<li>Brand inspection ' + fmtMoney(ch.brandInspect) + '/head × ' + inputs.lotSize + ' = ' + fmtMoney(r.brandInspect) + '.</li>';
+      if (ch.fees > 0)         html += '<li>Other fees ' + fmtMoney(ch.fees) + '/head × ' + inputs.lotSize + ' = ' + fmtMoney(r.fees) + '.</li>';
+      if (r.hauling > 0)       html += '<li>Hauling ' + r.haulingDistance + ' mi × ' + fmtMoney(inputs.haulingRate) + '/mi = ' + fmtMoney(r.hauling) + '.</li>';
+      html += '<li>Net revenue = ' + fmtMoney(r.grossAtPayWeight) + ' − ' + fmtMoney(r.totalDeductions) + ' = ' + fmtMoney(r.netRevenue) + '.</li>';
+      html += '<li>Net per cwt of gross weight = ' + fmtMoney(r.netRevenue) + ' ÷ ' + r.grossWeightCwt.toFixed(2) + ' cwt = ' + fmtCwtPrice(r.netPerCwtGross) + '.</li>';
+      html += '</ol>';
+    }
+    $('math-steps').innerHTML = html;
+  }
+
+  // -------------------------------------------------------------------
+  // Verification block — runs at page load. Two scenarios:
+  // (1) Worked example with no shrink, no hauling, exercises the basic
+  //     flow: 25 head × 525 lb × $285/cwt local auction at 3% commission
+  //     + $8/head yardage+brand. Hand-check: gross $37,406.25, deductions
+  //     $1,322.19, net $36,084.06.
+  // (2) Same scenario at 2% shrink, no hauling, exercises the shrink
+  //     branch. Hand-check: pay weight 12,862.5 lb (gross 13,125 × 0.98),
+  //     gross at pay $36,658.125, commission 3% = $1,099.74, yardage+brand
+  //     $200, total deductions $1,299.74, net $35,358.385 (~$1,414/head).
+  // -------------------------------------------------------------------
+  function verify() {
+    var inputs = {
+      lotSize: 25, avgWeight: 525, basePrice: 285,
+      distanceLocal: 0, distanceVideo: 0, haulingRate: 0
+    };
+    var scenarios = [
+      {
+        name: 'No-shrink scenario',
+        ch: { id: 'local', name: 'Local auction', hauls: 'local',
+              commission: 3, yardage: 7, brandInspect: 1, fees: 0, shrink: 0 },
+        expected: { grossAtPayWeight: 37406.25, totalDeductions: 1322.19, netRevenue: 36084.06 }
+      },
+      {
+        name: '2%-shrink scenario',
+        ch: { id: 'local', name: 'Local auction', hauls: 'local',
+              commission: 3, yardage: 7, brandInspect: 1, fees: 0, shrink: 2 },
+        expected: { grossAtPayWeight: 36658.125, totalDeductions: 1299.7438, netRevenue: 35358.3812 }
+      }
+    ];
+    for (var i = 0; i < scenarios.length; i++) {
+      var s = scenarios[i];
+      var got = computeChannel(s.ch, inputs);
+      if (Math.abs(got.grossAtPayWeight - s.expected.grossAtPayWeight) > 1.0) return { ok: false, scenario: s.name, field: 'grossAtPayWeight', got: got.grossAtPayWeight, expected: s.expected.grossAtPayWeight };
+      if (Math.abs(got.totalDeductions  - s.expected.totalDeductions)  > 2.0) return { ok: false, scenario: s.name, field: 'totalDeductions',  got: got.totalDeductions,  expected: s.expected.totalDeductions };
+      if (Math.abs(got.netRevenue       - s.expected.netRevenue)       > 2.0) return { ok: false, scenario: s.name, field: 'netRevenue',       got: got.netRevenue,       expected: s.expected.netRevenue };
+    }
+    return { ok: true };
+  }
+
+  // -------------------------------------------------------------------
+  // Wire up
+  // -------------------------------------------------------------------
+  function init() {
+    buildOverrideGrid();
+    applyUrlState();
+
+    var form = $('chan-comp');
+    form.addEventListener('input', render);
+    form.addEventListener('change', render);
+
+    $('resetOverrides').addEventListener('click', function () {
+      resetOverrides();
+      render();
+    });
+
+    $('resetAll').addEventListener('click', function () {
+      // Reset global inputs to defaults
+      $('lotSize').value       = 25;
+      $('avgWeight').value     = 525;
+      $('basePrice').value     = 285;
+      $('distanceLocal').value = 50;
+      $('distanceVideo').value = 0;
+      $('haulingRate').value   = 3.50;
+      resetOverrides();
+      window.history.replaceState({}, '', window.location.pathname);
+      render();
+    });
+
+    $('copyShareLink').addEventListener('click', function () {
+      var url = buildShareUrl();
+      var done = function () {
+        var c = $('copyConfirm'); c.style.display = '';
+        setTimeout(function () { c.style.display = 'none'; }, 2000);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(done);
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = url; document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        document.body.removeChild(ta);
+        done();
+      }
+    });
+
+    var v = verify();
+    if (!v.ok) {
+      var b = document.createElement('div');
+      b.style.cssText = 'padding:1em; background:#FFE5E0; border:1px solid #C03; border-radius:4px; margin-bottom:1em;';
+      b.innerHTML = '<strong>Verification failed.</strong> Scenario "' + v.scenario + '" field "' + v.field + '" produced ' + v.got + ', expected ' + v.expected + '. Math has drifted from the worked-example anchors — please report.';
+      var firstChild = document.querySelector('main') || document.body.firstElementChild;
+      if (firstChild) firstChild.insertBefore(b, firstChild.firstElementChild);
+      console.error('[channel-comparator] verification failed:', v);
+    }
+
+    render();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+```
+
+## Channels not in this comparator
+
+Four additional marketing arrangements — **beef alliances and branded programs**, **grid (value-based) marketing of fed cattle**, **retained ownership and custom feeding**, and **cooperative or pooled marketing** — are not included in this per-cwt cost comparator because their value structure does not reduce to a single comparable per-cwt number under a fixed base price.
+
+- **Alliance and branded programs** add value through carcass-quality premiums and process-verification structures that depend on the producer's specific cattle and the program's current premium schedule. Standard Extension references include Ward and Raper (2013), *Update on beef industry alliances* (Oklahoma State Extension Fact Sheet AGEC-614), and Sartwelle, Davis, Mintert, and Borchardt (2000), *Beef cattle marketing alliances* (Texas Agricultural Extension Service Risk Management Publication L-5356/RM1-9.0).
+- **Grid (value-based) marketing** prices each carcass individually against a published premium-discount schedule; the producer's net depends on the cattle's actual quality and yield grade outcomes. See Ward, Schroeder, and Feuz (2017), *Grid pricing of fed cattle: Base prices and premiums-discounts* (Oklahoma State Extension Fact Sheet AGEC-560).
+- **Retained ownership through custom feeding** changes the price-exposure horizon by four to six months and adds corn-price and fed-cattle-price exposure; the cost structure is feeding-margin economics, not feeder-stage cost-of-marketing. Iowa State Extension's *Livestock enterprise budgets for Iowa* (Ag Decision Maker File B1-21) is one canonical Extension reference for the underlying enterprise-budget framework.
+- **Cooperative or pooled marketing** is an aggregation mechanism that opens the cash channels above (typically video, internet, or alliance) for producers without standalone load-lot scale; its costs are an overlay on the underlying channel rather than a standalone cost structure.
+
+## Excel companion
+
+A spreadsheet version of this comparator is available for offline use: [channel-comparator.xlsx](downloads/channel-comparator.xlsx). Same five channels, same default values, same math — yellow cells are inputs, green cells are computed.
+
+## Methodology and limits
+
+The set of feeder-cattle cash-marketing channels compared here, and the channel-fit framework around them, follow the standard Extension treatment documented in Parish, Rhinehart, and Anderson (2021), *Marketing feeder calves* (Mississippi State Extension Pub 2552). Video-auction-specific characteristics are drawn from Griffith (2015), *Marketing feeder cattle via video auction* (University of Tennessee Extension Pub W 335). The cost-structure decomposition itself — commission, yardage, brand inspection, other fees, pre-sale shrink, and hauling — is the calculator's own composition of cost categories that appear individually across the Extension literature; it is not lifted from a single source. The five cash channels are compared on the same set of cost categories so that the spread visible in the Results section reflects only the structural difference in how each channel deducts from the gross.
+
+**What the math does:**
+
+For each channel, given the producer's base price, lot size, average weight, and channel-specific cost overrides:
+
+1. Pay weight = gross weight × (1 − shrink/100).
+2. Gross-at-pay-weight = base price × pay weight (cwt).
+3. Commission = gross-at-pay-weight × commission %.
+4. Yardage, brand inspection, and fee deductions = per-head rates × lot size.
+5. Hauling = distance × hauling rate (only for channels where the producer pays the haul).
+6. Net revenue = gross-at-pay-weight − all deductions.
+7. Net per cwt of gross weight = net revenue ÷ gross weight (cwt).
+
+**What the math does not do:**
+
+- **Does not predict gross-price differentials between channels.** Video auctions sometimes pay $5–10/cwt premium over local barn for uniform load-lots; special sales sometimes pay $1–3/cwt premium for graded pre-conditioned calves. These gross-price differences are real and well-documented but vary so much by year, region, cattle quality, and market conditions that hard-coding them into the calculator would be misleading. To compare scenarios with different gross prices per channel, run the calculator twice — once at $285/cwt for the local-barn benchmark, once at $293/cwt for the video premium — and compare the net-per-cwt outputs.
+- **Does not model channel-fit constraints.** A small producer without load-lot scale cannot use the video-auction column, even if the calculator says it nets the highest price. A producer whose ranch is 200 miles from the nearest barn pays a real but not-quite-cash cost in road time and stress that the calculator monetizes in dollars but not in full operational reality. Use this output alongside published Extension channel descriptions — Parish, Rhinehart, and Anderson (2021) for the broad channel-fit framework, Griffith (2015) for video-auction specifics — not as a substitute.
+- **Does not model alliance, grid, retained-ownership, or cooperative arrangements.** These have value structures that don't reduce to per-cwt cost comparison; see the callout above for the relevant published Extension references.
+- **Does not include LRP or futures hedging.** Those are price-risk overlays on whatever channel is chosen, not channels themselves. Livestock Risk Protection (LRP) is a USDA Risk Management Agency price-floor insurance product available for both feeder-cattle and fed-cattle stages with separate contract specifications for each. Current product details, coverage prices, and premium rates are published daily by the RMA at [https://www.rma.usda.gov/livestock](https://www.rma.usda.gov/livestock).
+
+## Verification
+
+The calculator runs a worked-example scenario at every page load: 25 head × 525 lb × $285/cwt local auction at 3% commission and $8/head combined yardage and brand inspection, no shrink, no hauling. Expected output: $36,084 net revenue (≈ $1,443 per head). If you see a red banner above the form indicating a failure, the math has drifted — please [open an issue](https://github.com/lma-explorer/lma-explorer.github.io/issues/new/choose) before using the calculator for a real decision.
+
+## Cite this tool
+
+Sall, I., & Tronstad, R. (2026). *Marketing-channel cost comparator for feeder cattle* [Interactive tool]. Livestock Marketing Alternatives Explorer. [https://lma-explorer.github.io/tools/channel-comparator.html](https://lma-explorer.github.io/tools/channel-comparator.html)
+
+## References
+
+Griffith, A. P. (2015). *Marketing feeder cattle via video auction* (Publication W 335). University of Tennessee Extension. [https://utbeef.tennessee.edu/wp-content/uploads/sites/127/2020/11/W335-Marketing-Feeder-Cattle-Via-Video-Auction.pdf](https://utbeef.tennessee.edu/wp-content/uploads/sites/127/2020/11/W335-Marketing-Feeder-Cattle-Via-Video-Auction.pdf)
+
+Iowa State University Extension and Outreach. (2025). *Livestock enterprise budgets for Iowa* (Ag Decision Maker File B1-21; FM 1815, Revised June 2025). [https://www.extension.iastate.edu/agdm/livestock/html/b1-21.html](https://www.extension.iastate.edu/agdm/livestock/html/b1-21.html)
+
+Parish, J. A., Rhinehart, J. D., & Anderson, J. D. (2021). *Marketing feeder calves* (Publication 2552). Mississippi State University Extension Service. [https://extension.msstate.edu/sites/default/files/publications/P2552_web.pdf](https://extension.msstate.edu/sites/default/files/publications/P2552_web.pdf)
+
+Sartwelle, J. D., III, Davis, E. E., Mintert, J., & Borchardt, R. (2000). *Beef cattle marketing alliances* (Risk Management Publication L-5356/RM1-9.0). Texas Agricultural Extension Service, The Texas A&M University System.
+
+Ward, C. E., & Raper, K. C. (2013). *Update on beef industry alliances* (Fact Sheet AGEC-614). Oklahoma Cooperative Extension Service. [https://extension.okstate.edu/fact-sheets/update-on-beef-industry-alliances.html](https://extension.okstate.edu/fact-sheets/update-on-beef-industry-alliances.html)
+
+Ward, C. E., Schroeder, T. C., & Feuz, D. M. (2017). *Grid pricing of fed cattle: Base prices and premiums-discounts* (Fact Sheet AGEC-560). Oklahoma Cooperative Extension Service. [https://extension.okstate.edu/fact-sheets/grid-pricing-of-fed-cattle-base-prices-and-premiums-discounts.html](https://extension.okstate.edu/fact-sheets/grid-pricing-of-fed-cattle-base-prices-and-premiums-discounts.html)
