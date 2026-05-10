@@ -1,0 +1,640 @@
+---
+title: "Slide-contract calculator"
+subtitle: "Interactive forward-contract price-slide calculator for feeder cattle. No backend, no tracking, no account — your numbers stay in your browser."
+toc: true
+toc-depth: 2
+---
+
+## What this tool does
+
+When feeder cattle are sold for forward delivery — through video auctions, internet auctions, or private treaty — the weight at delivery almost always differs from the contracted weight. A **price slide** is the mechanical adjustment in $/cwt that compensates. This calculator implements the standard slide formula documented in Rasby and Mark (2011), *Feeder cattle price slides* (NebGuide G2088, University of Nebraska–Lincoln Extension), and lets a producer plug in their own contract terms to see the per-head and total payment.
+
+The math is linear and reproducible in a spreadsheet. For offline use, an [Excel companion](downloads/slide-contract-calculator.xlsx) is available below — same math, same defaults, same outputs.
+
+::: {.callout-note appearance="simple"}
+**Privacy.** Everything runs in your browser. The calculator never sends your inputs to any server. The "share scenario" link is a URL that encodes the inputs as query parameters — anyone who can see that URL (forwarded email, screen-share, corporate proxy logs, browser history on a shared computer) can read the inputs. Treat the share link as you would treat any URL containing data you would not paste publicly.
+:::
+
+## Calculator
+
+::: {#verification-banner-fail .verification-fail style="display:none; padding: 1em; background: #FFE5E0; border: 1px solid #C03; border-radius: 4px; margin-bottom: 1em;"}
+**Verification failed.** This calculator has drifted from the published worked examples. The math may be unreliable — please [open an issue](https://github.com/lma-explorer/lma-explorer.github.io/issues/new/choose) before using it for a real contract.
+:::
+
+```{=html}
+<form id="slide-calc" novalidate>
+  <div class="slide-calc-grid">
+
+    <fieldset>
+      <legend>Contract terms</legend>
+      <label>
+        <span>Base price ($/cwt)</span>
+        <input type="number" id="basePrice" value="245" step="0.01" min="0" max="2000" inputmode="decimal" required>
+      </label>
+      <label>
+        <span>Base weight (lb)</span>
+        <input type="number" id="baseWeight" value="550" step="1" min="100" max="2000" inputmode="numeric" required>
+      </label>
+      <label>
+        <span>Weight basis</span>
+        <select id="weightBasis">
+          <option value="post-shrink" selected>Post-shrink (pay-weight basis)</option>
+          <option value="pre-shrink">Pre-shrink (gross-weight basis)</option>
+        </select>
+      </label>
+      <label>
+        <span>Weight window (± lb)</span>
+        <input type="number" id="weightWindow" value="10" step="1" min="0" max="200" inputmode="numeric" required>
+      </label>
+      <label>
+        <span>Slide rate ($/cwt per cwt outside window)</span>
+        <input type="number" id="slideRate" value="6" step="0.01" min="0" max="50" inputmode="decimal" required>
+      </label>
+      <label>
+        <span>Slide direction</span>
+        <select id="slideDirection">
+          <option value="two-way" selected>Two-way (heavier → price down, lighter → price up)</option>
+          <option value="one-way-down">One-way (heavier → price down, lighter → no change)</option>
+        </select>
+      </label>
+      <label>
+        <span>Shrink (%)</span>
+        <input type="number" id="shrink" value="2" step="0.1" min="0" max="20" inputmode="decimal" required>
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Delivery</legend>
+      <label>
+        <span>Delivered weight (lb)</span>
+        <input type="number" id="deliveredWeight" value="600" step="1" min="100" max="2000" inputmode="numeric" required>
+      </label>
+      <label>
+        <span>Number of head</span>
+        <input type="number" id="headCount" value="1" step="1" min="1" max="10000" inputmode="numeric" required>
+      </label>
+    </fieldset>
+
+  </div>
+
+  <div id="input-error" class="input-error" style="display:none;"></div>
+</form>
+
+<div id="results" class="results-card">
+  <h3>Results</h3>
+  <dl class="results-list">
+    <dt>Pay weight</dt>
+    <dd id="payWeight">—</dd>
+
+    <dt>Effective base weight (after pre-shrink adjustment if applicable)</dt>
+    <dd id="effectiveBase">—</dd>
+
+    <dt>Allowed weight window</dt>
+    <dd id="windowRange">—</dd>
+
+    <dt>Distance from window</dt>
+    <dd id="distanceCwt">—</dd>
+
+    <dt>Slide adjustment</dt>
+    <dd id="slideAdjustment">—</dd>
+
+    <dt>Adjusted price</dt>
+    <dd id="adjustedPrice">—</dd>
+
+    <dt>Per-head payment</dt>
+    <dd id="perHead">—</dd>
+
+    <dt>Total lot payment</dt>
+    <dd id="total">—</dd>
+  </dl>
+  <div class="results-actions">
+    <button type="button" id="copyShareLink">Copy share link</button>
+    <button type="button" id="resetDefaults">Reset to defaults</button>
+    <span id="copyConfirm" class="copy-confirm" style="display:none;">Link copied.</span>
+  </div>
+</div>
+
+<details id="show-math">
+  <summary><strong>Show the math (step by step)</strong></summary>
+  <div id="math-steps">—</div>
+</details>
+
+<style>
+  /* Scoped styles for the calculator. Mobile-first single column;
+     two columns on wider screens. No external CSS dependencies. */
+  #slide-calc fieldset {
+    border: 1px solid #BBB;
+    border-radius: 4px;
+    margin-bottom: 1em;
+    padding: 0.75em 1em 1em 1em;
+  }
+  #slide-calc legend {
+    padding: 0 0.5em;
+    font-weight: 600;
+    color: #2F6FB2;
+  }
+  #slide-calc label {
+    display: block;
+    margin-bottom: 0.6em;
+  }
+  #slide-calc label > span {
+    display: block;
+    font-size: 0.92em;
+    margin-bottom: 0.15em;
+    color: #444;
+  }
+  #slide-calc input[type="number"],
+  #slide-calc select {
+    width: 100%;
+    max-width: 28em;
+    padding: 0.4em 0.5em;
+    font-size: 1em;
+    border: 1px solid #999;
+    border-radius: 3px;
+    background: #FFF;
+    box-sizing: border-box;
+  }
+  #slide-calc input[type="number"]:invalid {
+    border-color: #C03;
+    background: #FFF8F7;
+  }
+  .slide-calc-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  @media (min-width: 720px) {
+    .slide-calc-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 1em;
+    }
+  }
+  .input-error {
+    padding: 0.6em 1em;
+    background: #FFE5E0;
+    border: 1px solid #C03;
+    border-radius: 4px;
+    color: #800;
+    margin-top: 0.5em;
+  }
+  .results-card {
+    margin-top: 1.5em;
+    padding: 1em 1.25em;
+    background: #F4F8FC;
+    border: 1px solid #DCE5F0;
+    border-radius: 4px;
+  }
+  .results-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.4em 1em;
+    margin: 0.5em 0 1em 0;
+  }
+  @media (min-width: 720px) {
+    .results-list {
+      grid-template-columns: 1fr 1.5fr;
+    }
+  }
+  .results-list dt {
+    font-weight: 500;
+    color: #444;
+  }
+  .results-list dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+  .results-actions {
+    display: flex;
+    gap: 0.5em;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .results-actions button {
+    padding: 0.35em 0.75em;
+    font-size: 0.95em;
+    border: 1px solid #999;
+    border-radius: 3px;
+    background: #FFF;
+    cursor: pointer;
+  }
+  .results-actions button:hover {
+    background: #EEF;
+  }
+  .copy-confirm {
+    color: #2A7;
+    font-size: 0.9em;
+  }
+  #show-math {
+    margin-top: 1em;
+    padding: 0.5em 1em;
+    background: #FAFAFA;
+    border-radius: 4px;
+  }
+  #show-math summary {
+    cursor: pointer;
+    padding: 0.25em 0;
+  }
+  #math-steps ol {
+    margin: 0.5em 0;
+    padding-left: 1.5em;
+  }
+  #math-steps li {
+    margin-bottom: 0.3em;
+    font-variant-numeric: tabular-nums;
+  }
+  @media print {
+    #slide-calc input,
+    #slide-calc select {
+      border: 1px solid #000;
+    }
+    .results-actions { display: none; }
+    #show-math[open] summary { display: none; }
+  }
+</style>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------------------------------------------------------------------
+  // Pure math: implements the standard slide formula (Rasby & Mark 2011).
+  // ---------------------------------------------------------------------
+  function compute(inputs) {
+    var basePrice       = Number(inputs.basePrice);
+    var baseWeight      = Number(inputs.baseWeight);
+    var weightBasis     = String(inputs.weightBasis);
+    var weightWindow    = Number(inputs.weightWindow);
+    var slideRate       = Number(inputs.slideRate);
+    var slideDirection  = String(inputs.slideDirection);
+    var shrinkPct       = Number(inputs.shrink);
+    var deliveredWeight = Number(inputs.deliveredWeight);
+    var headCount       = Number(inputs.headCount);
+
+    // Validate.
+    var invalid = [];
+    function check(val, name, min, max) {
+      if (!isFinite(val)) invalid.push(name + ' must be a number.');
+      else if (val < min) invalid.push(name + ' must be at least ' + min + '.');
+      else if (val > max) invalid.push(name + ' must be at most ' + max + '.');
+    }
+    check(basePrice, 'Base price', 0, 2000);
+    check(baseWeight, 'Base weight', 100, 2000);
+    check(weightWindow, 'Weight window', 0, 200);
+    check(slideRate, 'Slide rate', 0, 50);
+    check(shrinkPct, 'Shrink', 0, 20);
+    check(deliveredWeight, 'Delivered weight', 100, 2000);
+    check(headCount, 'Head count', 1, 10000);
+    if (invalid.length) return { error: invalid.join(' ') };
+
+    // Compute.
+    var shrinkFactor = 1 - shrinkPct / 100;
+    var payWeight = deliveredWeight * shrinkFactor;
+
+    // Pre-shrink basis: convert the contracted base weight to its post-shrink
+    // equivalent so the window and slide are evaluated in pay-weight terms.
+    // Best-effort interpretation; pre-shrink contracts vary in practice.
+    var effectiveBase = (weightBasis === 'pre-shrink')
+      ? baseWeight * shrinkFactor
+      : baseWeight;
+
+    var upperWindow = effectiveBase + weightWindow;
+    var lowerWindow = effectiveBase - weightWindow;
+
+    var distanceCwt = 0;
+    var slideAdjustment = 0;
+    var direction = 'in-window';
+
+    if (payWeight > upperWindow) {
+      distanceCwt = (payWeight - upperWindow) / 100;
+      slideAdjustment = -distanceCwt * slideRate; // heavier → price down
+      direction = 'over';
+    } else if (payWeight < lowerWindow) {
+      distanceCwt = (lowerWindow - payWeight) / 100;
+      if (slideDirection === 'two-way') {
+        slideAdjustment = distanceCwt * slideRate; // lighter → price up
+      } else {
+        slideAdjustment = 0; // one-way: lighter → no change
+      }
+      direction = 'under';
+    }
+
+    var adjustedPrice = basePrice + slideAdjustment;
+    var perHead = payWeight * (adjustedPrice / 100);
+    var total = perHead * headCount;
+
+    return {
+      payWeight: payWeight,
+      effectiveBase: effectiveBase,
+      upperWindow: upperWindow,
+      lowerWindow: lowerWindow,
+      distanceCwt: distanceCwt,
+      slideAdjustment: slideAdjustment,
+      adjustedPrice: adjustedPrice,
+      perHead: perHead,
+      total: total,
+      direction: direction,
+      shrinkFactor: shrinkFactor
+    };
+  }
+
+  // ---------------------------------------------------------------------
+  // DOM helpers.
+  // ---------------------------------------------------------------------
+  function $(id) { return document.getElementById(id); }
+  // Formatters: emit a leading minus *before* the dollar sign for negative
+  // values (e.g. "−$1.68/cwt", not "$-1.68/cwt"), matching standard
+  // accounting style. The toLocaleString fraction-digits options pin the
+  // displayed precision; the underlying values can carry more.
+  function _signed(n, fn) { return (n < 0 ? '−' : '') + fn(Math.abs(n)); }
+  function fmtMoney(n)   { return _signed(n, function (v) { return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }); }
+  function fmtCwtPrice(n){ return _signed(n, function (v) { return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '/cwt'; }); }
+  function fmtLb(n)      { return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 }) + ' lb'; }
+  function fmtCwt(n)     { return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' cwt'; }
+
+  function readInputs() {
+    return {
+      basePrice:       $('basePrice').value,
+      baseWeight:      $('baseWeight').value,
+      weightBasis:     $('weightBasis').value,
+      weightWindow:    $('weightWindow').value,
+      slideRate:       $('slideRate').value,
+      slideDirection:  $('slideDirection').value,
+      shrink:          $('shrink').value,
+      deliveredWeight: $('deliveredWeight').value,
+      headCount:       $('headCount').value
+    };
+  }
+
+  // ---------------------------------------------------------------------
+  // URL-state sync (deep-linkable scenarios).
+  // ---------------------------------------------------------------------
+  var URL_KEYS = {
+    bp: 'basePrice',     bw: 'baseWeight',  wb: 'weightBasis',
+    ww: 'weightWindow',  sr: 'slideRate',   sd: 'slideDirection',
+    sh: 'shrink',        dw: 'deliveredWeight', hd: 'headCount'
+  };
+
+  function applyUrlState() {
+    var params = new URLSearchParams(window.location.search);
+    Object.keys(URL_KEYS).forEach(function (k) {
+      if (params.has(k)) {
+        var el = $(URL_KEYS[k]);
+        if (el) el.value = params.get(k);
+      }
+    });
+  }
+
+  function buildShareUrl() {
+    var inputs = readInputs();
+    var params = new URLSearchParams();
+    Object.keys(URL_KEYS).forEach(function (k) {
+      params.set(k, inputs[URL_KEYS[k]]);
+    });
+    return window.location.origin + window.location.pathname + '?' + params.toString();
+  }
+
+  // ---------------------------------------------------------------------
+  // Recompute and render.
+  // ---------------------------------------------------------------------
+  function render() {
+    var raw = readInputs();
+    var result = compute(raw);
+    var errEl = $('input-error');
+
+    if (result.error) {
+      errEl.textContent = result.error;
+      errEl.style.display = '';
+      return;
+    } else {
+      errEl.style.display = 'none';
+    }
+
+    $('payWeight').textContent       = fmtLb(result.payWeight);
+    $('effectiveBase').textContent   = fmtLb(result.effectiveBase);
+    $('windowRange').textContent     = fmtLb(result.lowerWindow) + ' to ' + fmtLb(result.upperWindow);
+    $('adjustedPrice').textContent   = fmtCwtPrice(result.adjustedPrice);
+    $('perHead').textContent         = fmtMoney(result.perHead);
+    $('total').textContent           = fmtMoney(result.total);
+
+    if (result.direction === 'in-window') {
+      $('distanceCwt').textContent     = '0 (within window)';
+      $('slideAdjustment').textContent = '$0.00/cwt (no slide applied)';
+    } else if (result.direction === 'over') {
+      $('distanceCwt').textContent     = fmtCwt(result.distanceCwt) + ' over';
+      $('slideAdjustment').textContent = fmtCwtPrice(result.slideAdjustment) + ' (heavier than window)';
+    } else {
+      $('distanceCwt').textContent     = fmtCwt(result.distanceCwt) + ' under';
+      if (result.slideAdjustment > 0) {
+        $('slideAdjustment').textContent = fmtCwtPrice(result.slideAdjustment) + ' (two-way: lighter, price up)';
+      } else {
+        $('slideAdjustment').textContent = '$0.00/cwt (one-way slide: lighter, no change)';
+      }
+    }
+
+    renderMathSteps(raw, result);
+  }
+
+  function renderMathSteps(raw, r) {
+    var steps = [];
+    steps.push('Start with delivered weight: ' + fmtLb(Number(raw.deliveredWeight)) + '.');
+    steps.push('Apply ' + raw.shrink + '% pencil shrink: pay weight = ' + Number(raw.deliveredWeight) + ' × ' + r.shrinkFactor.toFixed(4) + ' = ' + r.payWeight.toFixed(2) + ' lb.');
+    if (raw.weightBasis === 'pre-shrink') {
+      steps.push('Pre-shrink basis: convert contracted base ' + Number(raw.baseWeight) + ' lb to its post-shrink equivalent ' + r.effectiveBase.toFixed(2) + ' lb.');
+    } else {
+      steps.push('Post-shrink basis: contracted base ' + Number(raw.baseWeight) + ' lb is already in pay-weight terms.');
+    }
+    steps.push('Allowed window: ' + r.lowerWindow.toFixed(2) + ' lb to ' + r.upperWindow.toFixed(2) + ' lb (base ± ' + raw.weightWindow + ' lb).');
+
+    if (r.direction === 'in-window') {
+      steps.push('Pay weight ' + r.payWeight.toFixed(2) + ' lb is inside the window. No slide adjustment applied.');
+      steps.push('Adjusted price = base price = ' + fmtCwtPrice(r.adjustedPrice) + '.');
+    } else if (r.direction === 'over') {
+      steps.push('Pay weight ' + r.payWeight.toFixed(2) + ' lb exceeds upper bound ' + r.upperWindow.toFixed(2) + ' lb by ' + (r.payWeight - r.upperWindow).toFixed(2) + ' lb (' + r.distanceCwt.toFixed(4) + ' cwt).');
+      steps.push('Slide adjustment = −' + r.distanceCwt.toFixed(4) + ' cwt × ' + fmtCwtPrice(Number(raw.slideRate)) + ' = ' + fmtCwtPrice(r.slideAdjustment) + ' (heavier → price decreases).');
+      steps.push('Adjusted price = ' + fmtCwtPrice(Number(raw.basePrice)) + ' + ' + fmtCwtPrice(r.slideAdjustment) + ' = ' + fmtCwtPrice(r.adjustedPrice) + '.');
+    } else {
+      steps.push('Pay weight ' + r.payWeight.toFixed(2) + ' lb falls below lower bound ' + r.lowerWindow.toFixed(2) + ' lb by ' + (r.lowerWindow - r.payWeight).toFixed(2) + ' lb (' + r.distanceCwt.toFixed(4) + ' cwt).');
+      if (raw.slideDirection === 'two-way') {
+        steps.push('Two-way slide: adjustment = +' + r.distanceCwt.toFixed(4) + ' cwt × ' + fmtCwtPrice(Number(raw.slideRate)) + ' = ' + fmtCwtPrice(r.slideAdjustment) + ' (lighter → price increases).');
+        steps.push('Adjusted price = ' + fmtCwtPrice(Number(raw.basePrice)) + ' + ' + fmtCwtPrice(r.slideAdjustment) + ' = ' + fmtCwtPrice(r.adjustedPrice) + '.');
+      } else {
+        steps.push('One-way slide: lighter cattle do not trigger an upward adjustment. Slide = $0.00/cwt.');
+        steps.push('Adjusted price = base price = ' + fmtCwtPrice(r.adjustedPrice) + '.');
+      }
+    }
+    steps.push('Per-head payment = pay weight × adjusted price ÷ 100 = ' + r.payWeight.toFixed(2) + ' × ' + r.adjustedPrice.toFixed(4) + ' ÷ 100 = ' + fmtMoney(r.perHead) + '.');
+    steps.push('Total lot payment = per-head × ' + raw.headCount + ' head = ' + fmtMoney(r.total) + '.');
+
+    var html = '<ol>';
+    for (var i = 0; i < steps.length; i++) {
+      html += '<li>' + steps[i] + '</li>';
+    }
+    html += '</ol>';
+    $('math-steps').innerHTML = html;
+  }
+
+  // ---------------------------------------------------------------------
+  // Verification (two scenarios exercise the formula in both directions).
+  // Run at every page load; banner appears at top if either fails.
+  // ---------------------------------------------------------------------
+  function verify() {
+    var examples = [
+      {
+        name: 'Heavier-than-base scenario',
+        inputs: { basePrice: 245, baseWeight: 550, weightBasis: 'post-shrink',
+                  weightWindow: 10, slideRate: 6, slideDirection: 'two-way',
+                  shrink: 2, deliveredWeight: 600, headCount: 1 },
+        // Hand check: pay 588 lb, 28 lb over upper window of 560 lb,
+        // 0.28 cwt × $6 = $1.68/cwt slide down, adjusted $243.32/cwt,
+        // 588 × 243.32/100 = $1,430.72.
+        expected: { payWeight: 588, adjustedPrice: 243.32, perHead: 1430.72 }
+      },
+      {
+        name: 'Lighter-than-base scenario (two-way slide)',
+        // Hand check: pay 421.95 lb (full precision; do not round),
+        // 68.05 lb under lower window of 490 lb, 0.6805 cwt × $8 =
+        // $5.444/cwt slide up, adjusted $220.444/cwt,
+        // 421.95 × 220.444/100 = $930.1636.
+        inputs: { basePrice: 215, baseWeight: 500, weightBasis: 'post-shrink',
+                  weightWindow: 10, slideRate: 8, slideDirection: 'two-way',
+                  shrink: 3, deliveredWeight: 435, headCount: 1 },
+        expected: { payWeight: 421.95, adjustedPrice: 220.444, perHead: 930.1636 }
+      },
+      {
+        name: 'Pre-shrink basis scenario (heavier than base)',
+        // Hand check: pre-shrink basis with shrink 2% converts base 550
+        // to effective post-shrink base 539. delivered 600 → pay 588.
+        // Upper window 539 + 10 = 549; pay 588 - 549 = 39 lb over (0.39 cwt).
+        // Slide adjustment 0.39 × $6 = $2.34 down. Adjusted price 245 - 2.34
+        // = $242.66/cwt. Per-head 588 × 242.66/100 = $1,426.8408.
+        // This case exists specifically to exercise the pre-shrink branch
+        // in compute() — without it, a future regression that broke
+        // pre-shrink logic would not be caught by verification.
+        inputs: { basePrice: 245, baseWeight: 550, weightBasis: 'pre-shrink',
+                  weightWindow: 10, slideRate: 6, slideDirection: 'two-way',
+                  shrink: 2, deliveredWeight: 600, headCount: 1 },
+        expected: { payWeight: 588, adjustedPrice: 242.66, perHead: 1426.8408 }
+      }
+    ];
+    for (var i = 0; i < examples.length; i++) {
+      var ex = examples[i];
+      var got = compute(ex.inputs);
+      // Tolerance of $0.02 / 0.05 lb absorbs floating-point rounding.
+      if (Math.abs(got.payWeight - ex.expected.payWeight) > 0.05) return { ok: false, ex: ex.name, field: 'payWeight', got: got.payWeight, expected: ex.expected.payWeight };
+      if (Math.abs(got.adjustedPrice - ex.expected.adjustedPrice) > 0.02) return { ok: false, ex: ex.name, field: 'adjustedPrice', got: got.adjustedPrice, expected: ex.expected.adjustedPrice };
+      if (Math.abs(got.perHead - ex.expected.perHead) > 0.02) return { ok: false, ex: ex.name, field: 'perHead', got: got.perHead, expected: ex.expected.perHead };
+    }
+    return { ok: true };
+  }
+
+  // ---------------------------------------------------------------------
+  // Wire up.
+  // ---------------------------------------------------------------------
+  function init() {
+    applyUrlState();
+
+    // Listen for any input change.
+    var form = $('slide-calc');
+    form.addEventListener('input', render);
+    form.addEventListener('change', render);
+
+    // Share-link button.
+    $('copyShareLink').addEventListener('click', function () {
+      var url = buildShareUrl();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(function () {
+          var c = $('copyConfirm');
+          c.style.display = '';
+          setTimeout(function () { c.style.display = 'none'; }, 2000);
+        });
+      } else {
+        // Fallback: select-and-copy via a temporary textarea.
+        var ta = document.createElement('textarea');
+        ta.value = url;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        document.body.removeChild(ta);
+        var c = $('copyConfirm');
+        c.style.display = '';
+        setTimeout(function () { c.style.display = 'none'; }, 2000);
+      }
+    });
+
+    // Reset button.
+    $('resetDefaults').addEventListener('click', function () {
+      $('basePrice').value       = 245;
+      $('baseWeight').value      = 550;
+      $('weightBasis').value     = 'post-shrink';
+      $('weightWindow').value    = 10;
+      $('slideRate').value       = 6;
+      $('slideDirection').value  = 'two-way';
+      $('shrink').value          = 2;
+      $('deliveredWeight').value = 600;
+      $('headCount').value       = 1;
+      // Clear URL params so the next refresh shows defaults.
+      window.history.replaceState({}, '', window.location.pathname);
+      render();
+    });
+
+    // Verification (runs once at load).
+    var v = verify();
+    if (!v.ok) {
+      var b = $('verification-banner-fail');
+      if (b) {
+        b.style.display = '';
+        b.textContent = 'Verification failed for ' + v.ex + ': field "' + v.field + '" produced ' + v.got + ', expected ' + v.expected + '. Please report.';
+      }
+      console.error('[slide-calculator] verification failed:', v);
+    }
+
+    // First render.
+    render();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+```
+
+## Excel companion
+
+A spreadsheet version of this calculator is available for offline use: [slide-contract-calculator.xlsx](downloads/slide-contract-calculator.xlsx). Yellow cells are inputs; green cells compute. Same defaults, same math, no internet required.
+
+## Methodology and limits
+
+The slide formula implemented here is standard in U.S. feeder-cattle forward-contract practice and is documented in published Extension sources, including Rasby and Mark (2011), *Feeder cattle price slides* (NebGuide G2088, University of Nebraska–Lincoln Extension). The formula's logic, condensed:
+
+1. **Pay weight** = delivered weight × (1 − pencil shrink). Shrink is a pre-agreed deduction from delivered weight to approximate hauled-in weight.
+2. **Window check.** If pay weight is within the agreed window around the base weight (typically ±10 lb), no slide adjustment applies.
+3. **Slide adjustment.** Outside the window, the slide rate is applied to each cwt of pay weight beyond the window edge.
+   - **Heavier than window**: price is reduced (always, in both one-way and two-way slides).
+   - **Lighter than window**: price is increased in a two-way slide; no change in a one-way (down-only) slide.
+4. **Per-head payment** = pay weight × adjusted price ÷ 100.
+
+This calculator is part of a broader producer-decision toolset. The [marketing-channel cost comparator](channel-comparator.html) is a related tool that addresses *where* to sell rather than how a forward-contract price is determined.
+
+**Assumptions and limits.**
+
+- **Inputs are validated** for plausible ranges. Out-of-range values produce a visible error rather than a silent miscalculation.
+- **Post-shrink base weights** are the standard convention in video and load-lot contracts; this calculator handles them directly. For **pre-shrink** base weights, the calculator evaluates both the weight window and the slide adjustment in pay-weight (post-shrink) space — that is, the contracted base weight is converted to its post-shrink equivalent and the ±window is applied around that converted value. Some pre-shrink contracts state the window as a gross-weight tolerance instead (e.g., "delivery weight 550 ± 10 lb gross"), which evaluates the window in delivered-weight space rather than pay-weight space. The dollar effect of this convention difference is small — typically under \$1 per head at standard 2–3% shrink rates and single-digit slide rates — but it is a real divergence between the calculator's interpretation and one common contract convention. Pre-shrink contracts vary; confirm the convention against your specific contract terms before relying on the output.
+- **Banded slide rates** (different rates at different weight bands) are not supported. For banded contracts, identify the relevant band manually and enter the applicable rate.
+- **Single-tier slides only.** Multi-tier slides and weight-class triggers are out of scope.
+- **Full-precision intermediates.** This calculator does not round the pay weight, slide adjustment, or adjusted price between steps. Producers comparing this calculator's output to a hand-worked example that rounds intermediate values (for example, rounding pay weight to the nearest pound before computing the slide) should expect small differences on the order of \$0.10 per head — the calculator's full-precision value is the mathematically correct one for a real contract.
+
+## Verification
+
+The calculator runs two test scenarios at every page load to confirm the JavaScript implementation reproduces the slide formula in both directions: a heavier-than-base scenario (price reduced) and a lighter-than-base scenario with a two-way slide (price increased). The two scenarios are listed in the source of this page. If the banner above the calculator indicates a verification failure, the math has drifted from the formula — please [open an issue](https://github.com/lma-explorer/lma-explorer.github.io/issues/new/choose) before using the calculator for a real contract.
+
+## Cite this tool
+
+Sall, I., & Tronstad, R. (2026). *Slide-contract calculator for feeder cattle* [Interactive tool]. Livestock Marketing Alternatives Explorer. [https://lma-explorer.github.io/tools/slide-calculator.html](https://lma-explorer.github.io/tools/slide-calculator.html)
+
+## References
+
+Rasby, R. J., & Mark, D. R. (2011). *Feeder cattle price slides* (NebGuide G2088). University of Nebraska–Lincoln Extension. [https://extensionpubs.unl.edu/publication/g2088/2011/html/view](https://extensionpubs.unl.edu/publication/g2088/2011/html/view)
