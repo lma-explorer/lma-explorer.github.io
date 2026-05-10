@@ -63,6 +63,12 @@ website:
         href: lrp.qmd
       - text: "LRP backtest"
         href: lrp-backtest.qmd
+      - text: "Tools"
+        menu:
+          - text: "Slide-contract calculator"
+            href: tools/slide-calculator.qmd
+          - text: "Marketing-channel comparator"
+            href: tools/channel-comparator.qmd
       - text: "Methodology"
         href: methodology/index.qmd
       - text: "Glossary"
