@@ -59,7 +59,7 @@ Three thresholding options were considered when designing the page; percentile-b
 
 **Limitations of percentile bands acknowledged.** With small *n* (say, *n* = 3 historical years for the *Last 3 years* window), the 25th and 75th percentile breakpoints are computed across only three values — the result is honest but lumpy, and a single anomaly year can swing a marker between bands. The chart hover tooltip and the static summary table both report `n = X year(s)` so the reader can weight the signal accordingly. As historical depth grows (the platform's pre-2017 historical reconstruction is on the Phase 2 roadmap), the percentile bands stabilize and shorter comparison windows become more reliable.
 
-**Implementation note.** Percentiles are computed via NumPy's default linear-interpolation rule (`numpy.percentile` with no explicit `method` argument). For *n* = 8 historical years, that places the 25th percentile roughly at the 2nd-lowest year's price and the 75th percentile roughly at the 2nd-highest. The chart's `top 25% (of 8 yr)` band-label phrasing is exact for that case.
+**Implementation note.** Percentiles are computed via NumPy's default linear-interpolation rule (`numpy.percentile` with no explicit `method` argument). For *n* = 8 historical years, that places the 25th percentile between the 2nd- and 3rd-lowest years' prices (roughly three-quarters of the way from the 2nd-lowest toward the 3rd-lowest) and the 75th percentile symmetrically between the 2nd- and 3rd-highest. The chart's `top 25% (of 8 yr)` band-label phrasing is the conventional shorthand for that case.
 
 ## What the chart deliberately does *not* do
 

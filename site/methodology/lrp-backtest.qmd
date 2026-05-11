@@ -212,7 +212,7 @@ What the empirics say: `XX` rows are distinct observations, not duplicate aggreg
 
 Year-window filtering uses the same `apply_year_window` helper as the LRP page, with bounds computed relative to the corpus's most recent year (so "Last 5" stays current as new RMA Summary-of-Business years land). See [`pipelines/lrp/load.py`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/lrp/load.py) for the bound-computation logic.
 
-The chart's default "All available years" includes the full 2003-present span, but pre-2021 LRP-Feeder Cattle participation is sparse for most states — the [2018 Farm Bill subsidy expansion](https://www.usda.gov/media/blog/2019/02/26/2018-farm-bill-and-livestock-risk-protection-program) is the load-bearing volume driver, not state-coding maturation. Producers and Extension peers reading state-specific bars in earlier years should treat them with a small-sample caveat (the per-bin suppression rule below already handles this automatically).
+The chart's default "All available years" includes the full 2003-present span, but pre-2021 LRP-Feeder Cattle participation is sparse for most states — the [2018 Farm Bill subsidy expansion](https://www.ers.usda.gov/topics/farm-bill/2018-farm-bill/dairy-livestock) is the load-bearing volume driver, not state-coding maturation. Producers and Extension peers reading state-specific bars in earlier years should treat them with a small-sample caveat (the per-bin suppression rule below already handles this automatically).
 
 ## Coverage-level binning
 
@@ -222,7 +222,7 @@ $$
 \text{coverage\_level\_pct} = \frac{\text{coverage\_price}}{\text{expected\_end\_value}}
 $$
 
-Empirically, this means `coverage_level_pct` is **continuous, not discrete**. Approximately 44 % of TX endorsements (reinsurance years 2022–2026) land on round 5 % values like 0.7500, 0.8000, 0.8500, 0.9000, 0.9500 — suggesting many producers anchor on those round-number coverage prices. The remaining 56 % spread continuously across the 0.70–1.00 range, with values like 0.8807, 0.8936, 0.9063 each typically held by 1–3 endorsements.
+Empirically, this means `coverage_level_pct` is **continuous, not discrete**. Approximately 42 % of TX endorsements (reinsurance years 2022–2026) land on round 5 % values like 0.7500, 0.8000, 0.8500, 0.9000, 0.9500 — suggesting many producers anchor on those round-number coverage prices. The remaining 58 % spread continuously across the 0.70–1.00 range, with values like 0.8807, 0.8936, 0.9063 each typically held by 1–3 endorsements.
 
 The chart therefore **does not snap to a fixed menu** (which would erase real producer-choice signal) and does not bin at 1 % resolution (which produces noisy bars with tiny per-bar samples). Instead, it bins continuous coverage choices into **5-percentage-point ranges**:
 

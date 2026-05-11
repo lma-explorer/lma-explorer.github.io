@@ -180,7 +180,7 @@ python -m pipelines.clovis.validate --rebaseline
 
 ## Historical block (2017-10-04 → 2019-04-10)
 
-The MARS API only goes back to April 17, 2019 — the date USDA-AMS first served this slug from MARS. To extend the public series further back, a one-time historical block was ingested from the USDA-AMS Market News per-slug archive at `mymarketnews.ams.usda.gov/viewReport/1781`. The Market News archive starts October 5, 2017 (the date AMS first published this slug to its archive surface) and continues weekly through the format handoff to MARS.
+The MARS API only goes back to April 17, 2019 — the date USDA-AMS first served this slug from MARS. To extend the public series further back, a one-time historical block was ingested from the USDA-AMS Market News per-slug archive at `mymarketnews.ams.usda.gov/viewReport/1781`. The Market News archive's first published report covers the auction held on October 4, 2017 (released the next day, October 5), and continues weekly through the format handoff to MARS.
 
 The historical block is a separate parquet — `clovis_historical_era_b_latest.parquet` — written once by `pipelines/clovis_historical/ingest_era_b.py`, with the same long-format schema as the rolling MARS-era snapshot. The chart pages read both files together via `pipelines/clovis/load.py`, which unions them and dedupes per (auction_date, class, frame, muscle_grade, weight_break_low, weight_break_high) with most-recent-vintage-wins. In practice the era windows are disjoint (the last Era B report is 2019-04-10, the first MARS report is 2019-04-17), so no dedupes fire — the dedupe is defensive belt-and-suspenders for any future correction that might land a row in the other era's window.
 
