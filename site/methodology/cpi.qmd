@@ -125,7 +125,11 @@ $$
 p_{\text{real},m} = p_{\text{nominal},m} \times \frac{\text{CPI}_{\text{Dec 2025}}}{\text{CPI}_m}
 $$
 
-Each auction observation carries a `report_date`; we floor that date to the first of the month, look up the CPI value for that month, and compute the deflator row-by-row. Aggregations (weekly means, weight-class means) operate on the deflated column, not on a single aggregate deflator — because a weighted mean of real prices is not equal to the nominal mean times a mean deflator when the data spans multiple months.
+Each auction observation carries an `auction_date` (derived from the MARS `report_date` field at ingest); we floor that date to the first of the month and look up the CPI value for that month.
+
+The Clovis cleaning pipeline computes the head-count-weighted weekly mean on nominal prices first, then deflates the weekly row by its auction-month CPI. Because every per-pen row within a single auction date shares the same CPI month (an auction is a one-day event), aggregate-then-deflate is mathematically identical to deflate-then-aggregate for this step — the head-count-weighted mean of the deflated prices equals the head-count-weighted nominal mean times the same constant deflator. No approximation enters at the weekly aggregation.
+
+The mathematical defense for keeping deflation row-by-row applies *downstream*, where aggregations can span multiple months: chart pages that compute cross-year means (price–weight bands, seasonality and weekly-trends min/max bands, basis-by-week-of-year aggregations) read off the already-deflated `price_real` column. Building such cross-month aggregations from `price_nominal` and a single representative CPI value would be wrong — a weighted mean of real prices is not equal to the nominal mean times a mean deflator when the data spans multiple months. The Clovis pipeline therefore deflates at the weekly level (where it is exact) and exposes `price_real` for all downstream consumers, so they cannot accidentally apply a multi-month deflator.
 
 ## The month-over-month sanity check
 
