@@ -20,7 +20,7 @@ issue and does not commit a new vintage.
 
 This module reads the most recent raw file under data/raw/bls/ and the most
 recent committed parquet under data/processed/cpi_*.parquet (skipping the
-article-basis file). It writes nothing.
+release-basis file). It writes nothing.
 
 Usage:
     python -m pipelines.bls.validate                 # validate latest raw

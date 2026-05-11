@@ -7,7 +7,7 @@ toc-depth: 2
 
 ## What is being measured
 
-The [LRP page](../lrp.qmd) summarizes USDA Risk Management Agency's [Livestock Risk Protection](https://www.rma.usda.gov/policy-and-procedure/insurance-plans/livestock-risk-protection-policy) program for feeder cattle. Two visualizations appear:
+The [LRP page](../lrp.qmd) summarizes USDA Risk Management Agency's [Livestock Risk Protection](https://www.rma.usda.gov/policy-procedure/general-policies/livestock-insurance-plans-resources) program for feeder cattle. Two visualizations appear:
 
 1. **Annual scale** — total producer-paid premium and indemnity received, plus the indemnity rate (share of endorsements receiving any indemnity), per reinsurance year, 2003 through the current year.
 2. **Geographic concentration** — total producer-paid premium summed by state, reinsurance years 2021 through current.
@@ -80,7 +80,7 @@ These are empirical findings from parsing every annual zip. They shape the page'
 2008:  1,135     2014:  3,443     2020:    812     2026: 33,119 (partial)
 ```
 
-The 2021+ surge tracks the [2018 Farm Bill](https://www.fsa.usda.gov/programs-and-services/laws-and-regulations/farm-bill/index)'s increase to LRP premium subsidy rates, which made the program substantially more attractive. The annual chart on the LRP page shows this directly — bars before 2021 are visually small relative to bars after.
+The 2021+ surge tracks the [2018 Farm Bill](https://www.fsa.usda.gov/tools/informational/farm-bill)'s increase to LRP premium subsidy rates, which made the program substantially more attractive. The annual chart on the LRP page shows this directly — bars before 2021 are visually small relative to bars after.
 
 **State-level reporting began in 2004 but was sparse until 2021.** In 2003, every endorsement was reported as `state_abbr == "XX"` (RMA's "All Other Counties" / `state_fips=99` / `county_fips=999` sentinel). State granularity grew gradually through the 2010s — 14 unique states in 2010, 20 in 2015, 16 in 2020. From 2021 onward, 28+ unique states appear per year, and the `XX` share of rows drops below 25%. The choropleth's default lower bound (2021) is set so the map shows real geographic data rather than collapsing too much into the unattributed bucket.
 
@@ -94,7 +94,7 @@ The data window (RY 2003 onward) spans two regulatory changes that materially af
 
 **The 2020 subsidy regime change.** Per [Boyer & Griffith (2021)](https://www.choicesmagazine.org/choices-magazine/submitted-articles/livestock-risk-protection-payments-for-feeder-cattle-during-covid-19), citing USDA RMA, the producer-paid share of LRP-Feeder Cattle premium has changed twice: 13% subsidy 2003–2018 (producer pays 87%); 20% in 2019 (producer pays 80%); tiered 35–55% by coverage level from 2020 onward (producer pays 45–65%). Each row in this page's corpus carries the producer-paid premium that applied at sale, so the data is internally consistent — but the "Cost / subsidy" group of metrics shifts substantially between the pre-2019 and post-2020 regimes.
 
-**The 2025 coverage-level menu regime change.** Pre-2025, `coverage_level_pct` was a continuous derived ratio (coverage_price ÷ expected_end_value); a producer's choice of `coverage_price` produced a value anywhere in the 70–100 % band. Per the [2026 LRP Insurance Standards Handbook (FCIC-20010 §22.B.3)](https://www.rma.usda.gov/policy-procedure/crop-underwriting-standards/livestock-risk-protection-handbook-2026), 2025+ coverage levels are a fixed 12-value menu: 75 %, 80 %, 85 %, 87.5 %, 90 %, 92.5 %, 95 %, 96 %, 97 %, 98 %, 99 %, 100 %. Empirically, our corpus shows 0.2–3.3 % on-menu fraction for RY 2003–2024 and 100 % on-menu for RY 2025–2026. The "Coverage design" group of metrics on this page reflects this regime change: pre-2025 the coverage-level distribution is continuous; from 2025 it concentrates on the 12 menu values.
+**The 2025 coverage-level menu regime change.** Pre-2025, `coverage_level_pct` was a continuous derived ratio (coverage_price ÷ expected_end_value); a producer's choice of `coverage_price` produced a value anywhere in the 70–100 % band. Per the [2026 LRP Insurance Standards Handbook (FCIC-20010 §22.B.3)](https://www.rma.usda.gov/policy-procedure/crop-underwriting-standards/livestock-risk-protection-handbook-2026), 2025+ coverage levels are a fixed 12-value menu: 75 %, 80 %, 85 %, 87.5 %, 90 %, 92.5 %, 95 %, 96 %, 97 %, 98 %, 99 %, 100 %. Empirically, our corpus shows 0.0–3.0 % on-menu fraction for RY 2003–2024 and 100 % on-menu for RY 2025–2026. The "Coverage design" group of metrics on this page reflects this regime change: pre-2025 the coverage-level distribution is continuous; from 2025 it concentrates on the 12 menu values.
 
 For analyses that should isolate one regime, use the **Year window** filter ("Last 3 yrs" / "Last 5 yrs" / "Latest" all sit within the post-2020 tiered subsidy regime as of RY 2024 onward; "All available years" pools across all three subsidy regimes and both coverage-level regimes).
 

@@ -67,7 +67,7 @@ The CME GF Feeder Cattle futures contract trades **eight delivery months**: Janu
 
 The chart on the basis page shows all three; the user picks via the **Contract** button row above the chart.
 
-**Other contract months** (March, September, etc.) can be added on demand — the basis parquet stores all eight, and the chart simply renders whichever subset is wired into the contract selector. If a producer's marketing decision is keyed to a different contract, surface that and we'll wire it in.
+**Other contract months** (March, September, etc.) can be added on demand — the basis pipeline currently computes basis for May, November, and Nearby; extending it to the remaining CME contract months is a small code change (adding the contract to `pipelines/clovis/basis.py`'s `CONTRACTS` list and rerunning the pipeline). If a producer's marketing decision is keyed to a different contract, surface that and we'll wire it in.
 
 ## Date alignment
 
@@ -100,7 +100,7 @@ $$
               = \text{basis}_{\text{nominal},M} \times d_M
 $$
 
-where $d_M = \text{CPI}_{\text{Dec 2025}} / \text{CPI}_M$ is the monthly deflator already used by the cash-side charts. The implementation joins each per-(auction-date, contract, bin) basis row to its month's CPI value via the same `pipelines/bls/` snapshot, multiplies, and re-aggregates min/mean/max across years for the chosen week-of-year.
+where $d_M = \text{CPI}_{\text{Dec 2025}} / \text{CPI}_M$ is the monthly deflator already used by the cash-side charts, and $M$ is the auction date's calendar month — the same month for both cash and settle sides, since the basis row joins a single auction date to its same-day (or prior-trading-day fallback) settle. The implementation joins each per-(auction-date, contract, bin) basis row to that month's CPI value via the same `pipelines/bls/` snapshot, multiplies, and re-aggregates min/mean/max across years for the chosen week-of-year.
 
 Two reasons a reader might prefer one mode over the other. **Nominal** is what a hedger would actually realize when they offset a futures position with a cash sale today, and what the live ticker on the relevant CME contract reports — use this for any decision involving a check that will be written in 2026 dollars. **Real (Dec 2025 $)** lets the reader compare 2018 basis against 2025 basis without inflation muddying the picture — use this for cross-cycle reasoning, e.g., "is the 2024–2025 cash blowout different from past cycle peaks once you net out CPI?"
 
