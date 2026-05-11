@@ -192,7 +192,36 @@ A second data quirk — the 2022 receipts dip — is visible in both eras and ge
 
 ## The 2022 receipts anomaly
 
-A reader paging through the Clovis snapshot — or any chart that reads it — will notice that 2022 carries roughly half the lot count of its adjacent years. The MARS-era window of the snapshot recorded **2,395 weekly observations** (rows in the long-format parquet) in 2022 against **4,450–4,614** in the immediately adjacent years (2021, 2023, 2024). The dip is visible across all weight bins and both Steers and Heifers; it is not concentrated in any single (week, bin, class) cell.
+A reader paging through the Clovis snapshot — or any chart that reads it — will notice that 2022 carries roughly half the lot count of its adjacent years.
+
+```{python}
+#| echo: false
+#| label: clovis-2022-counts
+
+from pathlib import Path
+import pandas as pd
+from IPython.display import Markdown
+
+MARS_LATEST = Path("..") / ".." / "data" / "processed" / "clovis_latest.parquet"
+if MARS_LATEST.exists():
+    df = pd.read_parquet(MARS_LATEST)
+    df["year"] = pd.to_datetime(df["auction_date"]).dt.year
+    counts = df.groupby("year").size()
+    y2022 = int(counts.get(2022, 0))
+    adjacent_years = [2021, 2023, 2024]
+    adj_counts = [int(counts.get(y, 0)) for y in adjacent_years]
+    adj_lo, adj_hi = min(adj_counts), max(adj_counts)
+    body = (
+        f"The MARS-era window of the snapshot recorded **{y2022:,} per-pen rows** "
+        f"in 2022 against **{adj_lo:,}–{adj_hi:,}** in the immediately adjacent "
+        f"years (2021, 2023, 2024). The dip is visible across all weight bins and "
+        f"both Steers and Heifers; it is not concentrated in any single (week, bin, "
+        f"class) cell."
+    )
+else:
+    body = "_Counts unavailable: `clovis_latest.parquet` not found._"
+Markdown(body)
+```
 
 ### Why we believe the dip is real, not a parsing artifact
 
