@@ -7,7 +7,7 @@ toc-depth: 2
 
 ## What this tool does
 
-When feeder cattle are sold for forward delivery — through video auctions, internet auctions, or private treaty — the weight at delivery almost always differs from the contracted weight. A **price slide** is the mechanical adjustment in $/cwt that compensates. This calculator implements the standard slide formula documented in Rasby and Mark (2011), *Feeder cattle price slides* (NebGuide G2088, University of Nebraska–Lincoln Extension), and lets a producer plug in their own contract terms to see the per-head and total payment.
+When feeder cattle are sold for forward delivery — through video auctions, internet auctions, or private treaty — the weight at delivery almost always differs from the contracted weight. A **price slide** is the mechanical adjustment in $/cwt that compensates. This calculator implements the standard slide formula documented in Rasby and Mark (2011), *Pricing feeder cattle: Price slides* (NebGuide G2088, University of Nebraska–Lincoln Extension), and lets a producer plug in their own contract terms to see the per-head and total payment.
 
 The math is linear and reproducible in a spreadsheet. For offline use, an [Excel companion](downloads/slide-contract-calculator.xlsx) is available below — same math, same defaults, same outputs.
 
@@ -608,7 +608,7 @@ A spreadsheet version of this calculator is available for offline use: [slide-co
 
 ## Methodology and limits
 
-The slide formula implemented here is standard in U.S. feeder-cattle forward-contract practice and is documented in published Extension sources, including Rasby and Mark (2011), *Feeder cattle price slides* (NebGuide G2088, University of Nebraska–Lincoln Extension). The formula's logic, condensed:
+The slide formula implemented here is standard in U.S. feeder-cattle forward-contract practice and is documented in published Extension sources, including Rasby and Mark (2011), *Pricing feeder cattle: Price slides* (NebGuide G2088, University of Nebraska–Lincoln Extension). The formula's logic, condensed:
 
 1. **Pay weight** = delivered weight × (1 − pencil shrink). Shrink is a pre-agreed deduction from delivered weight to approximate hauled-in weight.
 2. **Window check.** If pay weight is within the agreed window around the base weight (typically ±10 lb), no slide adjustment applies.
@@ -637,4 +637,4 @@ Sall, I., & Tronstad, R. (2026). *Slide-contract calculator for feeder cattle* [
 
 ## References
 
-Rasby, R. J., & Mark, D. R. (2011). *Feeder cattle price slides* (NebGuide G2088). University of Nebraska–Lincoln Extension. [https://extensionpubs.unl.edu/publication/g2088/2011/html/view](https://extensionpubs.unl.edu/publication/g2088/2011/html/view)
+Rasby, R. J., & Mark, D. R. (2011). *Pricing feeder cattle: Price slides* (NebGuide G2088). University of Nebraska–Lincoln Extension. [https://extensionpubs.unl.edu/publication/g2088/2011/html/view](https://extensionpubs.unl.edu/publication/g2088/2011/html/view)
