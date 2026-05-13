@@ -1,0 +1,732 @@
+---
+title: "Drought-destocking decision calculator"
+subtitle: "Multi-period NPV comparison of selling cull cows now versus holding through an extended drought. Educational tool — not financial advice."
+toc: true
+toc-depth: 2
+---
+
+::: {.callout-important appearance="default"}
+**This tool is an educational calculator, not financial or business advice.**
+
+Drought-destocking decisions involve cash-flow timing, tax treatment, family-business considerations, lender constraints, rangeland-recovery dynamics, breeding-genetics value, and the producer's own risk tolerance — most of which this calculator cannot see. The output describes what an economically-rational calculation suggests under the inputs you supply; it is **not a recommendation** about your operation.
+
+Before acting on any livestock-management decision, **consult your Extension agent, financial advisor, tax professional, and lender.** The platform's maintainers and the calculator's authors accept no responsibility for business decisions made on the basis of its output.
+:::
+
+## What this tool does
+
+When forage shortfall during an extended drought forces a difficult choice, this calculator helps you compare the economics of **two scenarios** for a representative cow in your herd:
+
+- **HOLD**: keep the cow through the drought. Pay for forage, water hauling, and supplemental feed each year. Receive any calf revenue when breeding succeeds. End the drought with a productive cow.
+- **SELL NOW**: cull the cow at today's market price. Use the proceeds and avoid the drought-feeding costs. Buy a replacement cow at the end of the drought.
+
+The calculator computes the net present value (NPV) of each scenario over your expected drought duration and surfaces three things:
+
+1. **Which scenario the math favors at your inputs**, with a per-cow dollar margin.
+2. **The indifference drought duration `T*`** — if it exists in the practical 0–20 year range, the drought length at which the two scenarios break even. A drought longer than `T*` favors one decision; shorter favors the other.
+3. **A sensitivity table** showing how the decision changes across plausible drought durations and discount rates.
+
+The math is anchored on peer-reviewed agricultural-economics treatments of the same two-strategy comparison (Bastian et al. 2009 *J. ASFMRA*; Ritten et al. 2010 *JAAE*). It is **not a substitute for** the case-specific judgment Extension specialists, financial advisors, and family-business decision-makers bring.
+
+::: {.callout-note appearance="simple"}
+**Privacy.** Everything runs in your browser. The calculator never sends your inputs to any server. The "share scenario" link is a URL that encodes the inputs as query parameters — anyone who can see that URL (forwarded email, screen-share, corporate proxy logs, browser history on a shared computer) can read the inputs. Treat the share link as you would treat any URL containing data you would not paste publicly.
+:::
+
+::: {.callout-warning appearance="simple"}
+**The default values below are illustrative ranges from regional Extension literature, not Arizona-verified figures.** Forage costs, water-haul rates, cull-cow prices, and replacement-cow costs vary substantially across drought years, regions, and operations. Before relying on this calculator for any decision, replace each default with your own current numbers from your operation, your local Extension agent, or current USDA-AMS market reports. Every field below is editable.
+:::
+
+## Calculator
+
+::: {#verification-banner-fail .verification-fail style="display:none; padding: 1em; background: #FFE5E0; border: 1px solid #C03; border-radius: 4px; margin-bottom: 1em;"}
+**Verification failed.** This calculator has drifted from the published worked examples. The math may be unreliable — please [open an issue](https://github.com/lma-explorer/lma-explorer.github.io/issues/new/choose) before using it for any planning purpose.
+:::
+
+```{=html}
+<form id="drought-form" novalidate>
+  <div class="form-grid">
+
+    <fieldset>
+      <legend>Herd &amp; decision</legend>
+      <label>
+        <span>Current herd size (head)</span>
+        <input type="number" id="herdSize" value="200" step="1" min="1" max="100000" inputmode="numeric" required>
+      </label>
+      <label>
+        <span>Destocking depth to evaluate (% of herd)</span>
+        <input type="number" id="destockingDepth" value="50" step="1" min="0" max="100" inputmode="numeric" required>
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Cull market (today)</legend>
+      <label>
+        <span>Cull cow price ($/cwt)</span>
+        <input type="number" id="cullPrice" value="130" step="0.01" min="20" max="800" inputmode="decimal" required>
+      </label>
+      <label>
+        <span>Average cull cow weight (lbs)</span>
+        <input type="number" id="cullWeight" value="1100" step="1" min="500" max="2200" inputmode="numeric" required>
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Drought parameters</legend>
+      <label>
+        <span>Expected drought duration (months)</span>
+        <input type="number" id="droughtMonths" value="18" step="1" min="1" max="120" inputmode="numeric" required>
+      </label>
+      <label>
+        <span>Breeding success during drought (%)</span>
+        <input type="number" id="breedingSuccess" value="60" step="1" min="0" max="100" inputmode="numeric" required>
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Cost of holding (per head)</legend>
+      <label>
+        <span>Forage cost ($/head/day)</span>
+        <input type="number" id="forageDaily" value="4.50" step="0.01" min="0" max="50" inputmode="decimal" required>
+      </label>
+      <label>
+        <span>Water-haul cost ($/head/day)</span>
+        <input type="number" id="waterDaily" value="0.00" step="0.01" min="0" max="20" inputmode="decimal" required>
+      </label>
+      <label>
+        <span>Supplemental feed + vet ($/head/month)</span>
+        <input type="number" id="supplementalMonthly" value="30" step="0.01" min="0" max="500" inputmode="decimal" required>
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Recovery (post-drought)</legend>
+      <label>
+        <span>Expected calf revenue per successful calf ($)</span>
+        <input type="number" id="calfRevenue" value="850" step="1" min="0" max="5000" inputmode="numeric" required>
+      </label>
+      <label>
+        <span>Replacement cow cost post-drought ($/head)</span>
+        <input type="number" id="replacementCost" value="1800" step="1" min="0" max="10000" inputmode="numeric" required>
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Financial parameters</legend>
+      <label>
+        <span>Annual discount rate (%)</span>
+        <input type="number" id="discountRate" value="7" step="0.1" min="0" max="25" inputmode="decimal" required>
+      </label>
+      <small class="hint">
+        Default 7% follows the convention in peer-reviewed ranch-economics work: 4% real return + 3% risk premium (Bastian, Ritten &amp; Derner 2018, <em>J. ASFMRA</em>). Adjust to match your operation's cost of capital.
+      </small>
+    </fieldset>
+
+  </div>
+
+  <div id="input-error" class="input-error" style="display:none;"></div>
+</form>
+
+<div id="results" class="results-card">
+  <h3>Model output (not a recommendation)</h3>
+
+  <div class="decision-band" id="decisionBand">
+    <div class="decision-line" id="decisionLine">—</div>
+    <div class="decision-margin" id="decisionMargin">—</div>
+  </div>
+
+  <h4>Indifference drought duration <code>T*</code> (fragility indicator)</h4>
+  <div id="tStarLine">—</div>
+
+  <h4>Per-cow NPV breakdown</h4>
+  <dl class="results-list">
+    <dt>NPV of HOLDING through the drought</dt>
+    <dd id="npvHold">—</dd>
+    <dt>NPV of SELLING now</dt>
+    <dd id="npvSell">—</dd>
+    <dt>Difference (HOLD − SELL)</dt>
+    <dd id="npvDiff">—</dd>
+  </dl>
+
+  <h4>Whole-herd dollar impact (at your destocking depth)</h4>
+  <div id="herdImpact">—</div>
+
+  <div class="results-actions">
+    <button type="button" id="copyShareLink">Copy share link</button>
+    <button type="button" id="resetAll">Reset to defaults</button>
+    <span id="copyConfirm" class="copy-confirm" style="display:none;">Link copied.</span>
+  </div>
+</div>
+```
+
+## Sensitivity
+
+How does the model's decision change across plausible drought-duration and discount-rate assumptions? The table below shows the per-cow NPV difference (HOLD − SELL) at each combination. **Positive values favor HOLD; negative values favor SELL.** Green cells favor HOLD; red cells favor SELL; yellow cells are borderline (within $25/cow each direction).
+
+```{=html}
+<div id="sensitivity-wrapper">
+  <table id="sensitivity-table" class="sensitivity">
+    <thead>
+      <tr>
+        <th>Drought duration ↓ &nbsp; / &nbsp; Discount rate →</th>
+        <th>4%</th>
+        <th>7%</th>
+        <th>10%</th>
+        <th>13%</th>
+      </tr>
+    </thead>
+    <tbody id="sensitivity-body">
+      <!-- populated by JS at page load -->
+    </tbody>
+  </table>
+  <p class="hint">The grid spans the 0.5–5 year drought-duration range and the 4–13% discount-rate range typically used in peer-reviewed ranch-economics work. Adjust your discount-rate input above to see the decision at non-grid rates.</p>
+</div>
+```
+
+## Show the math
+
+```{=html}
+<details id="show-math">
+  <summary><strong>Show the math (step by step, per scenario)</strong></summary>
+  <pre id="math-steps">—</pre>
+</details>
+```
+
+## Methodology
+
+The decision math is anchored on two peer-reviewed treatments of the same two-strategy comparison (partial herd liquidation vs. supplemental feeding during extended drought):
+
+- **Bastian et al. (2009)**, *Range Livestock Strategies Given Extended Drought and Different Price Cycles*, *Journal of the ASFMRA* 72(1):153–163. Practitioner-focused 12-year NPV comparison of the two strategies under historical price-and-precipitation patterns.
+- **Ritten, Frasier, Bastian, Paisley, Smith &amp; Mooney (2010)**, *A Multi-Period Analysis of Two Common Livestock Management Strategies Given Fluctuating Precipitation and Variable Prices*, *Journal of Agricultural and Applied Economics* 42(2):177–191. Peer-reviewed academic extension of the same two-strategy comparison, 86-year planning horizon, multi-period linear-programming NPV with Monte Carlo over price cycles.
+
+Producer-operational framing is informed by:
+
+- **Hawkes, McClaran, Brugger, Crimmins, Howery, Ruyle, Sprinkle &amp; Tolleson (2018)**, *Guide to Co-Developing Drought Preparation Plans for Livestock on Public Lands in the Southwest* (publication AZ1764), University of Arizona Cooperative Extension. The SPI-stoplight contingency framework and on-the-ground indicators (body condition score, water-tank fullness, percent bare ground) are translatable from grazing-allotment planning to the per-operation destocking decision.
+- **National Drought Mitigation Center**, *Managing Drought Risk on the Ranch — A Planning Guide for Great Plains Ranchers* (UNL / SDSU / TAMU-Kingsville, USDA-RMA funded). Trigger-threshold framework (20–25% precipitation deficit on critical dates), AUM accounting, and the partial-budget worksheet.
+
+### What the model computes
+
+For a representative cow under each scenario:
+
+**NPV of HOLDING** through a drought of duration `T` years at annual discount rate `r`:
+
+$$
+\text{NPV}_{\text{hold}} \;=\; \text{annual\_net} \cdot \frac{1 - (1+r)^{-T}}{r} \;+\; \frac{\text{salvage}}{(1+r)^{T}}
+$$
+
+where `annual_net = breeding_success × calf_revenue − annual_cost`, with `annual_cost = (forage_daily + water_daily) × 365 + supplemental_monthly × 12`, and `salvage` is the cull value of the cow at the end of the drought (defaulted to today's cull price; depreciation of the older cow is a v2 enhancement). The first term is the annuity formula for fractional-year horizons; the second is the discounted terminal value.
+
+**NPV of SELLING NOW** and buying a replacement at drought-end:
+
+$$
+\text{NPV}_{\text{sell}} \;=\; \text{cull\_revenue\_today} - \frac{\text{replacement\_cost}}{(1+r)^{T}}
+$$
+
+**Decision rule**: the model reports which NPV is higher, with the per-cow dollar margin. The indifference duration `T*` is the value of `T` for which `NPV_hold(T*) = NPV_sell(T*)`, found by bisection over `T ∈ [0, 20]` years. If no such `T*` exists in that range (one scenario dominates the other across the entire practical range), the calculator reports this explicitly.
+
+### Why NPV at this horizon
+
+Multi-period NPV — rather than a simple period-comparison — is the appropriate framework when drought duration extends beyond a single year (the typical multi-year-drought case). For very short droughts (under ~6 months), period-comparison and NPV produce numerically similar answers; the NPV framework's value comes from its ability to handle the multi-year case correctly. The 4% real + 3% risk-premium default discount rate follows the convention in published ranch-economics work cited above (Bastian, Ritten &amp; Derner 2018; Hamilton et al. 2016).
+
+### What the model assumes (and where these assumptions limit the answer)
+
+- **Constant drought-period parameters.** Forage cost, water-haul cost, supplemental feed cost, and breeding success are held flat across the full drought duration. In a real multi-year drought, these typically worsen as the drought deepens. To explore that, run the model with worsened parameters as a sensitivity.
+- **No depreciation of the held cow.** Salvage value defaults to today's cull price. A cow held through a multi-year drought is older and may have lower productive value remaining; the model treats the cow as a constant-value asset.
+- **No tax treatment.** IRS code §1033 weather-related-sales deferral and other tax provisions can materially shift the after-tax economics of destocking. Consult a tax professional.
+- **No stochastic drought duration.** The model uses your point-estimate drought duration. Real drought duration is uncertain; the sensitivity table is the model's response to that uncertainty.
+- **No herd-composition optimization.** The model treats the herd as homogeneous. Real destocking decisions often start with older or lower-productivity cows. A v2 enhancement could add per-cow attributes.
+- **No basis-risk or futures-hedging interaction.** If you're using LRP-feeder insurance or futures hedges, those interact with destocking timing; the model does not see them.
+
+## What this tool deliberately does *not* do
+
+- **Not a recommendation.** The model output describes what an economically-rational calculation suggests under the inputs you supplied. It is one input to a producer-driven decision, not financial or business advice. Family-business considerations, lender constraints, rangeland-recovery dynamics, breeding-genetics value, and personal risk tolerance are not part of the calculation.
+- **Not a substitute for Extension or financial-advisor consultation.** Extension agents, your lender, and a tax professional have visibility into your operation that this calculator does not.
+- **Not validated against Arizona-specific cost data.** The default values are illustrative ranges drawn from regional Extension literature; they are not Arizona-verified figures. Replace every default with your own current numbers before relying on the output.
+- **Not a precision instrument.** All parameters are point estimates. Real-world outcomes can fall well outside the model's projections due to factors the model cannot see (cattle market shifts, fuel-price changes, hay supply disruptions, drought intensification or recovery, animal-health events).
+
+## Excel companion
+
+A pre-baked Excel companion that reproduces the same math offline is in preparation as part of a follow-on commit. When it ships, it will be linked from this section. In the meantime, the math is fully specified in the *Methodology* section above and in the *Show the math* panel for any producer who wants to reproduce it in their own spreadsheet.
+
+## References
+
+Bastian, C. T., Ponnamaneni, P., Mooney, S., Ritten, J. P., Frasier, W. M., Paisley, S. I., Smith, M. A., &amp; Umberger, W. J. (2009). Range livestock strategies given extended drought and different price cycles. *Journal of the American Society of Farm Managers and Rural Appraisers*, 72(1), 153–163.
+
+Bastian, C. T., Ritten, J. P., &amp; Derner, J. D. (2018). Ranch profitability given increased precipitation variability and flexible stocking. *Journal of the ASFMRA*, 2018, 122–139.
+
+Hamilton, T. W., Ritten, J. P., Bastian, C. T., Derner, J. D., &amp; Tanaka, J. A. (2016). Economic impacts of increasing seasonal precipitation variation on southeast Wyoming cow-calf enterprises. *Rangeland Ecology &amp; Management*, 69(6), 465–473.
+
+Hawkes, K. L., McClaran, M. P., Brugger, J., Crimmins, M. A., Howery, L. D., Ruyle, G. B., Sprinkle, J. E., &amp; Tolleson, D. R. (2018). *Guide to co-developing drought preparation plans for livestock on public lands in the Southwest* (Publication AZ1764). University of Arizona Cooperative Extension. [https://extension.arizona.edu/pubs/az1764-2018.pdf](https://extension.arizona.edu/pubs/az1764-2018.pdf)
+
+National Drought Mitigation Center, University of Nebraska–Lincoln. *Managing drought risk on the ranch — A planning guide for Great Plains ranchers*. [https://drought.unl.edu/ranchplan](https://drought.unl.edu/ranchplan)
+
+Ritten, J. P., Frasier, W. M., Bastian, C. T., Paisley, S. I., Smith, M. A., &amp; Mooney, S. (2010). A multi-period analysis of two common livestock management strategies given fluctuating precipitation and variable prices. *Journal of Agricultural and Applied Economics*, 42(2), 177–191.
+
+### Cite this tool
+
+Sall, I., &amp; Tronstad, R. (2026). *Drought-destocking decision calculator* [Interactive tool]. Livestock Marketing Alternatives Explorer. [https://lma-explorer.github.io/tools/drought-destocking.html](https://lma-explorer.github.io/tools/drought-destocking.html)
+
+## Contact
+
+Spotted an error or methodological disagreement? Open a [new issue](https://github.com/lma-explorer/lma-explorer.github.io/issues/new/choose) with the `tools` label. The platform welcomes correction.
+
+## Code
+
+- This page's source: [`site/tools/drought-destocking.qmd`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/site/tools/drought-destocking.qmd)
+- Cull-cow data pipeline (informational; tool inputs are user-supplied): [`pipelines/clovis/snapshot.py`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/clovis/snapshot.py) writes `data/processed/clovis_slaughter_latest.parquet` containing current Clovis Boner / Breaker / Lean cull-cow prices for producer reference.
+
+```{=html}
+<style>
+  /* Scoped styles for the drought-destocking tool. Mobile-first. */
+  #drought-form fieldset {
+    border: 1px solid #BBB;
+    border-radius: 4px;
+    margin-bottom: 1em;
+    padding: 0.75em 1em 1em 1em;
+  }
+  #drought-form legend {
+    padding: 0 0.5em;
+    font-weight: 600;
+    color: #2F6FB2;
+  }
+  #drought-form label {
+    display: block;
+    margin: 0.6em 0;
+  }
+  #drought-form label > span {
+    display: block;
+    font-size: 0.9em;
+    margin-bottom: 0.2em;
+    color: #333;
+  }
+  #drought-form input[type="number"] {
+    width: 100%;
+    padding: 0.4em;
+    font-size: 1em;
+    border: 1px solid #999;
+    border-radius: 3px;
+  }
+  #drought-form .hint {
+    color: #666;
+    font-size: 0.85em;
+    display: block;
+    margin-top: 0.4em;
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5em;
+  }
+  @media (min-width: 720px) {
+    .form-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  .input-error {
+    color: #C03;
+    padding: 0.6em;
+    border: 1px solid #C03;
+    background: #FFEEEC;
+    border-radius: 4px;
+    margin-top: 1em;
+  }
+  .results-card {
+    border: 1px solid #2F6FB2;
+    border-radius: 6px;
+    padding: 1em 1.2em;
+    margin-top: 1.5em;
+    background: #F7FAFD;
+  }
+  .results-card h3 {
+    margin-top: 0;
+    color: #2F6FB2;
+  }
+  .results-card h4 {
+    margin-top: 1.2em;
+    margin-bottom: 0.4em;
+    color: #444;
+  }
+  .decision-band {
+    padding: 1em;
+    border-radius: 4px;
+    margin: 0.6em 0 1em 0;
+    background: #EEE;
+    border-left: 6px solid #888;
+  }
+  .decision-band.hold-clear   { background: #E8F4E8; border-left-color: #2A8C2A; }
+  .decision-band.hold-margin  { background: #F0F8F0; border-left-color: #6FAD6F; }
+  .decision-band.borderline   { background: #FFF8E0; border-left-color: #C9A227; }
+  .decision-band.sell-margin  { background: #FBEAEA; border-left-color: #C66; }
+  .decision-band.sell-clear   { background: #F8DCDC; border-left-color: #B22; }
+  .decision-line {
+    font-size: 1.15em;
+    font-weight: 700;
+  }
+  .decision-margin {
+    font-size: 0.92em;
+    margin-top: 0.2em;
+    color: #333;
+  }
+  .results-list {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.4em 1.5em;
+    margin: 0.6em 0;
+  }
+  .results-list dt {
+    color: #555;
+  }
+  .results-list dd {
+    margin: 0;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+  }
+  .results-actions {
+    margin-top: 1em;
+  }
+  .results-actions button {
+    padding: 0.5em 1em;
+    margin-right: 0.5em;
+    border: 1px solid #2F6FB2;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .results-actions button:hover { background: #EAF2FA; }
+  .copy-confirm { color: #2A8C2A; font-size: 0.9em; margin-left: 0.5em; }
+  table.sensitivity {
+    border-collapse: collapse;
+    margin: 0.8em 0;
+    width: 100%;
+    font-size: 0.95em;
+  }
+  table.sensitivity th, table.sensitivity td {
+    border: 1px solid #CCC;
+    padding: 0.5em 0.8em;
+    text-align: center;
+  }
+  table.sensitivity thead th {
+    background: #EAF2FA;
+    color: #2F6FB2;
+  }
+  table.sensitivity td.hold-fav { background: #DCEFD9; }
+  table.sensitivity td.hold-fav-light { background: #ECF7E9; }
+  table.sensitivity td.borderline { background: #FFF6D5; }
+  table.sensitivity td.sell-fav-light { background: #FBE1DD; }
+  table.sensitivity td.sell-fav { background: #F7C9C2; }
+  #math-steps {
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 0.85em;
+    background: #FAFAFA;
+    padding: 1em;
+    border-radius: 4px;
+    overflow-x: auto;
+    white-space: pre;
+  }
+</style>
+```
+
+```{=html}
+<script>
+(function () {
+  "use strict";
+
+  // ----- Input definitions ----------------------------------------------
+  const INPUT_IDS = [
+    "herdSize", "destockingDepth",
+    "cullPrice", "cullWeight",
+    "droughtMonths", "breedingSuccess",
+    "forageDaily", "waterDaily", "supplementalMonthly",
+    "calfRevenue", "replacementCost",
+    "discountRate"
+  ];
+
+  // Short URL-param keys for share link
+  const URL_KEYS = {
+    herdSize: "h", destockingDepth: "d",
+    cullPrice: "cp", cullWeight: "cw",
+    droughtMonths: "dm", breedingSuccess: "bs",
+    forageDaily: "fd", waterDaily: "wd", supplementalMonthly: "sm",
+    calfRevenue: "cr", replacementCost: "rc",
+    discountRate: "r"
+  };
+
+  // ----- Read inputs ----------------------------------------------------
+  function readInputs() {
+    const o = {};
+    for (const id of INPUT_IDS) {
+      const el = document.getElementById(id);
+      const v = parseFloat(el.value);
+      if (isNaN(v)) return null;
+      o[id] = v;
+    }
+    return o;
+  }
+
+  // ----- Derived parameters ---------------------------------------------
+  function derive(inputs) {
+    return {
+      T_years: inputs.droughtMonths / 12,
+      r: inputs.discountRate / 100,
+      breedingSuccess: inputs.breedingSuccess / 100,
+      annualCost: (inputs.forageDaily + inputs.waterDaily) * 365 + inputs.supplementalMonthly * 12,
+      cullRevenue: inputs.cullPrice * inputs.cullWeight / 100,  // $/cwt × lbs / 100 = $
+      replacementCost: inputs.replacementCost,
+      calfRevenue: inputs.calfRevenue,
+      salvage: inputs.cullPrice * inputs.cullWeight / 100,      // default: today's cull price (no depreciation; v2 enhancement)
+      herdSize: inputs.herdSize,
+      destockingDepth: inputs.destockingDepth / 100
+    };
+  }
+
+  // ----- NPV formulas ---------------------------------------------------
+  // NPV_hold over fractional T years with annual discount rate r.
+  // Annuity formula for fractional T: PV = annual_net × (1 - (1+r)^-T) / r
+  function npv_hold(T, r, annualNet, salvage) {
+    if (r === 0) {
+      return annualNet * T + salvage;
+    }
+    const annuity = (1 - Math.pow(1 + r, -T)) / r;
+    return annualNet * annuity + salvage * Math.pow(1 + r, -T);
+  }
+
+  function npv_sell(T, r, cullToday, replacement) {
+    return cullToday - replacement * Math.pow(1 + r, -T);
+  }
+
+  function annualNet(d) {
+    return d.breedingSuccess * d.calfRevenue - d.annualCost;
+  }
+
+  function holdMinusSell(T, d) {
+    const net = annualNet(d);
+    const hold = npv_hold(T, d.r, net, d.salvage);
+    const sell = npv_sell(T, d.r, d.cullRevenue, d.replacementCost);
+    return { hold: hold, sell: sell, diff: hold - sell };
+  }
+
+  // ----- Indifference T* ------------------------------------------------
+  function findTStar(d, maxT, tol) {
+    if (maxT === undefined) maxT = 20;
+    if (tol === undefined) tol = 0.01;
+    const f = function (T) { return holdMinusSell(T, d).diff; };
+    const fLo = f(0.01);
+    const fHi = f(maxT);
+    if (fLo * fHi > 0) {
+      return { tStar: null, dominant: fLo > 0 ? "HOLD" : "SELL" };
+    }
+    let lo = 0.01, hi = maxT;
+    while (hi - lo > tol) {
+      const mid = (lo + hi) / 2;
+      if (f(lo) * f(mid) < 0) {
+        hi = mid;
+      } else {
+        lo = mid;
+      }
+    }
+    return { tStar: (lo + hi) / 2, dominant: null };
+  }
+
+  // ----- Decision band --------------------------------------------------
+  // Tier thresholds based on per-cow margin in $/cow
+  const CLEAR_MARGIN  = 100;   // > $100/cow margin = "clear margin"
+  const MODEST_MARGIN = 25;    // $25-$100/cow = "moderate margin"
+  // < $25/cow each direction = "borderline"
+
+  function classifyDecision(diff) {
+    if (diff >  CLEAR_MARGIN)  return { cls: "hold-clear",  label: "Model: HOLD > SELL (clear margin)" };
+    if (diff >  MODEST_MARGIN) return { cls: "hold-margin", label: "Model: HOLD > SELL (moderate margin)" };
+    if (diff > -MODEST_MARGIN) return { cls: "borderline",  label: "Model: borderline (HOLD and SELL within $25/cow)" };
+    if (diff > -CLEAR_MARGIN)  return { cls: "sell-margin", label: "Model: SELL > HOLD (moderate margin)" };
+    return                       { cls: "sell-clear",  label: "Model: SELL > HOLD (clear margin)" };
+  }
+
+  // ----- Formatting helpers ---------------------------------------------
+  function fmtUSD(x) {
+    return "$" + x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function fmtInt(x) {
+    return x.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  }
+  function fmtT(T) {
+    return T < 1 ? (T * 12).toFixed(1) + " months" : T.toFixed(2) + " years";
+  }
+
+  // ----- Rendering ------------------------------------------------------
+  function render() {
+    const inputs = readInputs();
+    const err = document.getElementById("input-error");
+    if (!inputs) {
+      err.style.display = "block";
+      err.textContent = "One or more inputs is missing or non-numeric. Fill in every field.";
+      return;
+    }
+    err.style.display = "none";
+
+    const d = derive(inputs);
+    const userT = d.T_years;
+    const r = holdMinusSell(userT, d);
+    const hold = r.hold, sell = r.sell, diff = r.diff;
+
+    // Decision band
+    const cls = classifyDecision(diff);
+    const band = document.getElementById("decisionBand");
+    band.className = "decision-band " + cls.cls;
+    document.getElementById("decisionLine").textContent = cls.label;
+    document.getElementById("decisionMargin").innerHTML =
+      "Per-cow margin: <strong>" + fmtUSD(Math.abs(diff)) + "</strong> &nbsp;·&nbsp; at your inputs (drought = " + fmtT(userT) + ", r = " + (d.r * 100).toFixed(1) + "%).";
+
+    // T*
+    const t = findTStar(d);
+    const tEl = document.getElementById("tStarLine");
+    if (t.tStar === null) {
+      tEl.innerHTML = "<strong>" + t.dominant + " dominates for all drought durations in the 0–20 year range.</strong> The model's decision is robust to drought-duration uncertainty within practical limits at your other inputs.";
+    } else {
+      const cmp = userT < t.tStar ? "shorter than" : "longer than";
+      const favored = diff > 0 ? "HOLD" : "SELL";
+      tEl.innerHTML = "<strong>T* = " + fmtT(t.tStar) + "</strong> &nbsp;—&nbsp; the drought duration at which HOLD and SELL break even at your other inputs. Your expected drought (" + fmtT(userT) + ") is " + cmp + " T*, which is why the model favors " + favored + " at your inputs. If your drought-duration estimate is uncertain, see the sensitivity table below.";
+    }
+
+    // Per-cow NPV breakdown
+    document.getElementById("npvHold").textContent = fmtUSD(hold) + " / cow";
+    document.getElementById("npvSell").textContent = fmtUSD(sell) + " / cow";
+    document.getElementById("npvDiff").textContent =
+      (diff >= 0 ? "+" : "−") + fmtUSD(Math.abs(diff)) + " / cow " + (diff >= 0 ? "(HOLD favored)" : "(SELL favored)");
+
+    // Whole-herd impact
+    const cowsAffected = Math.round(d.herdSize * d.destockingDepth);
+    const totalImpact = Math.abs(diff) * cowsAffected;
+    document.getElementById("herdImpact").innerHTML =
+      "At <strong>" + fmtInt(d.herdSize) + "</strong> head with destocking depth <strong>" + (d.destockingDepth * 100).toFixed(0) + "%</strong>, the destocking decision applies to <strong>" + fmtInt(cowsAffected) + "</strong> head. Aggregate margin (per-cow margin × head count): <strong>" + fmtUSD(totalImpact) + "</strong> in favor of <strong>" + (diff >= 0 ? "HOLD" : "SELL") + "</strong>. This is the model's economic estimate; it does not include the indirect effects (lender, tax, family-business) that the methodology section flags.";
+
+    // Sensitivity table
+    renderSensitivity(d);
+
+    // Show the math
+    renderMath(inputs, d, userT, hold, sell);
+  }
+
+  function renderSensitivity(dBase) {
+    const T_grid = [0.5, 1, 2, 3, 5];   // years
+    const R_grid = [0.04, 0.07, 0.10, 0.13];
+    const body = document.getElementById("sensitivity-body");
+    let html = "";
+    for (const T of T_grid) {
+      html += "<tr><th>" + fmtT(T) + "</th>";
+      for (const r of R_grid) {
+        const d = Object.assign({}, dBase, { r: r });
+        const diff = holdMinusSell(T, d).diff;
+        const cls = sensitivityClass(diff);
+        const sign = diff >= 0 ? "+" : "−";
+        html += "<td class=\"" + cls + "\">" + sign + fmtUSD(Math.abs(diff)) + "</td>";
+      }
+      html += "</tr>";
+    }
+    body.innerHTML = html;
+  }
+
+  function sensitivityClass(diff) {
+    if (diff >  CLEAR_MARGIN)  return "hold-fav";
+    if (diff >  MODEST_MARGIN) return "hold-fav-light";
+    if (diff > -MODEST_MARGIN) return "borderline";
+    if (diff > -CLEAR_MARGIN)  return "sell-fav-light";
+    return                       "sell-fav";
+  }
+
+  function renderMath(inputs, d, T, hold, sell) {
+    const net = annualNet(d);
+    const annuityFactor = d.r === 0 ? T : (1 - Math.pow(1 + d.r, -T)) / d.r;
+    const annuityPV = net * annuityFactor;
+    const salvageDiscount = d.r === 0 ? 1 : Math.pow(1 + d.r, -T);
+    const salvagePV = d.salvage * salvageDiscount;
+    const replacementPV = d.replacementCost * salvageDiscount;
+
+    const lines = [];
+    lines.push("INPUTS");
+    lines.push("  Drought duration:           " + fmtT(T) + " (= " + inputs.droughtMonths + " months)");
+    lines.push("  Discount rate (annual):     " + (d.r * 100).toFixed(2) + "%");
+    lines.push("  Breeding success:           " + (d.breedingSuccess * 100).toFixed(0) + "%");
+    lines.push("  Calf revenue / success:     " + fmtUSD(d.calfRevenue));
+    lines.push("");
+    lines.push("ANNUAL COSTS (per cow)");
+    lines.push("  Forage:                     " + fmtUSD(inputs.forageDaily) + "/day × 365 = " + fmtUSD(inputs.forageDaily * 365));
+    lines.push("  Water:                      " + fmtUSD(inputs.waterDaily) + "/day × 365 = " + fmtUSD(inputs.waterDaily * 365));
+    lines.push("  Supplemental + vet:         " + fmtUSD(inputs.supplementalMonthly) + "/month × 12 = " + fmtUSD(inputs.supplementalMonthly * 12));
+    lines.push("  ------");
+    lines.push("  TOTAL annual cost:          " + fmtUSD(d.annualCost));
+    lines.push("");
+    lines.push("ANNUAL NET CASH FLOW (per cow during drought)");
+    lines.push("  Expected revenue:           " + (d.breedingSuccess * 100).toFixed(0) + "% × " + fmtUSD(d.calfRevenue) + " = " + fmtUSD(d.breedingSuccess * d.calfRevenue));
+    lines.push("  Annual cost:                " + fmtUSD(d.annualCost));
+    lines.push("  Net per year:               " + (net >= 0 ? "+" : "−") + fmtUSD(Math.abs(net)));
+    lines.push("");
+    lines.push("NPV — HOLD scenario");
+    lines.push("  Annuity factor (1 - (1+r)^-T) / r:  " + annuityFactor.toFixed(4));
+    lines.push("  Annuity PV (net × annuity factor):  " + fmtUSD(annuityPV));
+    lines.push("  Salvage at drought end:             " + fmtUSD(d.salvage) + " (defaulted to today's cull price)");
+    lines.push("  Salvage discount = 1/(1+r)^T:       " + salvageDiscount.toFixed(4));
+    lines.push("  Salvage PV:                         " + fmtUSD(salvagePV));
+    lines.push("  ------");
+    lines.push("  NPV(HOLD) per cow:                  " + fmtUSD(hold));
+    lines.push("");
+    lines.push("NPV — SELL NOW scenario");
+    lines.push("  Cull revenue today:                 " + fmtUSD(d.cullRevenue) + "  (" + inputs.cullPrice + " $/cwt × " + inputs.cullWeight + " lbs / 100)");
+    lines.push("  Replacement cost (paid at T):       " + fmtUSD(d.replacementCost));
+    lines.push("  Replacement PV (cost × discount):   " + fmtUSD(replacementPV));
+    lines.push("  ------");
+    lines.push("  NPV(SELL) per cow = cull - rep PV:  " + fmtUSD(sell));
+    lines.push("");
+    lines.push("DECISION (model output, NOT a recommendation)");
+    lines.push("  NPV(HOLD) − NPV(SELL):              " + ((hold - sell) >= 0 ? "+" : "−") + fmtUSD(Math.abs(hold - sell)) + " per cow");
+    lines.push("  " + (hold > sell ? "HOLD" : "SELL") + " has the higher modeled NPV at your inputs.");
+
+    document.getElementById("math-steps").textContent = lines.join("\n");
+  }
+
+  // ----- URL share + reset ----------------------------------------------
+  function copyShareLink() {
+    const inputs = readInputs();
+    if (!inputs) return;
+    const params = new URLSearchParams();
+    for (const id of INPUT_IDS) {
+      params.set(URL_KEYS[id], inputs[id]);
+    }
+    const url = window.location.origin + window.location.pathname + "?" + params.toString();
+    navigator.clipboard.writeText(url).then(function () {
+      const c = document.getElementById("copyConfirm");
+      c.style.display = "inline";
+      setTimeout(function () { c.style.display = "none"; }, 2000);
+    });
+  }
+
+  function loadFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    for (const id of INPUT_IDS) {
+      const k = URL_KEYS[id];
+      if (params.has(k)) {
+        document.getElementById(id).value = params.get(k);
+      }
+    }
+  }
+
+  function resetAll() {
+    window.location.href = window.location.origin + window.location.pathname;
+  }
+
+  // ----- Wire up event handlers ----------------------------------------
+  function init() {
+    loadFromURL();
+    for (const id of INPUT_IDS) {
+      document.getElementById(id).addEventListener("input", render);
+    }
+    document.getElementById("copyShareLink").addEventListener("click", copyShareLink);
+    document.getElementById("resetAll").addEventListener("click", resetAll);
+    render();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+```
