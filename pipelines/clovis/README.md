@@ -1,8 +1,8 @@
 # `pipelines/clovis/` — USDA-AMS Clovis auction ingestion
 
-This folder is the companion to `pipelines/bls/`: a three-file pipeline that pulls the USDA-AMS *Clovis Livestock Auction - Clovis, NM* report (slug **AMS_1781**, slug_id **1781**) and writes a vintage-stamped Parquet snapshot the rest of the platform consumes.
+This folder is the companion to `pipelines/bls/`: a three-file pipeline that pulls the USDA-AMS *Clovis Livestock Auction - Clovis, NM* report (slug **AMS_1781**, slug_id **1781**) and writes vintage-stamped Parquet snapshots the rest of the platform consumes.
 
-Per `GOVERNANCE.md`'s Automation Over Features commitment, this pipeline covers the weekly feeder-cattle weighted-average report only. Adding other Clovis reports (slaughter/replacement, special sales), other auctions, or derived indices waits until this one is running cleanly on schedule and serving the price–weight chart on the live site.
+Per `GOVERNANCE.md`'s Automation Over Features commitment, this pipeline covers the weekly feeder-cattle weighted-average report plus the slaughter-cattle subset (added 2026-05-12 for the Tier 2 drought-destocking tool). Other Clovis reports (replacement cattle, special sales), other auctions, and derived indices remain out of scope for now; they would be added as separate pipelines once the existing artifacts are running cleanly on schedule.
 
 ## Why USDA-AMS directly
 
@@ -14,7 +14,7 @@ MARS reliably covers **April 2019 → present** for structured weekly data. The 
 
 - **`ingest.py`** — single-function fetch of the MARS API, Clovis weighted-average report (slug `AMS_1781`). Handles the initial backfill (covers the full MARS window back to its earliest available date) and the routine weekly pull. Writes raw JSON to `data/raw/clovis/` for debugging; that folder is gitignored.
 - **`validate.py`** — schema-hash check against `expected_schema.sha256`, plus sanity bounds (per-weight-class week-over-week swings, continuity with prior vintage). Mirrors the BLS validator structure and tolerates the same suppression markers.
-- **`snapshot.py`** — writes `data/processed/clovis_weekly_<YYYY-MM-DD>.parquet`, refreshes `clovis_latest.parquet`, appends to `data/processed/clovis_MANIFEST.json`.
+- **`snapshot.py`** — writes vintage-stamped feeder and slaughter parquets, refreshes the `*_latest` aliases, and appends to the corresponding manifests. Specifically: `clovis_weekly_<YYYY-MM-DD>.parquet` / `clovis_latest.parquet` / `clovis_MANIFEST.json` for feeder cattle (the chart-shelf core), and `clovis_slaughter_<YYYY-MM-DD>.parquet` / `clovis_slaughter_latest.parquet` / `clovis_slaughter_MANIFEST.json` for slaughter cattle (cull-cow prices for the drought-destocking tool, added 2026-05-12).
 - **`expected_schema.sha256`** — one-line baseline hash of MARS's response structure. Regenerated deliberately via `python -m pipelines.clovis.validate --rebaseline` after reviewing any schema change; never silently.
 
 ## Running locally
@@ -44,6 +44,7 @@ The MARS API covers April 2019 → present. October 2017 → April 2019 is recon
 ## What lives here vs. where
 
 - Raw API payloads: `data/raw/clovis/` (gitignored).
-- Validated, normalized snapshots: `data/processed/clovis_weekly_<YYYY-MM-DD>.parquet` and `data/processed/clovis_latest.parquet` (committed).
+- Validated, normalized feeder snapshots: `data/processed/clovis_weekly_<YYYY-MM-DD>.parquet` and `data/processed/clovis_latest.parquet` (committed).
+- Validated, normalized slaughter snapshots: `data/processed/clovis_slaughter_<YYYY-MM-DD>.parquet` and `data/processed/clovis_slaughter_latest.parquet` (committed; added 2026-05-12 for the drought-destocking tool).
 - The release-basis Clovis file (a Phase 1 release artifact pinned to a fixed vintage): `data/processed/clovis_release_basis_2025.parquet` (committed once at Phase 1 release, never overwritten by the pipeline; lets historical chart values stay reproducible after future refreshes).
-- Manifest: `data/processed/clovis_MANIFEST.json` (committed).
+- Manifests: `data/processed/clovis_MANIFEST.json` (feeder) and `data/processed/clovis_slaughter_MANIFEST.json` (slaughter) — both committed.
