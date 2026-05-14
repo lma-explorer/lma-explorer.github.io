@@ -69,6 +69,8 @@ website:
             href: tools/slide-calculator.qmd
           - text: "Marketing-channel comparator"
             href: tools/channel-comparator.qmd
+          - text: "Drought-destocking calculator"
+            href: tools/drought-destocking.qmd
       - text: "Methodology"
         href: methodology/index.qmd
       - text: "Glossary"

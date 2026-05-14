@@ -83,6 +83,7 @@ The Clovis weekly series extends back to October 2017 — the floor of USDA-AMS 
 - [Sell-now compare: percentile-band design and producer-decision framing](sell-now-compare.qmd)
 - [LRP corpus: filter scope, type-code subset, schema-evolution caveats](lrp.qmd)
 - [LRP backtest: per-cwt advantage formula, what "advantage" measures, regime changes, what's not captured](lrp-backtest.qmd)
+- [Drought-destocking calculator: multi-period NPV decision math, anchor literature, and what the model deliberately doesn't see](drought-destocking.qmd)
 
 ## What a methodology page contains
 

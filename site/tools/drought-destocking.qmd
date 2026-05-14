@@ -525,6 +525,70 @@ Spotted an error or methodological disagreement? Open a [new issue](https://gith
     return { tStar: (lo + hi) / 2, dominant: null };
   }
 
+  // ----- Pure compute function (used by verify and downstream renders) -
+  function compute(inputs) {
+    const d = derive(inputs);
+    const r = holdMinusSell(d.T_years, d);
+    const t = findTStar(d);
+    return {
+      annualCost: d.annualCost,
+      annualNet: annualNet(d),
+      npvHold: r.hold,
+      npvSell: r.sell,
+      diff: r.diff,
+      tStar: t.tStar,
+      dominant: t.dominant
+    };
+  }
+
+  // ----- Verification (runs once at page load) -------------------------
+  function verify() {
+    const DEFAULTS = {
+      herdSize: 200, destockingDepth: 50,
+      cullPrice: 130, cullWeight: 1100,
+      droughtMonths: 18, breedingSuccess: 60,
+      forageDaily: 4.50, waterDaily: 0.00, supplementalMonthly: 30,
+      calfRevenue: 850, replacementCost: 1800,
+      discountRate: 7
+    };
+    const examples = [
+      {
+        name: "Defaults (18-month drought, SELL favored)",
+        inputs: DEFAULTS,
+        // Hand-checked via the same annuity formula in Python:
+        //   annual_net = 0.6 * 850 - 2002.50 = -1492.50
+        //   annuity_factor at T=1.5, r=0.07: (1 - 1.07^-1.5)/0.07 = 1.378746
+        //   discount_T = 1.07^-1.5 = 0.903488
+        //   NPV(HOLD) = -1492.50 * 1.378746 + 1430 * 0.903488 = -765.69
+        //   NPV(SELL) = 1430 - 1800 * 0.903488 = -196.29
+        expected: { npvHold: -765.6938, npvSell: -196.2857, diff: -569.4081, tStar: 1.1276 }
+      },
+      {
+        name: "Short drought (3 months, HOLD favored)",
+        inputs: Object.assign({}, DEFAULTS, { droughtMonths: 3 }),
+        // T* = 1.1276 years is independent of droughtMonths (depends only on
+        // the other inputs); included here to test bisection consistency.
+        // At T=0.25, the short bleed-time + the round-trip selling premium
+        // produces HOLD-favored output. Tests sign correctness end-to-end.
+        expected: { npvHold: 1048.4037, npvSell: -339.8097, diff: 1388.2133, tStar: 1.1276 }
+      }
+    ];
+
+    const TOL   = 0.05;   // $0.05 absorbs floating-point and rounding noise
+    const TOL_T = 0.02;   // 0.02 years (~7 days) for T*
+    for (let i = 0; i < examples.length; i++) {
+      const ex = examples[i];
+      const got = compute(ex.inputs);
+      if (Math.abs(got.npvHold - ex.expected.npvHold) > TOL) return { ok: false, ex: ex.name, field: 'npvHold', got: got.npvHold.toFixed(4), expected: ex.expected.npvHold };
+      if (Math.abs(got.npvSell - ex.expected.npvSell) > TOL) return { ok: false, ex: ex.name, field: 'npvSell', got: got.npvSell.toFixed(4), expected: ex.expected.npvSell };
+      if (Math.abs(got.diff    - ex.expected.diff)    > TOL) return { ok: false, ex: ex.name, field: 'diff',    got: got.diff.toFixed(4),    expected: ex.expected.diff    };
+      if (ex.expected.tStar !== null && (got.tStar === null || Math.abs(got.tStar - ex.expected.tStar) > TOL_T)) {
+        return { ok: false, ex: ex.name, field: 'tStar', got: got.tStar === null ? 'null (no flip)' : got.tStar.toFixed(4), expected: ex.expected.tStar };
+      }
+    }
+    return { ok: true };
+  }
+
   // ----- Decision band --------------------------------------------------
   // Tier thresholds based on per-cow margin in $/cow
   const CLEAR_MARGIN  = 100;   // > $100/cow margin = "clear margin"
@@ -719,6 +783,21 @@ Spotted an error or methodological disagreement? Open a [new issue](https://gith
     }
     document.getElementById("copyShareLink").addEventListener("click", copyShareLink);
     document.getElementById("resetAll").addEventListener("click", resetAll);
+
+    // Verification — runs once at page load. If the math drifts from the
+    // hand-checked worked examples, displays the red banner above the form.
+    const v = verify();
+    if (!v.ok) {
+      const b = document.getElementById("verification-banner-fail");
+      if (b) {
+        b.style.display = "";
+        b.textContent = "Verification failed for " + v.ex + ": field '" + v.field + "' produced " + v.got + ", expected " + v.expected + ". Please report.";
+      }
+      if (typeof console !== "undefined" && console.error) {
+        console.error("[drought-destocking] verification failed:", v);
+      }
+    }
+
     render();
   }
 
