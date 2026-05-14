@@ -1,0 +1,179 @@
+---
+title: "Drought-destocking decision calculator — methodology"
+subtitle: "The multi-period NPV math behind the tool, the anchor literature, the default values and where they come from, and the limitations the calculator deliberately does not address."
+toc: true
+toc-depth: 2
+---
+
+## What is being measured
+
+This page documents the methodology behind the [drought-destocking decision calculator](../tools/drought-destocking.qmd). The calculator addresses a specific producer decision: **during an extended drought, should a representative cow be HELD through the drought or SOLD NOW?**
+
+- **HOLD**: keep the cow. Each year of the drought, pay forage cost, water-haul cost, supplemental feed, and vet costs. Receive expected calf revenue at the rate of `breeding_success × calf_price`. At the end of the drought, the cow has a salvage (cull) value.
+- **SELL NOW**: cull the cow at today's market price. Avoid all the drought-period costs. Buy a replacement cow at the end of the drought.
+
+The calculator returns three things at the producer's specified drought duration:
+
+1. **Which scenario has the higher NPV** at the producer's inputs, with a per-cow dollar margin and a banded label ("clear margin" / "moderate margin" / "borderline").
+2. **The indifference drought duration `T*`** — the drought length at which `NPV_hold = NPV_sell`, found by bisection. If `T*` exists in the practical 0–20 year range, it reports the fragility of the decision to drought-duration uncertainty: a drought longer than `T*` favors one decision, shorter favors the other. If no `T*` exists in that range (one scenario dominates throughout), the calculator says so explicitly.
+3. **A sensitivity table** over a 5×4 grid of (drought duration × discount rate) showing how the decision changes across plausible assumptions.
+
+The output is **not a recommendation** — see the [What this tool deliberately does *not* do](#what-this-tool-deliberately-does-not-do) section below for the full list of considerations the model cannot see.
+
+## Where the methodology comes from
+
+The decision math is anchored on two peer-reviewed treatments of the same two-strategy comparison (partial herd liquidation vs. supplemental feeding during extended drought):
+
+- **Bastian, C. T., Ponnamaneni, P., Mooney, S., Ritten, J. P., Frasier, W. M., Paisley, S. I., Smith, M. A., & Umberger, W. J. (2009).** *Range livestock strategies given extended drought and different price cycles.* *Journal of the American Society of Farm Managers and Rural Appraisers*, 72(1), 153–163. Practitioner-focused 12-year NPV comparison of the two strategies under historical Wyoming price and precipitation patterns. Reproducible in spreadsheet form. **Primary anchor** for the producer-facing math the calculator implements.
+
+- **Ritten, J. P., Frasier, W. M., Bastian, C. T., Paisley, S. I., Smith, M. A., & Mooney, S. (2010).** *A multi-period analysis of two common livestock management strategies given fluctuating precipitation and variable prices.* *Journal of Agricultural and Applied Economics*, 42(2), 177–191. Peer-reviewed academic extension of the Bastian (2009) framework — same authors include Bastian, same two-strategy comparison, longer planning horizon (86 years), Monte Carlo over price cycles, solved via multi-period linear programming in GAMS. **Primary peer-reviewed companion anchor.** The two papers should be cited together for the decision framework; the calculator follows the simpler Bastian (2009) closed-form NPV because it is producer-reproducible.
+
+Producer-operational framing — the indicators a producer monitors on the ground to recognize a drought is severe enough to trigger the destocking decision — is informed by:
+
+- **Hawkes, K. L., McClaran, M. P., Brugger, J., Crimmins, M. A., Howery, L. D., Ruyle, G. B., Sprinkle, J. E., & Tolleson, D. R. (2018).** *Guide to co-developing drought preparation plans for livestock on public lands in the Southwest* (Publication AZ1764). University of Arizona Cooperative Extension. The SPI-stoplight contingency framework (Standard Precipitation Index bands mapped to qualitative livestock-management actions) and the on-the-ground indicators (body condition score, water-tank fullness, percent bare ground) translate from grazing-allotment planning to the per-operation destocking decision. **Primary AZ-specific operational complement** — the only reference in this stack that's calibrated to Southwest rangelands (USFS Region 3 = AZ + NM) rather than northern mixed-grass prairie.
+
+- **National Drought Mitigation Center** (UNL / SDSU / TAMU-Kingsville, USDA-RMA funded). *Managing drought risk on the ranch — A planning guide for Great Plains ranchers.* Trigger-threshold framework (20–25% precipitation deficit on critical dates), AUM accounting, partial-budget worksheet, and the Gudmundsen $29,600 / 1,184-AUM worked example. **Secondary producer-operational complement** — Plains-anchored, but the framework's structure transfers to AZ.
+
+Supporting peer-reviewed literature, cited in the bibliography below but not load-bearing for the decision math the calculator implements:
+
+- **Bastian, Ritten & Derner (2018)**, *J. ASFMRA* — adds the yearling-stocker flex enterprise to the Bastian (2009) framework. 35-year NPV horizon at 7% (4% real + 3% risk premium) — the source of the calculator's default discount rate convention.
+- **Hamilton et al. (2016)**, *Rangeland Ecology & Management* — precipitation-variability framing; argues for "maintaining lower baseline herd numbers in preparation for drought rather than destocking during drought events and restocking during following wet years."
+- **Torell, Lyon & Godfrey (1991)**, *American Journal of Agricultural Economics* — foundational dynamic-vs-myopic stocking-rate work. Explicitly notes that drought-period destocking is a distinct decision from optimal long-run stocking and warrants separate modeling. The calculator addresses precisely the "separate" decision Torell et al. flagged.
+
+The full bibliography appears in the *References* section below.
+
+## The math
+
+For a single representative cow under each scenario, with drought duration `T` years and annual discount rate `r`:
+
+### NPV of HOLDING
+
+$$
+\text{NPV}_{\text{hold}} \;=\; \text{annual\_net} \cdot \frac{1 - (1+r)^{-T}}{r} \;+\; \frac{\text{salvage}}{(1+r)^{T}}
+$$
+
+where:
+
+- `annual_net = breeding_success × calf_revenue − annual_cost`
+- `annual_cost = (forage_daily + water_daily) × 365 + supplemental_monthly × 12`
+- `salvage` is the cull value of the cow at the end of the drought (defaulted to today's cull price — see [What this tool deliberately does *not* do](#what-this-tool-deliberately-does-not-do) regarding cow depreciation).
+
+The first term is the standard annuity formula for the present value of a constant cash flow over fractional `T` years; the second term is the discounted terminal value.
+
+### NPV of SELLING NOW
+
+$$
+\text{NPV}_{\text{sell}} \;=\; \text{cull\_revenue\_today} - \frac{\text{replacement\_cost}}{(1+r)^{T}}
+$$
+
+where:
+
+- `cull_revenue_today = cull_price × cull_weight / 100` (converting $/cwt × lbs into total dollars per cow)
+- `replacement_cost` is paid at the end of the drought (discounted to present value).
+
+### The decision
+
+The calculator reports the per-cow margin `NPV_hold − NPV_sell` and bands it:
+
+- > $100/cow: **"clear margin"**
+- $25 to $100/cow: **"moderate margin"**
+- −$25 to $25/cow: **"borderline"**
+- −$100 to −$25/cow: **"moderate margin"** (other direction)
+- < −$100/cow: **"clear margin"** (other direction)
+
+The decision label uses advisory-neutral language: "Model: HOLD > SELL" or "Model: SELL > HOLD" rather than "you should hold" or "you should sell."
+
+### The indifference duration `T*`
+
+Solving `NPV_hold(T*) = NPV_sell(T*)` for `T*` gives the drought duration at which the two scenarios break even. The calculator uses **bisection** over `T ∈ [0.01, 20]` years with tolerance 0.01 years (~4 days):
+
+1. Compute `f(T) = NPV_hold(T) − NPV_sell(T)` at the bounds.
+2. If `f(0.01)` and `f(20)` have the same sign, no `T*` exists in the practical range — one scenario dominates throughout. Report the dominant scenario.
+3. Otherwise, halve the interval and recurse until the bound width is below tolerance.
+
+The reported `T*` is the midpoint of the final interval.
+
+### Why NPV at this horizon
+
+Multi-period NPV — rather than a simple period-by-period cost comparison — is the appropriate framework when drought duration extends beyond a single year (the typical multi-year-drought case AZ producers face). For very short droughts (under ~6 months), period-comparison and NPV produce numerically similar answers; the NPV framework's value comes from its ability to handle the multi-year case correctly while preserving the time-value-of-money treatment that affects both the cost-of-holding cumulative bleed and the deferred replacement cost.
+
+The 7% default discount rate (4% real return + 3% risk premium) follows the convention in published peer-reviewed ranch-economics work: Bastian, Ritten & Derner (2018) explicitly use this decomposition for 35-year NPV horizons; Hamilton et al. (2016) use 7% for cow-calf enterprise modeling. Adjusting the rate is the calculator's intended path for producers with different cost-of-capital assumptions.
+
+## Default values: what they mean and where they come from
+
+::: {.callout-warning appearance="simple"}
+**All default values below are illustrative ranges from regional Extension literature and peer-reviewed ranch-economics work. They are *not* Arizona-verified figures.** Cull prices, replacement costs, forage costs, and breeding-success rates vary substantially across drought years, regions, and individual operations. Before relying on the calculator for any decision, replace each default with current numbers from your operation, your local Extension agent, or current USDA-AMS market reports. Every input in the calculator is editable.
+:::
+
+| Input | Default | Rationale / source |
+|---|---|---|
+| Current herd size | 200 head | Representative mid-sized AZ cow-calf operation. Adjust to your herd. |
+| Destocking depth to evaluate | 50% | A common partial-liquidation tier in published Extension destocking guides; useful starting point for scaling per-cow output to herd impact. |
+| Cull cow price | $130/cwt | Order-of-magnitude representative of recent Clovis Boner / Breaker cull-cow prices. **Cull-cow prices fluctuate substantially with the cattle cycle**; check current USDA-AMS slaughter-cow reports before relying on this default. |
+| Average cull cow weight | 1,100 lbs | Typical Boner-grade slaughter cow weight per USDA-AMS auction reports. |
+| Expected drought duration | 18 months | Order-of-magnitude representative of recent multi-year AZ drought events; **producer's own judgment about drought persistence is the dominant input here**. |
+| Breeding success during drought | 60% | Drought stress typically depresses breeding success below the ~85% normal-year rate. The default of 60% is illustrative; severe drought events have produced lower realized rates. |
+| Forage cost per head per day | $4.50 | Illustrative range from regional Extension literature for hay-feeding cost. AZ-specific values vary with hay market conditions and water-availability. |
+| Water-haul cost per head per day | $0.00 | Default off — toggled on for operations with active water-hauling. Costs depend on haul distance and fuel prices. |
+| Supplemental feed + vet | $30/head/month | Illustrative range for supplementary feed plus routine vet costs during drought. |
+| Expected calf revenue (per successful calf) | $850 | Representative feeder-calf revenue at recent Clovis weighted-average prices for 500-lb calves. Adjust to your operation's actual sale weight and channel. |
+| Replacement cow cost post-drought | $1,800 / head | Order-of-magnitude representative; **replacement cow markets often see substantial price increases in post-drought recovery years as herds across a region rebuild simultaneously**. Adjust to the post-drought price you anticipate, not the current bred-cow market price. |
+| Annual discount rate | 7% | 4% real return + 3% risk premium per Bastian, Ritten & Derner (2018) convention. Adjust to your operation's cost of capital. |
+
+## What transformations / simplifications are applied
+
+The calculator's math is the closed-form NPV expressions above with three modeling choices worth flagging explicitly:
+
+1. **Annual cash flows at constant rates.** Forage cost, water-haul cost, supplemental feed cost, breeding success, and calf revenue are held flat across the full drought duration. Real multi-year droughts typically worsen as they deepen (forage becomes scarcer, costs rise, breeding success drops further); the model treats them as constants because letting them vary by year requires either user-supplied year-by-year inputs or a stochastic model the v1 calculator does not implement.
+
+2. **Continuous annuity over fractional `T`.** Drought duration is input in months and converted to fractional years `T = months / 12`. The annuity formula `(1 - (1+r)^-T) / r` interpolates smoothly over fractional `T`, treating the cash flow as if it accrued continuously over the drought. This is a simplification — real cash flows are discrete (annual calf sales, monthly feed bills); the smooth annuity is the closed-form approximation.
+
+3. **Salvage = today's cull price.** The default treats the cow's terminal salvage value at the end of the drought as today's cull price. This **does not account for the age of the cow** at drought end — a cow held through a 3-year drought is 3 years older and has lower productive value remaining than a freshly-purchased replacement. A v2 enhancement would model salvage as a depreciating function of drought duration; the v1 default keeps the math producer-reproducible at the cost of a known optimistic bias toward HOLD.
+
+## What this tool deliberately does *not* do
+
+- **Not a recommendation.** The calculator's output describes what an economically-rational NPV calculation suggests under the inputs you supply. It is **one input** to a producer-driven decision, not financial or business advice. Family-business considerations (multi-generational equity, member-employment), lender constraints (loan covenants, collateral requirements), rangeland-recovery dynamics, breeding-genetics value, and personal risk tolerance are not part of the calculation. See the top-of-page disclaimer on the [tool itself](../tools/drought-destocking.qmd).
+- **Not a substitute for Extension or financial-advisor consultation.** Extension agents, your lender, and a tax professional have visibility into your operation that this calculator does not.
+- **Not validated against Arizona-specific cost data.** The default values are illustrative ranges drawn from regional Extension literature; they are not Arizona-verified figures. Replace every default with your own current numbers before relying on the output.
+- **No tax treatment.** IRS code §1033 weather-related-sales deferral and other tax provisions can materially shift the after-tax economics of destocking. The calculator works in pre-tax dollars. Consult a tax professional.
+- **No stochastic drought duration.** The calculator uses your point-estimate drought duration. Real drought duration is uncertain; the sensitivity table is the calculator's response to that uncertainty, but it is not a probability-weighted expectation.
+- **No herd-composition optimization.** The calculator treats the herd as homogeneous. Real destocking decisions often start with older or lower-productivity cows first; the calculator computes per-cow economics under the assumption that the cow under consideration is the marginal animal.
+- **No basis-risk or futures-hedging interaction.** If you're using LRP-Feeder insurance, CME futures hedges, or forward contracts, those interact with destocking timing in ways the calculator does not see. See the [LRP page](../lrp.qmd) and the [basis page](../basis.qmd) for the platform's treatment of those instruments separately.
+- **No representation of the rangeland-recovery economics.** Selling now and rebuilding later means the rangeland gets a recovery period; holding through the drought stresses the range further. The ecological and long-run productivity consequences are not in the calculator's per-cow NPV math. For Southwest rangeland recovery dynamics, see Hawkes et al. (2018) az1764 — the calculator's primary operational complement.
+
+## Verification
+
+The calculator includes a verification block that runs at every page load. It computes the model output for two hand-checked worked examples and compares against expected values within tight tolerance ($0.05 per cow on NPVs and margin; 0.02 years on `T*`):
+
+- **Example 1 — Defaults (18-month drought, SELL favored).** Expected: NPV(HOLD) = −$765.69 / cow, NPV(SELL) = −$196.29 / cow, margin = −$569.41 / cow, `T*` = 1.1276 years. Decision: "Model: SELL > HOLD (clear margin)".
+- **Example 2 — Short drought (3 months, HOLD favored).** Same as defaults except `drought_months = 3`. Expected: NPV(HOLD) = +$1,048.40 / cow, NPV(SELL) = −$339.81 / cow, margin = +$1,388.21 / cow, `T*` = 1.1276 years (independent of the producer's input; depends only on the other parameters). Decision: "Model: HOLD > SELL (clear margin)".
+
+If the verification block fails — for example, after a code change that accidentally inverts the sign of `annual_net` or misformulates the annuity factor — the calculator displays a red banner above the form: *"Verification failed. This calculator has drifted from the published worked examples. The math may be unreliable — please open an issue before using it for any planning purpose."* The verification is the calculator's automatic regression test.
+
+The Excel companion in the [tool page's downloads section](../tools/drought-destocking.qmd#excel-companion) reproduces the same math in an offline spreadsheet, with the same default inputs and the same intermediate steps. A producer comparing the calculator and the spreadsheet outputs should expect them to agree to the cent at the defaults; any disagreement is a bug worth reporting.
+
+## References
+
+Bastian, C. T., Ponnamaneni, P., Mooney, S., Ritten, J. P., Frasier, W. M., Paisley, S. I., Smith, M. A., & Umberger, W. J. (2009). Range livestock strategies given extended drought and different price cycles. *Journal of the American Society of Farm Managers and Rural Appraisers*, 72(1), 153–163.
+
+Bastian, C. T., Ritten, J. P., & Derner, J. D. (2018). Ranch profitability given increased precipitation variability and flexible stocking. *Journal of the ASFMRA*, 2018, 122–139.
+
+Hamilton, T. W., Ritten, J. P., Bastian, C. T., Derner, J. D., & Tanaka, J. A. (2016). Economic impacts of increasing seasonal precipitation variation on southeast Wyoming cow-calf enterprises. *Rangeland Ecology & Management*, 69(6), 465–473.
+
+Hawkes, K. L., McClaran, M. P., Brugger, J., Crimmins, M. A., Howery, L. D., Ruyle, G. B., Sprinkle, J. E., & Tolleson, D. R. (2018). *Guide to co-developing drought preparation plans for livestock on public lands in the Southwest* (Publication AZ1764). University of Arizona Cooperative Extension. [https://extension.arizona.edu/pubs/az1764-2018.pdf](https://extension.arizona.edu/pubs/az1764-2018.pdf)
+
+National Drought Mitigation Center, University of Nebraska–Lincoln. *Managing drought risk on the ranch — A planning guide for Great Plains ranchers.* [https://drought.unl.edu/ranchplan](https://drought.unl.edu/ranchplan)
+
+Ritten, J. P., Frasier, W. M., Bastian, C. T., Paisley, S. I., Smith, M. A., & Mooney, S. (2010). A multi-period analysis of two common livestock management strategies given fluctuating precipitation and variable prices. *Journal of Agricultural and Applied Economics*, 42(2), 177–191.
+
+Torell, L. A., Lyon, K. S., & Godfrey, E. B. (1991). Long-run versus short-run planning horizons and the rangeland stocking rate decision. *American Journal of Agricultural Economics*, 73(3), 795–807.
+
+## Code
+
+- Calculator page source: [`site/tools/drought-destocking.qmd`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/site/tools/drought-destocking.qmd)
+- This methodology page's source: [`site/methodology/drought-destocking.qmd`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/site/methodology/drought-destocking.qmd)
+- Cull-cow data pipeline (informational; the calculator's inputs are user-supplied, but the slaughter-cow parquet is available for producer reference): [`pipelines/clovis/snapshot.py`](https://github.com/lma-explorer/lma-explorer.github.io/blob/main/pipelines/clovis/snapshot.py) writes `data/processed/clovis_slaughter_latest.parquet` with current Clovis Boner / Breaker / Lean cull-cow prices.
+
+## Contact
+
+Spotted an error or methodological disagreement? Open a [new issue](https://github.com/lma-explorer/lma-explorer.github.io/issues/new/choose) with the `methodology` label. The platform welcomes correction.
