@@ -21,8 +21,6 @@ level ``PROCESSED_DIR`` is monkey-patched per-test.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from pipelines.clovis import validate as v
 
 
