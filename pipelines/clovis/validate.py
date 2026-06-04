@@ -19,7 +19,9 @@ does NOT commit a new snapshot.
        back than ``MAX_HISTORY_REVISION_DEPTH`` weeks triggers a failure.
 
 Reads the most recent raw JSON under data/raw/clovis/ and the most recent
-committed parquet under data/processed/clovis_weekly_*.parquet. Writes nothing.
+committed per-pen parquet matching data/processed/clovis_weekly_<YYYY-MM-DD>.parquet.
+The cleaned-weekly aggregate (clovis_weekly_cleaned_*.parquet, written by clean.py)
+shares the same prefix but is deliberately excluded — see _latest_snapshot. Writes nothing.
 
 Usage:
     python -m pipelines.clovis.validate                 # validate latest raw
@@ -36,6 +38,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -89,14 +92,31 @@ def _latest_raw() -> Path:
     return candidates[-1]
 
 
+# Strict pattern: only the per-pen vintage snapshots written by snapshot.py.
+# The naive prefix "clovis_weekly_" also matches the cleaner's output
+# (clovis_weekly_cleaned_*.parquet), which has a different schema and a
+# CPI-truncated date range — picking it as the prior snapshot makes
+# check_continuity see spurious "new" old dates and fire a false-positive
+# AssertionError (observed in production 2026-05-14 on run #6 of the
+# clovis_refresh workflow). The strict regex prevents that. Mirrors the
+# pattern in pipelines/bls/validate.py, which uses re for the same reason.
+_WEEKLY_VINTAGE_RE = re.compile(r"^clovis_weekly_\d{4}-\d{2}-\d{2}\.parquet$")
+
+
 def _latest_snapshot() -> Path | None:
-    """Newest clovis_weekly_*.parquet (excluding the release-basis file)."""
+    """Newest per-pen ``clovis_weekly_<YYYY-MM-DD>.parquet`` snapshot.
+
+    Strict regex match — deliberately excludes ``clovis_weekly_cleaned_*.parquet``
+    (the cleaner's output, same prefix but different schema and CPI-truncated
+    date range) and any other prefix or non-vintage filename. Returns ``None``
+    if no committed vintage exists yet (first run).
+    """
     if not PROCESSED_DIR.exists():
         return None
     candidates = sorted(
         p
         for p in PROCESSED_DIR.iterdir()
-        if p.name.startswith("clovis_weekly_") and p.name.endswith(".parquet")
+        if _WEEKLY_VINTAGE_RE.match(p.name)
     )
     return candidates[-1] if candidates else None
 
