@@ -56,6 +56,13 @@
       "sha256": "1f6881d5246df291d887e9d9d5dc7e3ccf2008184d2279989be5a72a61fe7aeb",
       "rows": 3353,
       "written_at_utc": "2026-07-23T19:21:39+00:00"
+    },
+    {
+      "vintage": "2026-07-30",
+      "file": "data/processed/clovis_slaughter_2026-07-30.parquet",
+      "sha256": "a5ab59b17367afa7205f1ccac98219077b1688ee61b6c280b0183ccc75f15d07",
+      "rows": 3368,
+      "written_at_utc": "2026-07-30T19:28:46+00:00"
     }
   ]
 }
