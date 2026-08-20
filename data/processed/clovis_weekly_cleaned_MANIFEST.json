@@ -180,6 +180,21 @@
       "ratio_hi": 1.6667,
       "min_abs_dev": 50.0,
       "written_at_utc": "2026-08-13T19:04:39+00:00"
+    },
+    {
+      "vintage": "2026-08-20",
+      "file": "data/processed/clovis_weekly_cleaned_2026-08-20.parquet",
+      "spike_log": "data/processed/clovis_spike_log_2026-08-20.csv",
+      "sha256": "3d08450ea72b2ef758d137b1bd0a4c1ee82082cfd4f32434b0a8a9d4e56ed93a",
+      "rows": 4339,
+      "spikes_replaced": 0,
+      "deflation_basis": "2025-12",
+      "cpi_base": 324.054,
+      "rolling_window_weeks": 13,
+      "ratio_lo": 0.6,
+      "ratio_hi": 1.6667,
+      "min_abs_dev": 50.0,
+      "written_at_utc": "2026-08-20T18:41:19+00:00"
     }
   ]
 }
