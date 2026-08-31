@@ -20,7 +20,7 @@ dependencies = [
     "pyarrow>=15,<25",
     "numpy>=1.26,<3",
     "jupyter>=1.0,<2",
-    "plotly>=5.24,<7",
+    "plotly>=5.24,<8",
     "matplotlib>=3.8,<4",
     "openpyxl>=3.1,<4",
 ]
