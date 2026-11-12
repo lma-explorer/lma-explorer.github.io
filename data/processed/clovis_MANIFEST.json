@@ -175,6 +175,13 @@
       "sha256": "6bf894eab1259e9d501f8e3ce16577447b18a319a46ef0904f430fa44a78268d",
       "rows": 28914,
       "written_at_utc": "2026-10-29T22:31:40+00:00"
+    },
+    {
+      "vintage": "2026-11-12",
+      "file": "data/processed/clovis_weekly_2026-11-12.parquet",
+      "sha256": "637fa50449ac316788a2cc56c6662e596579f71a1750f71dda0928d7eacdebcf",
+      "rows": 29142,
+      "written_at_utc": "2026-11-12T23:17:39+00:00"
     }
   ]
 }

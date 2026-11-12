@@ -154,6 +154,13 @@
       "sha256": "973c8e8dc45d18ee5d936b3de355af08ce93a5e3f457dde49fdb34781bbda9c8",
       "rows": 3477,
       "written_at_utc": "2026-10-29T22:31:40+00:00"
+    },
+    {
+      "vintage": "2026-11-12",
+      "file": "data/processed/clovis_slaughter_2026-11-12.parquet",
+      "sha256": "8ec8263d2bb8c2c2e5ba4b7813c47dca830b7ed531d62b26af22bc72e65ceb67",
+      "rows": 3493,
+      "written_at_utc": "2026-11-12T23:17:39+00:00"
     }
   ]
 }
